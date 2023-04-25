@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.osv import expression
 from odoo.tools import image_process
+from odoo.tools.misc import clean_context
+import base64
 from ast import literal_eval
 from dateutil.relativedelta import relativedelta
 from collections import OrderedDict
@@ -21,13 +23,14 @@ class Document(models.Model):
     attachment_name = fields.Char('Attachment Name', related='attachment_id.name', readonly=False)
     attachment_type = fields.Selection(string='Attachment Type', related='attachment_id.type', readonly=False)
     is_editable_attachment = fields.Boolean(default=False, help='True if we can edit the link attachment.')
-    datas = fields.Binary(related='attachment_id.datas', related_sudo=True, readonly=False)
+    datas = fields.Binary(related='attachment_id.datas', related_sudo=True, readonly=False, prefetch=False)
+    raw = fields.Binary(related='attachment_id.raw', related_sudo=True, readonly=False, prefetch=False)
     file_size = fields.Integer(related='attachment_id.file_size', store=True)
     checksum = fields.Char(related='attachment_id.checksum')
     mimetype = fields.Char(related='attachment_id.mimetype')
     res_model = fields.Char('Resource Model', compute="_compute_res_record", inverse="_inverse_res_model", store=True)
     res_id = fields.Integer('Resource ID', compute="_compute_res_record", inverse="_inverse_res_model", store=True)
-    res_name = fields.Char('Resource Name', related='attachment_id.res_name')
+    res_name = fields.Char('Resource Name', compute="_compute_res_name", compute_sudo=True)
     index_content = fields.Text(related='attachment_id.index_content')
     description = fields.Text('Attachment Description', related='attachment_id.description', readonly=False)
 
@@ -37,14 +40,19 @@ class Document(models.Model):
     # Document
     name = fields.Char('Name', copy=True, store=True, compute='_compute_name', inverse='_inverse_name')
     active = fields.Boolean(default=True, string="Active")
-    thumbnail = fields.Binary(readonly=1, store=True, attachment=True, compute='_compute_thumbnail')
+    thumbnail = fields.Binary(readonly=False, store=True, attachment=True, compute='_compute_thumbnail')
+    thumbnail_status = fields.Selection([
+            ('present', 'Present'), # Document has a thumbnail
+            ('error', 'Error'), # Error when generating the thumbnail
+        ], compute="_compute_thumbnail_status", store=True, readonly=False,
+    )
     url = fields.Char('URL', index=True, size=1024, tracking=True)
     res_model_name = fields.Char(compute='_compute_res_model_name', index=True)
     type = fields.Selection([('url', 'URL'), ('binary', 'File'), ('empty', 'Request')],
                             string='Type', required=True, store=True, default='empty', change_default=True,
                             compute='_compute_type')
     favorited_ids = fields.Many2many('res.users', string="Favorite of")
-    is_favorited = fields.Boolean(compute='_compute_is_favorited')
+    is_favorited = fields.Boolean(compute='_compute_is_favorited', inverse='_inverse_is_favorited')
     tag_ids = fields.Many2many('documents.tag', 'document_tag_rel', string="Tags")
     partner_id = fields.Many2one('res.partner', string="Contact", tracking=True)
     owner_id = fields.Many2one('res.users', default=lambda self: self.env.user.id, string="Owner",
@@ -91,6 +99,15 @@ class Document(models.Model):
                 record.res_model = attachment.res_model
                 record.res_id = attachment.res_id
 
+    @api.depends('attachment_id', 'res_model', 'res_id')
+    def _compute_res_name(self):
+        for record in self:
+            if record.attachment_id:
+                record.res_name = record.attachment_id.res_name
+            elif record.res_id and record.res_model:
+                record.res_name = self.env[record.res_model].browse(record.res_id).display_name
+            else:
+                record.res_name = False
 
     def _inverse_res_model(self):
         for record in self:
@@ -112,9 +129,20 @@ class Document(models.Model):
     def _compute_thumbnail(self):
         for record in self:
             try:
-                record.thumbnail = image_process(record.datas, size=(80, 80), crop='center')
-            except UserError:
+                record.thumbnail = base64.b64encode(image_process(record.raw, size=(200, 140), crop='center'))
+            except (UserError, TypeError):
                 record.thumbnail = False
+
+    @api.depends("thumbnail")
+    def _compute_thumbnail_status(self):
+        domain = [
+            ('res_model', '=', self._name),
+            ('res_field', '=', 'thumbnail'),
+            ('res_id', 'in', self.ids),
+        ]
+        documents_with_thumbnail = set(res['res_id'] for res in self.env['ir.attachment'].sudo().search_read(domain, ['res_id']))
+        for document in self:
+            document.thumbnail_status = document.id in documents_with_thumbnail and 'present'
 
     @api.depends('attachment_type', 'url')
     def _compute_type(self):
@@ -168,6 +196,16 @@ class Document(models.Model):
         favorited.is_favorited = True
         (self - favorited).is_favorited = False
 
+    def _inverse_is_favorited(self):
+        unfavorited_documents = favorited_documents = self.env['documents.document'].sudo()
+        for document in self:
+            if self.env.user in document.favorited_ids:
+                unfavorited_documents |= document
+            else:
+                favorited_documents |= document
+        favorited_documents.write({'favorited_ids': [(4, self.env.uid)]})
+        unfavorited_documents.write({'favorited_ids': [(3, self.env.uid)]})
+
     @api.depends('res_model')
     def _compute_res_model_name(self):
         for record in self:
@@ -220,6 +258,13 @@ class Document(models.Model):
         subject = msg_dict.get('subject', '')
         if custom_values is None:
             custom_values = {}
+
+        # Remove non existing tags to allow saving document with the mail alias
+        tags = custom_values.get('tag_ids')
+        if tags and isinstance(tags, (list, tuple)) and isinstance(tags[0], (list, tuple)):
+            custom_values['tag_ids'] = [(tags[0][0], tags[0][1],
+                                             self.env['documents.tag'].browse(tags[0][2]).exists().ids)]
+
         defaults = {
             'name': "Mail: %s" % subject,
             'active': False,
@@ -234,7 +279,6 @@ class Document(models.Model):
             self = self.with_context(no_document=True)
         return super(Document, self).message_post(message_type=message_type, **kwargs)
 
-    @api.model
     def _message_post_after_hook(self, message, msg_vals):
         """
         If the res model was an attachment and a mail, adds all the custom values of the share link
@@ -357,27 +401,40 @@ class Document(models.Model):
                     self.user_has_groups('documents.group_document_manager'))
 
 
-    @api.model
-    def create(self, vals):
-        keys = [key for key in vals if
-                self._fields[key].related and self._fields[key].related.split('.')[0] == 'attachment_id']
-        attachment_dict = {key: vals.pop(key) for key in keys if key in vals}
-        attachment = self.env['ir.attachment'].browse(vals.get('attachment_id'))
+    @api.model_create_multi
+    def create(self, vals_list):
+        attachments = []
+        for vals in vals_list:
+            keys = [key for key in vals if
+                    self._fields[key].related and self._fields[key].related.split('.')[0] == 'attachment_id']
+            attachment_dict = {key: vals.pop(key) for key in keys if key in vals}
+            attachment = self.env['ir.attachment'].browse(vals.get('attachment_id'))
 
-        if attachment and attachment_dict:
-            attachment.write(attachment_dict)
-        elif attachment_dict:
-            attachment_dict.setdefault('name', vals.get('name', 'unnamed'))
-            attachment = self.env['ir.attachment'].create(attachment_dict)
-            vals['attachment_id'] = attachment.id
-        new_record = super(Document, self).create(vals)
+            if attachment and attachment_dict:
+                attachment.write(attachment_dict)
+            elif attachment_dict:
+                attachment_dict.setdefault('name', vals.get('name', 'unnamed'))
+                # default_res_model and default_res_id will cause unique constraints to trigger.
+                attachment = self.env['ir.attachment'].with_context(clean_context(self.env.context)).create(attachment_dict)
+                vals['attachment_id'] = attachment.id
+            attachments.append(attachment)
+
+        documents = super().create(vals_list)
 
         # this condition takes precedence during forward-port.
-        if (attachment and not attachment.res_id and (not attachment.res_model or attachment.res_model == 'documents.document')):
-            attachment.with_context(no_document=True).write({'res_model': 'documents.document', 'res_id': new_record.id})
-        return new_record
+        for document, attachment in zip(documents, attachments):
+            if (attachment and not attachment.res_id and (not attachment.res_model or attachment.res_model == 'documents.document')):
+                attachment.with_context(no_document=True).write({
+                    'res_model': 'documents.document',
+                    'res_id': document.id})
+        return documents
 
     def write(self, vals):
+        if vals.get('folder_id') and not self.env.is_superuser():
+            folder = self.env['documents.folder'].browse(vals.get('folder_id'))
+            if not folder.has_write_access:
+                raise AccessError(_("You don't have the right to move documents to that workspace."))
+
         attachment_id = vals.get('attachment_id')
         if attachment_id:
             self.ensure_one()
@@ -394,7 +451,7 @@ class Document(models.Model):
                         record.previous_attachment_ids = [(3, attachment_id, False)]
                     record.previous_attachment_ids = [(4, record.attachment_id.id, False)]
                 if 'datas' in vals:
-                    old_attachment = record.attachment_id.copy()
+                    old_attachment = record.attachment_id.with_context(no_document=True).copy()
                     # removes the link between the old attachment and the record.
                     old_attachment.write({
                         'res_model': 'documents.document',
@@ -445,7 +502,7 @@ class Document(models.Model):
     def search_panel_select_range(self, field_name, **kwargs):
         if field_name == 'folder_id':
             enable_counters = kwargs.get('enable_counters', False)
-            fields = ['display_name', 'description', 'parent_folder_id']
+            fields = ['display_name', 'description', 'parent_folder_id', 'has_write_access']
             available_folders = self.env['documents.folder'].search([])
             folder_domain = expression.OR([[('parent_folder_id', 'parent_of', available_folders.ids)], [('id', 'in', available_folders.ids)]])
             # also fetches the ancestors of the available folders to display the complete folder tree for all available folders.
@@ -533,3 +590,10 @@ class Document(models.Model):
             return {'values': model_values}
 
         return super(Document, self).search_panel_select_multi_range(field_name, **kwargs)
+
+    @api.model
+    def get_document_max_upload_limit(self):
+        try:
+            return int(self.env['ir.config_parameter'].sudo().get_param('document.max_fileupload_size', default=0))
+        except Exception:
+            return False

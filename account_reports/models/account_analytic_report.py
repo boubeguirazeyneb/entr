@@ -1,223 +1,263 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+from odoo import models, fields, api, osv
+from odoo.addons.web.controllers.utils import clean_action
+from psycopg2 import sql
 
-from odoo import api, fields, models, _
-from odoo.addons.web.controllers.main import clean_action
 
-
-class analytic_report(models.AbstractModel):
+class AccountReport(models.AbstractModel):
     _inherit = 'account.report'
-    _name = 'account.analytic.report'
-    _description = 'Account Analytic Report'
 
-    # the line with this id will contain analytic accounts without a group
-    DUMMY_GROUP_ID = 'group_for_accounts_with_no_group'
+    filter_analytic_groupby = fields.Boolean(
+        string="Analytic Group By",
+        compute=lambda x: x._compute_report_option_filter('filter_analytic_groupby'), readonly=False, store=True, depends=['root_report_id'],
+    )
 
-    filter_date = {'mode': 'range', 'filter': 'this_month'}
-    filter_analytic = True
-    filter_hierarchy = False
-    filter_unfold_all = False
+    def _get_options_initializers_forced_sequence_map(self):
+        """ Force the sequence for the init_options so columns headers are already generated but not the columns
+            So, between _init_options_column_headers and _init_options_columns"""
+        sequence_map = super(AccountReport, self)._get_options_initializers_forced_sequence_map()
+        sequence_map[self._init_options_analytic_groupby] = 995
+        return sequence_map
 
-    def _get_columns_name(self, options):
-        return [{'name': ''},
-                {'name': _('Reference')},
-                {'name': _('Partner')},
-                {'name': _('Balance'), 'class': 'number'}]
+    def _init_options_analytic_groupby(self, options, previous_options=None):
+        if not self.filter_analytic_groupby:
+            return
+        enable_analytic_accounts = self.user_has_groups('analytic.group_analytic_accounting')
+        if not enable_analytic_accounts:
+            return
 
-    @api.model
-    def _get_report_name(self):
-        return _('Analytic Report')
+        options['analytic_groupby'] = True
+        options['analytic_plan_groupby'] = True
 
-    def _init_filter_hierarchy(self, options, previous_options=None):
-        # Override because we don't depend on account.group
-        if previous_options and 'hierarchy' in previous_options:
-            options['hierarchy'] = previous_options['hierarchy']
-        else:
-            options['hierarchy'] = self.filter_hierarchy
+        options['include_analytic_without_aml'] = (previous_options or {}).get('include_analytic_without_aml', False)
+        previous_analytic_accounts = (previous_options or {}).get('analytic_accounts_groupby', [])
+        analytic_account_ids = [int(x) for x in previous_analytic_accounts]
+        selected_analytic_accounts = self.env['account.analytic.account'].search(
+            [('id', 'in', analytic_account_ids)])
+        options['analytic_accounts_groupby'] = selected_analytic_accounts.ids
+        options['selected_analytic_account_groupby_names'] = selected_analytic_accounts.mapped('name')
 
-    def open_analytic_entries(self, options, params):
-        date = options.get('date', {})
-        action = self.env["ir.actions.actions"]._for_xml_id("analytic.account_analytic_line_action")
-        action = clean_action(action, env=self.env)
-        active_id = int(params['id'].split('analytic_account_')[1])
-        action['context'] = {
-            'active_id': active_id,
-        }
-        action['domain'] = [('account_id','=',active_id),('date', '>=', date.get('date_from')), ('date', '<=', date.get('date_to'))]
-        return action
+        previous_analytic_plans = (previous_options or {}).get('analytic_plans_groupby', [])
+        analytic_plan_ids = [int(x) for x in previous_analytic_plans]
+        selected_analytic_plans = self.env['account.analytic.plan'].search([('id', 'in', analytic_plan_ids)])
+        options['analytic_plans_groupby'] = selected_analytic_plans.ids
+        options['selected_analytic_plan_groupby_names'] = selected_analytic_plans.mapped('name')
 
-    def _get_amount_of_parents(self, group):
-        return self.env['account.analytic.group'].search_count([('id', 'parent_of', group.id)])
+        self._create_column_analytic(options)
 
-    def _get_balance_for_group(self, group, analytic_line_domain):
-        analytic_line_domain_for_group = list(analytic_line_domain)
-        if group:
-            # take into account the hierarchy on account.analytic.line
-            analytic_line_domain_for_group += [('group_id', 'child_of', group.id)]
-        else:
-            analytic_line_domain_for_group += [('group_id', '=', False)]
+    def _create_column_analytic(self, options):
+        """ Creates the analytic columns for each plan or account in the filters.
+        This will duplicate all previous columns and adding the analytic accounts in the domain of the added columns.
 
-        currency_obj = self.env['res.currency']
-        company_currency = self.env.company.currency_id
-        analytic_lines = self.env['account.analytic.line'].read_group(analytic_line_domain_for_group, ['amount', 'currency_id'], ['currency_id'])
-        balance = sum([currency_obj.browse(row['currency_id'][0])._convert(
-            row['amount'], company_currency, self.env.company, fields.Date.today()) for row in analytic_lines])
-        return balance
-
-    def _generate_analytic_group_line(self, group, analytic_line_domain, unfolded=False):
-        LOWEST_LEVEL = 1
-        balance = self._get_balance_for_group(group, analytic_line_domain)
-
-        line = {
-            'columns': [{'name': ''},
-                        {'name': ''},
-                        {'name': self.format_value(balance)}],
-            'unfoldable': True,
-            'unfolded': unfolded,
-        }
-
-        if group:
-            line.update({
-                'id': group.id,
-                'name': group.name,
-                'level': LOWEST_LEVEL + self._get_amount_of_parents(group),
-                'parent_id': group.parent_id.id,  # to make these fold when the original parent gets folded
-            })
-        else:
-            line.update({
-                'id': self.DUMMY_GROUP_ID,
-                'name': _('Accounts without a group'),
-                'level': LOWEST_LEVEL + 1,
-                'parent_id': False,
-            })
-
-        return line
-
-    def _generate_analytic_account_lines(self, analytic_accounts, parent_id=False):
-        lines = []
-
-        for account in analytic_accounts:
-            lines.append({
-                'id': 'analytic_account_%s' % account.id,
-                'name': account.name,
-                'columns': [{'name': account.code},
-                            {'name': account.partner_id.display_name},
-                            {'name': self.format_value(account.balance)}],
-                'level': 4,  # todo check redesign financial reports, should be level + 1 but doesn't look good
-                'unfoldable': False,
-                'caret_options': 'account.analytic.account',
-                'parent_id': parent_id,  # to make these fold when the original parent gets folded
-            })
-
-        return lines
-
-    @api.model
-    def _get_lines(self, options, line_id=None):
-        AccountAnalyticGroup = self.env['account.analytic.group']
-        lines = []
-        date_from = options['date']['date_from']
-        date_to = options['date']['date_to']
-        company_ids = [self.env.company.id]
-
-        # context is set because it's used for the debit, credit and balance computed fields
-        AccountAnalyticAccount = self.env['account.analytic.account']\
-            .with_context(from_date=date_from, to_date=date_to, active_test=False)
-        # The options refer to analytic entries. So first determine
-        # the subset of analytic categories we have to search in.
-        analytic_entries_domain = [('date', '>=', date_from),
-                                   ('date', '<=', date_to)]
-        analytic_account_domain = []
-
-        if options['analytic_accounts']:
-            analytic_account_ids = [int(id) for id in options['analytic_accounts']]
-            analytic_entries_domain += [('account_id', 'in', analytic_account_ids)]
-            analytic_account_domain += [('id', 'in', analytic_account_ids)]
-
-        if options.get('analytic_tags'):
-            analytic_tag_ids = [int(id) for id in options['analytic_tags']]
-            analytic_entries_domain += [('tag_ids', 'in', analytic_tag_ids)]
-            AccountAnalyticAccount = AccountAnalyticAccount.with_context(tag_ids=analytic_tag_ids)
-
-        if options.get('multi_company'):
-            company_ids = self.env.companies.ids
-        else:
-            company_ids = self.env.company.ids
-
-        analytic_account_domain += ['|', ('company_id', 'in', company_ids), ('company_id', '=', False)]
-
-        # Archived accounts that aren't used on that period shouldn't be displayed
-        account_ids_to_not_display = self._context.get('account_ids_to_not_display')
-        if account_ids_to_not_display is None:
-            self.env.cr.execute(
-                """
-                    SELECT COALESCE(ARRAY_AGG(account.id),'{}')
-                      FROM account_analytic_account account
-                     WHERE account.active IS FALSE
-                       AND account.company_id = ANY(%(company_ids)s)
-                       AND NOT EXISTS (
-                        SELECT line.id
-                          FROM account_analytic_line AS line
-                         WHERE line.account_id = account.id
-                           AND line.date BETWEEN %(date_from)s AND %(date_to)s
-                    )
-                """, {
-                    'company_ids': company_ids,
-                    'date_from': date_from,
-                    'date_to': date_to
+        The analytic_groupby_option is used so the table used is the shadowed table.
+        The domain on analytic_distribution can just use simple comparison as the column of the shadowed
+        table will simply be filled with analytic_account_ids.
+        """
+        analytic_headers = []
+        plans = self.env['account.analytic.plan'].browse(options.get('analytic_plans_groupby'))
+        for plan in plans:
+            account_list = []
+            accounts = self.env['account.analytic.account'].search([('plan_id', 'child_of', plan.id)])
+            for account in accounts:
+                account_list.append(account.id)
+            analytic_headers.append({
+                'name': plan.name,
+                'forced_options': {
+                    'analytic_groupby_option': True,
+                    'analytic_accounts_list': tuple(account_list),  # Analytic accounts used in the domain to filter the lines.
                 }
-            )
-            account_ids_to_not_display = self.env.cr.fetchone()[0]
-        analytic_account_domain += ['!', ('id', 'in', account_ids_to_not_display)]
+            })
 
-        if not options['hierarchy']:
-            return self._generate_analytic_account_lines(AccountAnalyticAccount.search(analytic_account_domain))
-
-        # display all groups that have accounts
-        analytic_accounts = AccountAnalyticAccount.search(analytic_account_domain)
-        analytic_groups = analytic_accounts.mapped('group_id')
-
-        # also include the parent analytic groups, even if they didn't have a child analytic line
-        if analytic_groups:
-            analytic_groups = AccountAnalyticGroup.search([('id', 'parent_of', analytic_groups.ids)])
-
-        domain = [('id', 'in', analytic_groups.ids)]
-
-        if line_id:
-            parent_group = AccountAnalyticGroup if line_id == self.DUMMY_GROUP_ID else AccountAnalyticGroup.browse(int(line_id))
-            domain += [('parent_id', '=', parent_group.id)]
-
-            # the engine replaces line_id with what is returned so
-            # first re-render the line that was just clicked
-            lines.append(self._generate_analytic_group_line(parent_group, analytic_entries_domain, unfolded=True))
-
-            # append analytic accounts part of this group, taking into account the selected options
-            analytic_account_domain += [('group_id', '=', parent_group.id)]
-
-            analytic_accounts = AccountAnalyticAccount.search(analytic_account_domain)
-            lines += self._generate_analytic_account_lines(analytic_accounts, parent_group.id if parent_group else self.DUMMY_GROUP_ID)
-        else:
-            domain += [('parent_id', '=', False)]
-
-        # append children groups unless the dummy group has been clicked, it has no children
-        if line_id != self.DUMMY_GROUP_ID:
-            for group in AccountAnalyticGroup.search(domain):
-                if group.id in options.get('unfolded_lines') or options.get('unfold_all'):
-                    lines += self.with_context(account_ids_to_not_display=account_ids_to_not_display)\
-                        ._get_lines(options, line_id=str(group.id))
-                else:
-                    lines.append(self._generate_analytic_group_line(group, analytic_entries_domain))
-
-        # finally append a 'dummy' group which contains the accounts that do not have an analytic group
-        if not line_id and any(not account.group_id for account in analytic_accounts):
-            if self.DUMMY_GROUP_ID in options.get('unfolded_lines'):
-                lines += self.with_context(account_ids_to_not_display=account_ids_to_not_display)\
-                    ._get_lines(options, line_id=self.DUMMY_GROUP_ID)
-            else:
-                lines.append(self._generate_analytic_group_line(AccountAnalyticGroup, analytic_entries_domain))
-
-        return lines
+        accounts = self.env['account.analytic.account'].browse(options.get('analytic_accounts_groupby'))
+        for account in accounts:
+            analytic_headers.append({
+                'name': account.name,
+                'forced_options': {
+                    'analytic_groupby_option': True,
+                    'analytic_accounts_list': (account.id,),
+                }
+            })
+        if analytic_headers:
+            analytic_headers.append({'name': ''})
+            # We add the analytic layer to the column_headers before creating the columns
+            options['column_headers'] = [
+                *options['column_headers'],
+                analytic_headers,
+            ]
 
     @api.model
-    def _create_hierarchy(self, lines, options):
-        # OVERRIDE because the hierarchy is managed in _get_lines.
-        return lines
+    def _prepare_lines_for_analytic_groupby(self):
+        """Prepare the analytic_temp_account_move_line
+
+        This method should be used once before all the SQL queries using the
+        table account_move_line for the analytic columns for the financial reports.
+        It will create a new table with the schema of account_move_line table, but with
+        the data from account_analytic_line.
+
+        We inherit the schema of account_move_line, make the correspondence between
+        account_move_line fields and account_analytic_line fields and put NULL for those
+        who don't exist in account_analytic_line.
+        We also drop the NOT NULL constraints for fields who are not required in account_analytic_line.
+        """
+        self.env.cr.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_name='analytic_temp_account_move_line'")
+        if self.env.cr.fetchone():
+            return
+
+        line_fields = self.env['account.move.line'].fields_get()
+        self.env.cr.execute("SELECT column_name FROM information_schema.columns WHERE table_name='account_move_line'")
+        stored_fields = set(f[0] for f in self.env.cr.fetchall())
+        changed_equivalence_dict = {
+            "id": sql.Identifier("id"),
+            "balance": sql.SQL("-amount"),
+            "company_id": sql.Identifier("company_id"),
+            "journal_id": sql.Identifier("journal_id"),
+            "display_type": sql.Literal("product"),
+            "parent_state": sql.Literal("posted"),
+            "date": sql.Identifier("date"),
+            "account_id": sql.Identifier("general_account_id"),
+            "partner_id": sql.Identifier("partner_id"),
+            "debit": sql.SQL("CASE WHEN (amount < 0) THEN amount else 0 END"),
+            "credit": sql.SQL("CASE WHEN (amount > 0) THEN amount else 0 END"),
+        }
+        selected_fields = []
+        for fname in stored_fields:
+            if fname in changed_equivalence_dict:
+                selected_fields.append(sql.SQL('{original} AS "account_move_line.{asname}"').format(
+                    original=changed_equivalence_dict[fname],
+                    asname=sql.SQL(fname),
+                ))
+            elif fname == 'analytic_distribution':
+                selected_fields.append(sql.SQL('to_jsonb(account_id) AS "account_move_line.analytic_distribution"'))
+            else:
+                if line_fields[fname].get("translate"):
+                    typecast = sql.SQL('jsonb')
+                elif line_fields[fname].get("type") in ("many2one", "one2many", "many2many", "monetary"):
+                    typecast = sql.SQL('integer')
+                elif line_fields[fname].get("type") == "datetime":
+                    typecast = sql.SQL('date')
+                elif line_fields[fname].get("type") == "selection":
+                    typecast = sql.SQL('text')
+                else:
+                    typecast = sql.SQL(line_fields[fname].get("type"))
+                selected_fields.append(sql.SQL('cast(NULL AS {typecast}) AS "account_move_line.{fname}"').format(
+                    typecast=typecast,
+                    fname=sql.SQL(fname),
+                ))
+
+        query = sql.SQL("""
+            -- Create a temporary table, dropping not null constraints because we're not filling those columns
+            CREATE TEMPORARY TABLE IF NOT EXISTS analytic_temp_account_move_line () inherits (account_move_line) ON COMMIT DROP;
+            ALTER TABLE analytic_temp_account_move_line NO INHERIT account_move_line;
+            ALTER TABLE analytic_temp_account_move_line ALTER COLUMN move_id DROP NOT NULL;
+            ALTER TABLE analytic_temp_account_move_line ALTER COLUMN currency_id DROP NOT NULL;
+
+            INSERT INTO analytic_temp_account_move_line ({all_fields})
+            SELECT {table}
+            FROM (SELECT * FROM account_analytic_line WHERE general_account_id IS NOT NULL) AS account_analytic_line
+        """).format(
+            all_fields=sql.SQL(', ').join(sql.Identifier(fname) for fname in stored_fields),
+            table=sql.SQL(', ').join(selected_fields),
+        )
+
+        # TODO gawa need to do the auditing of the lines
+        # TODO gawa try to reduce query on analytic lines
+
+        self.env.cr.execute(query)
+
+    def _query_get(self, options, date_scope, domain=None):
+        # Override to add the context key which will eventually trigger the shadowing of the table
+        context_self = self.with_context(account_report_analytic_groupby=options.get('analytic_groupby_option'))
+
+        # We add the domain filter for analytic_distribution here, as the search is not available
+        tables, where_clause, where_params = super(AccountReport, context_self)._query_get(options, date_scope, domain)
+        if options.get('analytic_accounts') and not any(x in options.get('analytic_accounts_list', []) for x in options['analytic_accounts']):
+            analytic_account_ids = [[str(account_id) for account_id in options['analytic_accounts']]]
+            where_params.append(analytic_account_ids)
+            where_clause = f'{where_clause} AND "account_move_line".analytic_distribution ?| array[%s]'
+
+        return tables, where_clause, where_params
+
+    def action_audit_cell(self, options, params):
+        column_group_options = self._get_column_group_options(options, params['column_group_key'])
+
+        if not column_group_options.get('analytic_groupby_option'):
+            return super(AccountReport, self).action_audit_cell(options, params)
+        else:
+            # Start by getting the domain from the options. Note that this domain is targeting account.move.line
+            report_line = self.env['account.report.line'].browse(params['report_line_id'])
+            expression = report_line.expression_ids.filtered(lambda x: x.label == params['expression_label'])
+            line_domain = self._get_audit_line_domain(column_group_options, expression, params)
+            # The line domain is made for move lines, so we need some postprocessing to have it work with analytic lines.
+            domain = []
+            AccountAnalyticLine = self.env['account.analytic.line']
+            for expression in line_domain:
+                if len(expression) == 1:  # For operators such as '&' or '|' we can juste add them again.
+                    domain.append(expression)
+                    continue
+
+                field, operator, right_term = expression
+                # On analytic lines, the account.account field is named general_account_id and not account_id.
+                if field.split('.')[0] == 'account_id':
+                    field = field.replace('account_id', 'general_account_id')
+                    expression = [(field, operator, right_term)]
+                # Replace the 'analytic_distribution' by the account_id domain as we expect for analytic lines.
+                elif field == 'analytic_distribution':
+                    account_ids = tuple(int(account_id) for account_id in column_group_options.get('analytic_accounts_list', []))
+                    expression = [('account_id', 'in', account_ids)]
+                # For other fields not present in on the analytic line model, map them to get the info from the move_line.
+                # Or ignore these conditions if there is no move lines.
+                elif field.split('.')[0] not in AccountAnalyticLine._fields:
+                    expression = [(f'move_line_id.{field}', operator, right_term)]
+                    if options.get('include_analytic_without_aml'):
+                        expression = osv.expression.OR([
+                            [('move_line_id', '=', False)],
+                            expression,
+                        ])
+                else:
+                    expression = [expression]  # just for the extend
+                domain.extend(expression)
+
+            action = clean_action(self.env.ref('analytic.account_analytic_line_action_entries')._get_action_dict(), env=self.env)
+            action['domain'] = domain
+            return action
+
+    @api.model
+    def _get_options_journals_domain(self, options):
+        domain = super(AccountReport, self)._get_options_journals_domain(options)
+        # Add False to the domain in order to select lines without journals for analytics columns.
+        if options.get('include_analytic_without_aml'):
+            domain = osv.expression.OR([
+                domain,
+                [('journal_id', '=', False)],
+            ])
+        return domain
+
+    def _get_options_domain(self, options, date_scope):
+        self.ensure_one()
+        domain = super()._get_options_domain(options, date_scope)
+
+        # Get the analytic accounts that we need to filter on from the options and add a domain for them.
+        if 'analytic_accounts_list' in options:
+            domain = osv.expression.AND([
+                domain,
+                [('analytic_distribution', 'in', options.get('analytic_accounts_list', []))],
+            ])
+
+        return domain
+
+
+class AccountMoveLine(models.Model):
+    _inherit = "account.move.line"
+
+    def _where_calc(self, domain, active_test=True):
+        """ In case we need an analytic column in an account_report, we shadow the account_move_line table
+        with a temp table filled with analytic data, that will be used for the analytic columns.
+        We do it in this function to only create and fill it once for all computations of a report.
+        The following analytic columns and computations will just query the shadowed table instead of the real one.
+        """
+        query = super()._where_calc(domain, active_test)
+        if self.env.context.get('account_report_analytic_groupby'):
+            self.env['account.report']._prepare_lines_for_analytic_groupby()
+            query._tables['account_move_line'] = 'analytic_temp_account_move_line'
+        return query

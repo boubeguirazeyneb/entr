@@ -3,20 +3,24 @@
 
 from .common import SpreadsheetTestCommon
 from odoo.tests.common import new_test_user
+from odoo.addons.bus.models.bus import channel_with_db
 from odoo.addons.mail.tests.common import MailCase
-from odoo.addons.documents_spreadsheet.controllers.bus import SpreadsheetCollaborationController
 
 
 class TestSpreadsheetBus(SpreadsheetTestCommon, MailCase):
 
-    def poll(self, *channels, last=0, options=None):
-        # Simulates what's done in the /longpolling/poll controller.
-        # MockRequest would be usefull, but it's currently only defined with website
-        channels = SpreadsheetCollaborationController._add_spreadsheet_collaborative_bus_channels(self.env, channels)
-        return self.env["bus.bus"]._poll(channels, last, options)
+    def poll(self, *channels, last=0):
+        # Simulates what's done when subscribing to a bus channel.
+        # MockRequest would be usefull, but it's currently only defined
+        # with website
+        channels = [
+            channel_with_db(self.env.registry.db_name, c)
+            for c in self.env["ir.websocket"]._add_spreadsheet_collaborative_bus_channels(channels)
+        ]
+        return self.env["bus.bus"]._poll(channels, last)
 
     def poll_spreadsheet(self, spreadsheet_id):
-        external_channel = f"spreadsheet_collaborative_session_{spreadsheet_id}"
+        external_channel = f"spreadsheet_collaborative_session:documents.document:{spreadsheet_id}"
         notifs = self.poll(external_channel)
         return [
             m["message"]["payload"]

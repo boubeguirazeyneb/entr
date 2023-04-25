@@ -2,6 +2,9 @@
     .o_social_twitter_likes.o_social_twitter_user_likes {
         @include o-hover-text-color($o-enterprise-color, darken($o-enterprise-color, 10%));
     }
+    .o_social_twitter_retweet_icon i.active {
+        @include o-hover-text-color($primary, darken($primary, 10%));
+    }
 }
 
 .o_social_twitter_users_autocomplete {
@@ -51,10 +54,13 @@
     .o_social_preview_icon_wrapper {
         color: #40AFF4;
     }
+    .o_social_twitter_message_exceeding {
+        background-color: #fd9bb0;
+    }
 }
 
 .o_social_comments_modal_twitter {
-    a:not(.btn-outline-secondary):not(.o_social_comment_published_date):not(.o_social_post_published_date) {
+    a:not(.btn-outline-secondary):not(.o_social_comment_published_date):not(.o_social_post_published_date):not(.dropdown-item) {
         color: #40AFF4;
     }
 
@@ -62,8 +68,8 @@
         color: #14171a;
     }
 
-    a:not(.btn-outline-secondary):not(.o_social_comment_published_date:not(.o_social_post_published_date)), a.o_social_original_post_author, a.o_social_comment_author_name {
-        @include hover-focus () {
+    a:not(.btn-outline-secondary):not(.o_social_comment_published_date:not(.o_social_post_published_date)), a.o_social_original_post_author, a.o_social_comment_author_name:not(.dropdown-item) {
+        &:hover, &:focus {
             color: #40AFF4;
             text-decoration: underline;
         }

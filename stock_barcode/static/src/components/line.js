@@ -1,8 +1,28 @@
 /** @odoo-module **/
 
-export default class LineComponent extends owl.Component {
+import { bus } from 'web.core';
+const { Component } = owl;
+
+export default class LineComponent extends Component {
+    get destinationLocationPath () {
+        return this._getLocationPath(this.env.model._defaultDestLocation(), this.line.location_dest_id);
+    }
+
+    get displayDestinationLocation() {
+        return !this.props.subline && this.env.model.displayDestinationLocation;
+    }
+
     get displayResultPackage() {
         return this.env.model.displayResultPackage;
+    }
+
+    get displaySourceLocation() {
+        return !this.props.subline && this.env.model.displaySourceLocation;
+    }
+
+    get highlightLocation() {
+        return this.env.model.lastScanned.sourceLocation &&
+               this.env.model.lastScanned.sourceLocation.id == this.line.location_id.id;
     }
 
     get isComplete() {
@@ -16,7 +36,7 @@ export default class LineComponent extends owl.Component {
 
     get isSelected() {
         return this.line.virtual_id === this.env.model.selectedLineVirtualId ||
-        (this.line.package_id && this.line.package_id.id === this.env.model.lastScannedPackage);
+        (this.line.package_id && this.line.package_id.id === this.env.model.lastScanned.packageId);
     }
 
     get isTracked() {
@@ -61,8 +81,31 @@ export default class LineComponent extends owl.Component {
         return true;
     }
 
+    get sourceLocationPath() {
+        return this._getLocationPath(this.env.model._defaultLocation(), this.line.location_id);
+    }
+
+    get componentClasses() {
+        return [
+            this.isComplete ? 'o_line_completed' : 'o_line_not_completed',
+            this.env.model.lineIsFaulty(this) ? 'o_faulty' : '',
+            this.isSelected ? 'o_selected o_highlight' : ''
+        ].join(' ');
+    }
+
+    _getLocationPath(rootLocation, currentLocation) {
+        let locationName = currentLocation.display_name;
+        if (this.env.model.shouldShortenLocationName) {
+            if (rootLocation && rootLocation.id != currentLocation.id) {
+                const name = rootLocation.display_name;
+                locationName = locationName.replace(name, '...');
+            }
+        }
+        return locationName.replace(new RegExp(currentLocation.name + '$'), '');
+    }
+
     edit() {
-        this.trigger('edit-line', { line: this.line });
+        bus.trigger('edit-line', { line: this.line });
     }
 
     addQuantity(quantity, ev) {
@@ -70,6 +113,7 @@ export default class LineComponent extends owl.Component {
     }
 
     select(ev) {
+        ev.stopPropagation();
         this.env.model.selectLine(this.line);
         this.env.model.trigger('update');
     }

@@ -47,17 +47,18 @@ class PosConfig(models.Model):
             'api_secret': company.l10n_de_fiskaly_api_secret
         }
 
-    @api.model
-    def create(self, values):
-        res = super().create(values)
-        if values.get('l10n_de_create_tss_flag') is True:
-            res._l10n_de_create_tss_process()
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        pos_configs = super().create(vals_list)
+        for pos_config in pos_configs:
+            if pos_config.l10n_de_create_tss_flag:
+                pos_config._l10n_de_create_tss_process()
+        return pos_configs
 
     def write(self, values):
         res = super().write(values)
-        if values.get('l10n_de_create_tss_flag') is True:
-            for config in self:
+        for config in self:
+            if values.get('l10n_de_create_tss_flag') and not config.l10n_de_fiskaly_tss_id:
                 config._l10n_de_create_tss_process()
         return res
 
@@ -87,24 +88,7 @@ class PosConfig(models.Model):
         local_tss = self.search([('company_id', '=', self.company_id.id), ('l10n_de_fiskaly_tss_id', '!=', False)])
         db_uuid = self.env['ir.config_parameter'].sudo().get_param('database.uuid')
         self.company_id._l10n_de_fiskaly_iap_rpc('/tss', {'tss_id': tss_id, 'db_uuid': db_uuid, 'tss': len(local_tss)})
-        self._create_tss_v2(tss_id)
 
-    def open_session_cb(self):
-        # Due to the new release of the Fiskaly api v2, we need to create the new TSS
-        # Here we check if the TSS has been created under V2 otherwise we create it
-        if self.is_company_country_germany and self.l10n_de_create_tss_flag and '|' not in self.l10n_de_fiskaly_tss_id:
-            # Disable the TSS created under v1
-            self.company_id._l10n_de_fiskaly_kassensichv_rpc('PUT', '/tss/%s' % self._l10n_de_get_tss_id(),
-                                                             {'state': 'DISABLED'}, version=1)
-            self._create_tss_v2()
-
-        # Since we cannot modify fields when there's an open session, we hope that the checks of the parent method
-        # pass... If there's a v1 TSS, we can assume that the checks should pass
-        return super().open_session_cb()
-
-    def _create_tss_v2(self, tss_id=None):
-        # this method shall be deleted along with the override of open_session_cb in v16
-        tss_id = tss_id if tss_id else str(uuid.uuid4())
         tss_creation_resp = self.company_id._l10n_de_fiskaly_kassensichv_rpc('PUT', '/tss/%s' % tss_id, {}) # Yes, Fiskaly is asking for a empty object...
         tss_puk = tss_creation_resp.json()['admin_puk']
         self.company_id._l10n_de_fiskaly_kassensichv_rpc('PATCH', '/tss/%s' % tss_id, {'state': 'UNINITIALIZED'})

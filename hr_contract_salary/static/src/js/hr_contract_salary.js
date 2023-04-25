@@ -8,10 +8,6 @@ const {qweb, _t} = require('web.core');
 
 publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
     selector: '#hr_cs_form',
-    xmlDependencies: [
-        '/hr_contract_salary/static/src/xml/resume_sidebar.xml',
-    ],
-
     events: {
         "change .advantage_input": "onchangeAdvantage",
         "change input.folded": "onchangeFolded",
@@ -24,15 +20,14 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
         "change input.document": "onchangeDocument",
         "input input[type='range']": "onchangeSlider",
         "change select[name='country_id']": "onchangeCountry",
+        "keydown input[type='number']": "onkeydownInput",
     },
 
     init(parent, options) {
         this._super(parent);
         this.dp = new concurrency.DropPrevious();
         $('body').attr('id', 'hr_contract_salary');
-        $("#hr_contract_salary select").select2({
-            minimumResultsForSearch: -1
-        });
+        $("#hr_contract_salary select").select2();
 
         $('b[role="presentation"]').hide();
         $('.select2-arrow').append('<i class="fa fa-chevron-down"></i>');
@@ -56,6 +51,7 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
                     }
                 });
         }
+        this.stateElements = $("select[name='state_id']").find('option');
         this.onchangeCountry();
 
         // When user use back button, unfold previously unfolded items.
@@ -120,6 +116,8 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
             'bank_account': {},
         };
         advantages.employee.job_title = $("input[name='job_title']").val();
+        advantages.employee.employee_job_id = $("input[name='employee_job_id']").val();
+        advantages.employee.department_id = $("input[name='department_id']").val();
         $('input')
             .toArray()
             .filter(input => input.hasAttribute('applies-on'))
@@ -133,6 +131,13 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
                 } else if (input.type !== 'hidden' && input.type !== 'radio') {
                     advantages[appliesOn][input.name] = input.value;
                 }
+            });
+        $('textarea')
+            .toArray()
+            .filter(area => area.hasAttribute('applies-on'))
+            .forEach(area => {
+                const appliesOn = $(area).attr('applies-on');
+                advantages[appliesOn][area.name] = area.value;
             });
         $('select.advantage_input,select.personal_info').toArray().forEach(select => {
             const appliesOn = $(select).attr('applies-on');
@@ -152,12 +157,16 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
         $("input[name='NET']").removeClass('o_outdated');
     },
 
+    onchangeFoldedResetInteger(advantageField) {
+        return true;
+    },
+
     onchangeFolded(event) {
         const foldedContent = $(event.target.parentElement.parentElement).find('.folded_content');
         const checked = event.target.checked;
         if (!checked) {
             $(foldedContent).find('input').toArray().forEach(input => {
-                if (input.type == 'number') {
+                if (input.type == 'number' && this.onchangeFoldedResetInteger(input.name)) {
                     $(input).val(0);
                     $(input).trigger('change');
                 }
@@ -174,16 +183,34 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
     },
 
     onchangeCountry(event) {
+        const stateElement = $("select[name='state_id']");
         let countryID = parseInt($("select[name='country_id'][applies-on='address']").val());
-        $("select[name='state_id']").find('option').toArray().forEach(option => {
+        let enableState = true;
+        stateElement.select2('val', '');
+        stateElement.find('option').remove();
+        stateElement.append(this.stateElements);
+        stateElement.find('option').toArray().forEach(option => {
             let $option = $(option);
             let stateCountryID = $option.data('additional-info');
             if (countryID === stateCountryID) {
-                $option.removeClass('d-none');
+                enableState = false;
             } else {
-                $option.addClass('d-none');
+                $option.remove();
             }
-        })
+        });
+        stateElement.attr('disabled', enableState);
+    },
+
+    onkeydownInput(event) {
+        const disallowedKeys = {
+            69: "KEY_E",
+            109: "KEY_MINUS_KEYPAD",
+            110: "KEY_DOT_KEYPAD",
+            189: "KEY_MINUS",
+            190: "KEY_DOT"
+        };
+        // Only allow numbers to be written in the input fields with type="number"
+        return !(event.keyCode in disallowedKeys);
     },
 
     _isInvalidInput() {
@@ -365,6 +392,9 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
         const dotpos = email.lastIndexOf(".");
         const invalid_email = atpos<1 || dotpos<atpos+2 || dotpos+2>=email.length;
         const isInvalidInput = this._isInvalidInput();
+        let elementToScroll;
+        let elementToScrollPosition;
+        const isEmailEmpty = email === '';
 
         let requiredEmptyRadio;
         const radios = Array.prototype.slice.call(document.querySelectorAll('input[type=radio]:required'));
@@ -378,7 +408,8 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
                 $warning.textContent = _t('Some required fields are not filled');
                 document.querySelector("button#hr_cs_submit").parentElement.append($warning);
                 $radio.classList.toggle('invalid_radio', requiredEmptyRadio);
-                document.querySelector("section#hr_cs_personal_information").scrollIntoView({block: "start", behavior: "smooth"});
+                elementToScroll = $radio;
+                elementToScrollPosition = $($radio).offset().top;
             } else if ($radio.classList.contains('invalid_radio')) {
                 $radio.classList.toggle('invalid_radio');
             }
@@ -390,25 +421,51 @@ publicWidget.registry.SalaryPackageWidget = publicWidget.Widget.extend({
                 .appendTo($("button#hr_cs_submit").parent());
             $("input:required").toArray().forEach(input => {
                 $(input).toggleClass('bg-danger', input.value === '');
+                let inputPosition = $(input).offset().top;
+                if ((!elementToScroll || inputPosition < elementToScrollPosition) && input.value === '') {
+                    elementToScroll = $(input)[0];
+                    elementToScrollPosition = $(input).offset().top;
+                }
             });
             $("select:required").toArray().forEach(select =>  {
                 const selectParent = $(select).parent().find('.select2-choice');
                 selectParent.toggleClass('bg-danger', $(select).val() === '');
+                let selectPosition = selectParent.offset().top;
+                if ((!elementToScroll || selectPosition <= elementToScrollPosition) && $(select).val() === '') {
+                    elementToScroll = selectParent[0];
+                    elementToScrollPosition = selectParent.offset().top;
+                }
             });
-            $("section#hr_cs_personal_information")[0].scrollIntoView({block: "start", behavior: "smooth"});
+        }
+        else{
+            $("input:required").toArray().forEach(input => {
+                $(input).removeClass('bg-danger');
+            });
+            $("select:required").toArray().forEach(select => {
+                const selectParent = $(select).parent().find('.select2-choice');
+                if ($(select).val() !== '') {
+                    selectParent.removeClass('bg-danger');
+                }
+            });
         }
         if (invalid_email) {
             $("input[name='email']").addClass('bg-danger');
-            $("<div class='alert alert-danger alert-dismissable fade show'>")
-                .text(_t('Not a valid e-mail address'))
-                .appendTo($("button#hr_cs_submit").parent());
-            $("section#hr_cs_personal_information")[0].scrollIntoView({block: "start", behavior: "smooth"});
-        } else {
-            $("input[name='email']").removeClass('bg-danger');
+            if (!isEmailEmpty) {
+                $("<div class='alert alert-danger alert-dismissable fade show'>")
+                    .text(_t('Not a valid e-mail address'))
+                    .appendTo($("button#hr_cs_submit").parent());
+            }
+            let emailPosition = $("input[name='email']").offset().top;
+            if (!elementToScroll || emailPosition <= elementToScrollPosition) {
+                elementToScroll = $("input[name='email']")[0];
+            }
         }
         $(".alert").delay(4000).slideUp(200, function () {
             $(this).alert('close');
         });
+        if (elementToScroll) {
+            elementToScroll.scrollIntoView({block: 'center', behavior: 'smooth'});
+        }
         return !invalid_email && !requiredEmptyInput && !requiredEmptySelect && !requiredEmptyRadio && !isInvalidInput;
     },
 

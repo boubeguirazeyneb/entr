@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from psycopg2 import IntegrityError, OperationalError
+
 from odoo.addons.iap.tools import iap_tools
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
@@ -40,13 +42,14 @@ class HrExpenseExtractionWords(models.Model):
     _name = "hr.expense.extract.words"
     _description = "Extracted words from expense scan"
 
-    expense_id = fields.Many2one("hr.expense", help="expense id")
+    expense_id = fields.Many2one("hr.expense", string="Expense")
     word_text = fields.Char()
     word_page = fields.Integer()
 
 
 class HrExpense(models.Model):
     _inherit = ['hr.expense']
+    _order = "state_processed desc, date desc, id desc"
 
     @api.depends('extract_status_code')
     def _compute_error_message(self):
@@ -70,7 +73,7 @@ class HrExpense(models.Model):
     def _compute_show_resend_button(self):
         for record in self:
             record.extract_can_show_resend_button = self._compute_can_show_send_resend(record)
-            if record.extract_state not in ['error_status', 'not_enough_credit', 'module_not_up_to_date']:
+            if record.extract_state not in ['error_status', 'not_enough_credit']:
                 record.extract_can_show_resend_button = False
 
     @api.depends('state', 'extract_state', 'message_main_attachment_id')
@@ -80,27 +83,41 @@ class HrExpense(models.Model):
             if record.extract_state not in ['no_extract_requested']:
                 record.extract_can_show_send_button = False
 
+    @api.depends('extract_state')
+    def _compute_state_processed(self):
+        for record in self:
+            record.state_processed = record.extract_state in ['waiting_extraction', 'waiting_upload']
+
     extract_state = fields.Selection([('no_extract_requested', 'No extract requested'),
                                       ('not_enough_credit', 'Not enough credit'),
                                       ('error_status', 'An error occurred'),
+                                      ('waiting_upload', 'Waiting upload'),
                                       ('waiting_extraction', 'Waiting extraction'),
                                       ('extract_not_ready', 'waiting extraction, but it is not ready'),
                                       ('waiting_validation', 'Waiting validation'),
+                                      ('to_validate', 'To validate'),
                                       ('done', 'Completed flow')],
                                      'Extract state', default='no_extract_requested', required=True, copy=False)
     extract_status_code = fields.Integer("Status code", copy=False)
     extract_error_message = fields.Text("Error message", compute=_compute_error_message)
-    extract_remote_id = fields.Integer("Id of the request to IAP-OCR", default="-1", help="Expense extract id", copy=False, readonly=True)
+    extract_remote_id = fields.Integer("Id of the request to IAP-OCR", default="-1", copy=False, readonly=True)
     extract_word_ids = fields.One2many("hr.expense.extract.words", inverse_name="expense_id", copy=False)
     extract_can_show_resend_button = fields.Boolean("Can show the ocr resend button", compute=_compute_show_resend_button)
     extract_can_show_send_button = fields.Boolean("Can show the ocr send button", compute=_compute_show_send_button)
+    # We want to see the records that are just processed by OCR at the top of the list
+    state_processed = fields.Boolean(string='Status regarding OCR status', compute=_compute_state_processed, store=True)
 
     def attach_document(self, **kwargs):
         """when an attachment is uploaded, send the attachment to iap-extract if this is the first attachment"""
+        self._autosend_for_digitization()
+
+    def _autosend_for_digitization(self):
         if self.env.company.expense_extract_show_ocr_option_selection == 'auto_send':
-            for record in self:
-                if record.extract_state == "no_extract_requested":
-                    record.retry_ocr()
+            self.filtered('extract_can_show_send_button').action_manual_send_for_digitization()
+
+    def _message_set_main_attachment_id(self, attachment_ids):
+        super(HrExpense, self)._message_set_main_attachment_id(attachment_ids)
+        self._autosend_for_digitization()
 
     def get_validation(self, field):
 
@@ -117,31 +134,40 @@ class HrExpense(models.Model):
             text_to_send["content"] = self.reference
         return text_to_send
 
-    def action_submit_expenses(self, **kwargs):
+    @api.model
+    def _cron_validate(self):
         """Send user corrected values to the ocr"""
+        exp_to_validate = self.search([('extract_state', '=', 'to_validate')])
+        documents = {
+            record.extract_remote_id: {
+                'total': record.get_validation('total'),
+                'date': record.get_validation('date'),
+                'description': record.get_validation('description'),
+                'currency': record.get_validation('currency'),
+                'bill_reference': record.get_validation('bill_reference')
+            } for record in exp_to_validate
+        }
+        params = {
+            'documents': documents,
+            'version': CLIENT_OCR_VERSION,
+        }
+        endpoint = self.env['ir.config_parameter'].sudo().get_param(
+            'hr_expense_extract_endpoint', 'https://iap-extract.odoo.com') + '/api/extract/expense/1/validate_batch'
+        try:
+            iap_tools.iap_jsonrpc(endpoint, params=params)
+            exp_to_validate.extract_state = 'done'
+        except AccessError:
+            pass
+
+    def action_submit_expenses(self, **kwargs):
         res = super(HrExpense, self).action_submit_expenses(**kwargs)
 
-        for expense in self.filtered(lambda x: x.extract_state == 'waiting_validation'):
-            endpoint = self.env['ir.config_parameter'].sudo().get_param(
-                'hr_expense_extract_endpoint', 'https://iap-extract.odoo.com') + '/iap/expense_extract/validate'
+        expenses_to_validate = self.filtered(lambda exp: exp.extract_state == 'waiting_validation')
+        expenses_to_validate.extract_state = 'to_validate'
 
-            values = {
-                'total': expense.get_validation('total'),
-                'date': expense.get_validation('date'),
-                'description': expense.get_validation('description'),
-                'currency': expense.get_validation('currency'),
-                'bill_reference': expense.get_validation('bill_reference')
-            }
-            params = {
-                'document_id': expense.extract_remote_id,
-                'version': CLIENT_OCR_VERSION,
-                'values': values
-            }
-            try:
-                iap_tools.iap_jsonrpc(endpoint, params=params)
-                expense.extract_state = 'done'
-            except AccessError:
-                pass
+        if expenses_to_validate:
+            self.env.ref('hr_expense_extract.ir_cron_ocr_validate')._trigger()
+
         return res
 
     @api.model
@@ -154,6 +180,15 @@ class HrExpense(models.Model):
 
     def check_status(self):
         """contact iap to get the actual status of the ocr requests"""
+        if any(rec.extract_state == 'waiting_upload' for rec in self):
+            _logger.info("Manual trigger of the parse cron")
+            try:
+                self.env.ref('hr_expense_extract.ir_cron_ocr_parse')._try_lock()
+                self.env.ref('hr_expense_extract.ir_cron_ocr_parse').sudo().method_direct_trigger()
+            except UserError:
+                _logger.warning("Lock acquiring failed, cron is already running")
+                return
+
         records_to_update = self.filtered(lambda exp: exp.extract_state in ['waiting_extraction', 'extract_not_ready'])
         
         for record in records_to_update:
@@ -171,7 +206,7 @@ class HrExpense(models.Model):
     def _check_status(self):
         self.ensure_one()
         endpoint = self.env['ir.config_parameter'].sudo().get_param(
-            'hr_expense_extract_endpoint', 'https://iap-extract.odoo.com') + '/iap/expense_extract/get_result'
+            'hr_expense_extract_endpoint', 'https://iap-extract.odoo.com') + '/api/extract/expense/1/get_result'
         params = {
                 'version': CLIENT_OCR_VERSION,
                 'document_id': self.extract_remote_id
@@ -184,11 +219,12 @@ class HrExpense(models.Model):
             self.extract_word_ids.unlink()
 
             description_ocr = ocr_results['description']['selected_value']['content'] if 'description' in ocr_results else ""
-            total_ocr = ocr_results['total']['selected_value']['content'] if 'total' in ocr_results else ""
+            total_ocr = ocr_results['total']['selected_value']['content'] if 'total' in ocr_results else 0.0
             date_ocr = ocr_results['date']['selected_value']['content'] if 'date' in ocr_results else ""
             currency_ocr = ocr_results['currency']['selected_value']['content'] if 'currency' in ocr_results else ""
             bill_reference_ocr = ocr_results['bill_reference']['selected_value']['content'] if 'bill_reference' in ocr_results else ""
 
+            self.state = 'draft'
             if not self.name or self.name == self.message_main_attachment_id.name.split('.')[0]:
                 self.name = description_ocr
                 self.predicted_category = description_ocr
@@ -223,12 +259,19 @@ class HrExpense(models.Model):
         else:
             self.extract_state = 'error_status'
 
-    def action_send_for_digitalization(self):
+    def action_manual_send_for_digitization(self):
+        for rec in self:
+            rec.env['iap.account']._send_iap_bus_notification(
+                service_name='invoice_ocr',
+                title=_("Expense is being Digitized"))
+        self.extract_state = 'waiting_upload'
+        self.env.ref('hr_expense_extract.ir_cron_ocr_parse')._trigger()
+
+    def action_send_for_digitization(self):
         if any(expense.state != 'draft' or expense.sheet_id for expense in self):
             raise UserError(_("You cannot send a expense that is not in draft state!"))
 
-        for expense in self:
-            expense.retry_ocr()
+        self.action_manual_send_for_digitization()
 
         if len(self) == 1:
             return {
@@ -247,18 +290,35 @@ class HrExpense(models.Model):
                 'res_model': 'hr.expense',
                 'target': 'current',
                 'domain': [('id', 'in', [expense.id for expense in self])],
-                
+
             }
+
+    @api.model
+    def _cron_parse(self):
+        for rec in self.search([('extract_state', '=', 'waiting_upload')]):
+            try:
+                with self.env.cr.savepoint(flush=False):
+                    rec.retry_ocr()
+                    # We handle the flush manually so that if an error occurs, e.g. a concurrent update error,
+                    # the savepoint will be rollbacked when exiting the context manager
+                    self.env.cr.flush()
+                self.env.cr.commit()
+            except (IntegrityError, OperationalError) as e:
+                _logger.error("Couldn't upload %s with id %d: %s", rec._name, rec.id, str(e))
 
     def retry_ocr(self):
         """Retry to contact iap to submit the first attachment in the chatter"""
+        self.ensure_one()
         if not self.env.company.expense_extract_show_ocr_option_selection or self.env.company.expense_extract_show_ocr_option_selection == 'no_send':
             return False
         attachments = self.message_main_attachment_id
-        if attachments and attachments.exists() and self.extract_state in ['no_extract_requested', 'not_enough_credit', 'error_status', 'module_not_up_to_date']:
+        if (
+                attachments.exists() and
+                self.extract_state in ['no_extract_requested', 'waiting_upload', 'not_enough_credit', 'error_status']
+        ):
             account_token = self.env['iap.account'].get('invoice_ocr')
             endpoint = self.env['ir.config_parameter'].sudo().get_param(
-                    'hr_expense_extract_endpoint', 'https://iap-extract.odoo.com') + '/iap/expense_extract/parse'
+                    'hr_expense_extract_endpoint', 'https://iap-extract.odoo.com') + '/api/extract/expense/1/parse'
 
             #this line contact iap to create account if this is the first request. This allow iap to give free credits if the database is elligible
             self.env['iap.account'].get_credits('invoice_ocr')
@@ -270,13 +330,15 @@ class HrExpense(models.Model):
                 'user_lang': self.env.user.lang,
                 'user_email': self.env.user.email,
             }
+            baseurl = self.get_base_url()
+            webhook_url = f"{baseurl}/hr_expense_extract/request_done"
             params = {
                 'account_token': account_token.account_token,
                 'version': CLIENT_OCR_VERSION,
                 'dbuuid': self.env['ir.config_parameter'].sudo().get_param('database.uuid'),
                 'documents': [x.datas.decode('utf-8') for x in attachments],
-                'file_names': [x.name for x in attachments],
                 'user_infos': user_infos,
+                'webhook_url': webhook_url,
                 }
             try:
                 result = iap_tools.iap_jsonrpc(endpoint, params=params)
@@ -291,7 +353,6 @@ class HrExpense(models.Model):
                                 timer += 1
                                 time.sleep(1)
                                 record._check_status()
-
                 elif result['status_code'] == ERROR_NOT_ENOUGH_CREDIT:
                     self.extract_state = 'not_enough_credit'
                 else:
@@ -321,15 +382,21 @@ class HrExpense(models.Model):
             html_to_return = """
 <p class="o_view_nocontent_expense_receipt">
     <h2 class="d-none d-md-block">
+        Drag and drop files to create expenses
+    </h2>
+    <p>
+        Or
+    </p>
+    <h2 class="d-none d-md-block">
         Did you try the mobile app?
     </h2>
 </p>
 <p>Snap pictures of your receipts and let Odoo<br/> automatically create expenses for you.</p>
 <p class="d-none d-md-block">
-    <a href="https://apps.apple.com/be/app/odoo/id1272543640" target="_blank">
+    <a href="https://apps.apple.com/be/app/odoo/id1272543640" target="_blank" class="o_expense_mobile_app">
         <img alt="Apple App Store" class="img img-fluid h-100 o_expense_apple_store" src="/hr_expense/static/img/app_store.png"/>
     </a>
-    <a href="https://play.google.com/store/apps/details?id=com.odoo.mobile" target="_blank">
+    <a href="https://play.google.com/store/apps/details?id=com.odoo.mobile" target="_blank" class="o_expense_mobile_app">
         <img alt="Google Play Store" class="img img-fluid h-100 o_expense_google_store" src="/hr_expense/static/img/play_store.png"/>
     </a>
 </p>"""

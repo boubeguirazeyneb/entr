@@ -11,7 +11,6 @@ from contextlib import contextmanager
 from pytz import timezone
 
 
-@tagged('post_install_l10n', 'post_install', '-at_install')
 class TestCoEdiCommon(AccountEdiTestCommon):
 
     @contextmanager
@@ -133,9 +132,7 @@ class TestCoEdiCommon(AccountEdiTestCommon):
             'partner_id': cls.company_data_2['company'].partner_id.id,
             'move_type': 'out_invoice',
             'ref': 'reference',
-
             'invoice_user_id': cls.salesperson.id,
-            'name': 'OC 123',
             'invoice_payment_term_id': cls.env.ref('account.account_payment_term_end_following_month').id,
             'invoice_line_ids': [
                 (0, 0, {

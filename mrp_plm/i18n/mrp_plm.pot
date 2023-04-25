@@ -4,10 +4,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:42+0000\n"
-"PO-Revision-Date: 2021-11-16 13:42+0000\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2023-04-14 06:16+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -33,6 +33,13 @@ msgid "# ECOs in progress"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
+#: code:addons/mrp_plm/models/mrp_eco.py:0
+#, python-format
+msgid "%(approval_name)s %(approver_name)s %(approval_status)s this ECO"
+msgstr ""
+
+#. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_type_dashboard_view_kanban
 msgid "<i class=\"fa fa-ellipsis-v\" role=\"img\" aria-label=\"Manage\" title=\"Manage\"/>"
 msgstr ""
@@ -45,6 +52,7 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid ""
@@ -272,19 +280,13 @@ msgid "At Date"
 msgstr ""
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid "Attachment"
-msgstr ""
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_attachment_count
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_attachment_count
 msgid "Attachment Count"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__mrp_document_ids
 #, python-format
@@ -292,6 +294,7 @@ msgid "Attachments"
 msgstr ""
 
 #. module: mrp_plm
+#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_approval__awaiting_my_validation
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_search
 msgid "Awaiting My Validation"
 msgstr ""
@@ -303,7 +306,7 @@ msgstr ""
 
 #. module: mrp_plm
 #: model:ir.model,name:mrp_plm.model_report_mrp_report_bom_structure
-msgid "BOM Structure Report"
+msgid "BOM Overview Report"
 msgstr ""
 
 #. module: mrp_plm
@@ -317,6 +320,7 @@ msgid "Bill of Material Line"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.actions.act_window,name:mrp_plm.mrp_bom_action_kanban
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__bom_id
@@ -335,6 +339,7 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__kanban_state__blocked
 #: model:mrp.eco.stage,legend_blocked:mrp_plm.ecostage_effective
@@ -367,7 +372,10 @@ msgid "BoM Revision"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-javascript
+#: code:addons/mrp_plm/static/src/components/bom_overview_table/mrp_bom_overview_table.xml:0
 #: model_terms:ir.ui.view,arch_db:mrp_plm.report_mrp_bom_inherit_mrp_plm
+#, python-format
 msgid "BoM Version"
 msgstr ""
 
@@ -409,14 +417,6 @@ msgstr ""
 #. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_view_form
 msgid "Changes made on the operation."
-msgstr ""
-
-#. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid "Close"
 msgstr ""
 
 #. module: mrp_plm
@@ -688,8 +688,10 @@ msgid "ECO(s)"
 msgstr ""
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/js/mrp_bom_report.js:0
+#. odoo-javascript
+#: code:addons/mrp_plm/static/src/components/bom_overview_display_filter/mrp_bom_overview_display_filter.js:0
+#: code:addons/mrp_plm/static/src/components/bom_overview_line/mrp_bom_overview_line.js:0
+#: code:addons/mrp_plm/static/src/components/bom_overview_table/mrp_bom_overview_table.xml:0
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__nb_ecos
 #: model:ir.model.fields,field_description:mrp_plm.field_product_product__eco_ids
 #: model:ir.model.fields,field_description:mrp_plm.field_product_template__eco_ids
@@ -703,12 +705,14 @@ msgid "ECOs"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Eco"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Eco BoM"
@@ -882,9 +886,7 @@ msgstr ""
 
 #. module: mrp_plm
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco__message_needaction
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco__message_unread
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__message_needaction
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__message_unread
 msgid "If checked, new messages require your attention."
 msgstr ""
 
@@ -901,13 +903,6 @@ msgstr ""
 msgid ""
 "If set, this content will automatically be sent out to unauthorized users "
 "instead of the default message."
-msgstr ""
-
-#. module: mrp_plm
-#: model:ir.model.fields,help:mrp_plm.field_mrp_bom__active
-msgid ""
-"If the active field is set to False, it will allow you to hide the bills of "
-"material without removing it."
 msgstr ""
 
 #. module: mrp_plm
@@ -929,6 +924,7 @@ msgid "In #{kanban_getcolorname(record.color.raw_value)}"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__kanban_state__normal
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__state__progress
@@ -1037,11 +1033,6 @@ msgstr ""
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_production__latest_bom_id
 msgid "Latest Bom"
-msgstr ""
-
-#. module: mrp_plm
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco__email_cc
-msgid "List of cc from incoming emails."
 msgstr ""
 
 #. module: mrp_plm
@@ -1210,13 +1201,6 @@ msgid "Note"
 msgstr ""
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/js/mrp_plm_toaster_button.js:0
-#, python-format
-msgid "Note that a new version of this BOM is available."
-msgstr ""
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_needaction_counter
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_needaction_counter
 msgid "Number of Actions"
@@ -1241,12 +1225,6 @@ msgid "Number of messages with delivery error"
 msgstr ""
 
 #. module: mrp_plm
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco__message_unread_counter
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__message_unread_counter
-msgid "Number of unread messages"
-msgstr ""
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_routing_change__old_time_cycle_manual
 msgid "Old manual duration"
 msgstr ""
@@ -1264,6 +1242,13 @@ msgstr ""
 #. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_view_form
 msgid "Operation Changes"
+msgstr ""
+
+#. module: mrp_plm
+#. odoo-python
+#: code:addons/mrp_plm/models/mrp_eco.py:0
+#, python-format
+msgid "Operation not supported"
 msgstr ""
 
 #. module: mrp_plm
@@ -1387,6 +1372,7 @@ msgid "Priority"
 msgstr ""
 
 #. module: mrp_plm
+#: model:ir.model,name:mrp_plm.model_product_template
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__product_tmpl_id
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__product_id
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_bom_change_view_form
@@ -1395,14 +1381,10 @@ msgid "Product"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Product Only"
-msgstr ""
-
-#. module: mrp_plm
-#: model:ir.model,name:mrp_plm.model_product_template
-msgid "Product Template"
 msgstr ""
 
 #. module: mrp_plm
@@ -1431,6 +1413,7 @@ msgid "Quantity"
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:mrp.eco.stage,legend_done:mrp_plm.ecostage_effective
 #: model:mrp.eco.stage,legend_done:mrp_plm.ecostage_new
@@ -1544,13 +1527,6 @@ msgid "Set Cover Image"
 msgstr ""
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid "Set a Cover Image"
-msgstr ""
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__allow_apply_change
 msgid "Show Apply Change"
 msgstr ""
@@ -1603,6 +1579,7 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Successfully Rebased !"
@@ -1697,15 +1674,6 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid ""
-"There is no available image to be set as cover. Add an image as an "
-"attachment to the engineering order."
-msgstr ""
-
-#. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_stage_view_form
 msgid "This step is done. Click to block or set in progress."
 msgstr ""
@@ -1753,18 +1721,6 @@ msgstr ""
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__uom_change
 msgid "Unit of Measure"
-msgstr ""
-
-#. module: mrp_plm
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_unread
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_unread
-msgid "Unread Messages"
-msgstr ""
-
-#. module: mrp_plm
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_unread_counter
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_unread_counter
-msgid "Unread Messages Counter"
 msgstr ""
 
 #. module: mrp_plm
@@ -1848,12 +1804,14 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "You cannot change the stage, as approvals are required in the process."
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "You cannot change the stage, as approvals are still required."
@@ -1872,9 +1830,4 @@ msgstr ""
 #. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_kanban
 msgid "oe_kanban_text_red"
-msgstr ""
-
-#. module: mrp_plm
-#: model_terms:ir.ui.view,arch_db:mrp_plm.message_approval
-msgid "this ECO."
 msgstr ""

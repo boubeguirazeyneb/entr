@@ -1,30 +1,30 @@
 /** @odoo-module **/
 
-import MockServer from 'web.MockServer';
-import session from 'web.session';
+import { patch } from "@web/core/utils/patch";
+import { MockServer } from "@web/../tests/helpers/mock_server";
 
-MockServer.include({
+patch(MockServer.prototype, "appointment_mock_server", {
     /**
      * Simulate the creation of a custom appointment type
      * by receiving a list of slots.
      * @override
      */
-    async _performRpc(route, args) {
+    async _performRPC(route, args) {
         const _super = this._super.bind(this);
-        if (route === "/appointment/calendar_appointment_type/create_custom") {
+        if (route === "/appointment/appointment_type/create_custom") {
             const slots = args.slots;
             if (slots.length === 0) {
                 return false;
             }
-            const customAppointmentTypeID = this._mockCreate('calendar.appointment.type', {
-                name: "Appointment with Actual Employee",
-                employee_ids: [session.uid],
+            const customAppointmentTypeID = this.mockCreate('appointment.type', {
+                name: "Appointment with Actual User",
+                staff_user_ids: [1],
                 category: 'custom',
                 website_published: true,
             });
             let slotIDs = [];
             slots.forEach(slot => {
-                const slotID = this._mockCreate('calendar.appointment.slot', {
+                const slotID = this.mockCreate('appointment.slot', {
                     appointment_type_id: customAppointmentTypeID,
                     start_datetime: slot.start,
                     end_datetime: slot.end,
@@ -33,44 +33,48 @@ MockServer.include({
                 slotIDs.push(slotID);
             });
             return {
-                id: customAppointmentTypeID,
-                url: `http://amazing.odoo.com/calendar/3?filter_employee_ids=%5B${session.uid}%5D`,
+                appointment_type_id: customAppointmentTypeID,
+                invite_url: `http://amazing.odoo.com/appointment/3?filter_staff_user_ids=%5B${1}%5D`,
             };
-        } else if (route === "/appointment/calendar_appointment_type/search_create_work_hours") {
-            let workHoursAppointmentID = this._mockSearch(
-                'calendar.appointment.type',
-                [[['category', '=', 'work_hours'], ['employee_ids', 'in', [session.uid]]]],
+        } else if (route === "/appointment/appointment_type/search_create_anytime") {
+            let anytimeAppointmentID = this.mockSearch(
+                'appointment.type',
+                [[['category', '=', 'anytime'], ['staff_user_ids', 'in', [1]]]],
                 {},
             )[0];
-            if (!workHoursAppointmentID) {
-                workHoursAppointmentID = this._mockCreate('calendar.appointment.type', {
-                    name: "Work Hours with Actual Employee",
-                    employee_ids: [session.uid],
-                    category: 'work_hours',
+            if (!anytimeAppointmentID) {
+                anytimeAppointmentID = this.mockCreate('appointment.type', {
+                    name: "Anytime with Actual User",
+                    staff_user_ids: [1],
+                    category: 'anytime',
                     website_published: true,
                 });
             }
             return {
-                id: workHoursAppointmentID,
-                url: `http://amazing.odoo.com/calendar/3?filter_employee_ids=%5B${session.uid}%5D`,
+                appointment_type_id: anytimeAppointmentID,
+                invite_url: `http://amazing.odoo.com/appointment/3?filter_staff_user_ids=%5B${1}%5D`,
             };
-        } else if (route === "/appointment/calendar_appointment_type/get_employee_appointment_types") {
-            if (session.uid) {
-                const employeeID = session.uid;
+        } else if (route === "/appointment/appointment_type/get_staff_user_appointment_types") {
+            if (1) {
                 const domain = [
-                    ['employee_ids', 'in', [employeeID]],
+                    ['staff_user_ids', 'in', [1]],
                     ['category', '!=', 'custom'],
                     ['website_published', '=', true],
                 ];
-                const appointment_types_info = this._mockSearchRead('calendar.appointment.type', [domain, ['category', 'name']], {});
+                const appointment_types_info = this.mockSearchRead('appointment.type', [domain, ['category', 'name']], {});
 
                 return Promise.resolve({
-                    employee_id: employeeID,
                     appointment_types_info: appointment_types_info
                 });
             }
             return {};
+        } else if (route === "/appointment/appointment_type/get_book_url") {
+            const appointment_type_id = args.appointment_type_id;
+            return {
+                appointment_type_id: appointment_type_id,
+                invite_url: `http://amazing.odoo.com/appointment/${appointment_type_id}?filter_staff_user_ids=%5B${1}%5D`,
+            }
         }
-        return await _super(...arguments);
+        return _super(...arguments);
     },
 });

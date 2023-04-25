@@ -10,7 +10,7 @@ from odoo import _
 from odoo import release
 from odoo.exceptions import UserError
 from odoo.modules.module import get_resource_path
-from odoo.tools import float_repr
+from odoo.tools import float_repr, float_round
 
 class DHLProvider():
 
@@ -32,7 +32,7 @@ class DHLProvider():
 
     def _set_client(self, wsdl_filename, api):
         wsdl_path = get_resource_path('delivery_dhl', 'api', wsdl_filename)
-        client = Client('file:///%s' % wsdl_path.lstrip('/'))
+        client = Client(wsdl_path)
         return client
 
     def _set_request(self, site_id, password):
@@ -81,7 +81,8 @@ class DHLProvider():
         contact = self.factory.Contact()
         contact.PersonName = partner_id.name
         contact.PhoneNumber = partner_id.phone
-        contact.Email = partner_id.email
+        if partner_id.email:
+            contact.Email = partner_id.email
         consignee.Contact = contact
         return consignee
 
@@ -108,7 +109,8 @@ class DHLProvider():
         contact = self.factory.Contact()
         contact.PersonName = warehouse_partner_id.name
         contact.PhoneNumber = warehouse_partner_id.phone
-        contact.Email = warehouse_partner_id.email
+        if warehouse_partner_id.email:
+            contact.Email = warehouse_partner_id.email
         shipper.Contact = contact
         return shipper
 
@@ -134,64 +136,24 @@ class DHLProvider():
         dct_dutiable.DeclaredValue = total_value
         return dct_dutiable
 
-    def _set_dct_bkg_details(self, weight, carrier, shipper):
-        package_type = carrier.dhl_default_package_type_id
+    def _set_dct_bkg_details(self, carrier, packages):
         bkg_details = self.factory_dct_request.BkgDetailsType()
-        bkg_details.PaymentCountryCode = shipper.country_id.code
+        bkg_details.PaymentCountryCode = packages[0].company_id.partner_id.country_id.code
         bkg_details.Date = date.today()
         bkg_details.ReadyTime = timedelta(hours=1,minutes=2)
         bkg_details.DimensionUnit = "CM" if carrier.dhl_package_dimension_unit == "C" else "IN"
         bkg_details.WeightUnit = "KG" if carrier.dhl_package_weight_unit == "K" else "LB"
-        piece = self.factory_dct_request.PieceType()
-        piece.PieceID = str(1)
-        piece.PackageTypeCode = package_type.shipper_package_code
-        piece.Width, piece.Height, piece.Depth = carrier._dhl_convert_size(
-            package_type,
-            carrier.dhl_package_dimension_unit
-        )
-        piece.Weight = carrier._dhl_convert_weight(weight, carrier.dhl_package_weight_unit)
-        bkg_details.Pieces = {'Piece': [piece]}
-        bkg_details.PaymentAccountNumber = carrier.dhl_account_number
-        if carrier.dhl_dutiable:
-            bkg_details.IsDutiable = "Y"
-        else:
-            bkg_details.IsDutiable = "N"
-        bkg_details.NetworkTypeCode = "AL"
-        return bkg_details
-
-    def _set_dct_bkg_details_from_picking(self, picking):
-        carrier = picking.carrier_id
-        bkg_details = self.factory_dct_request.BkgDetailsType()
-        bkg_details.PaymentCountryCode = picking.company_id.partner_id.country_id.code
-        bkg_details.Date = date.today()
-        bkg_details.ReadyTime = timedelta(hours=1,minutes=2)
-        bkg_details.DimensionUnit = "CM" if carrier.dhl_package_dimension_unit == "C" else "IN"
-        bkg_details.WeightUnit = "KG" if carrier.dhl_package_weight_unit == "K" else "LB"
+        bkg_details.InsuredValue = float_round(sum(pkg.total_cost for pkg in packages) * carrier.shipping_insurance / 100, precision_digits=3)
+        bkg_details.InsuredCurrency = packages[0].currency_id.name
         pieces = []
-        index = 0
-        for package in picking.package_ids:
-            index+=1
-            package_type = package.package_type_id or carrier.dhl_default_package_type_id
+        for sequence, package in enumerate(packages):
             piece = self.factory_dct_request.PieceType()
-            piece.PieceID = index
-            piece.PackageTypeCode = package_type.shipper_package_code
-            piece.Width, piece.Height, piece.Depth = picking.carrier_id._dhl_convert_size(
-                package_type,
-                picking.carrier_id.dhl_package_dimension_unit
-            )
-            piece.Weight = picking.carrier_id._dhl_convert_weight(package.shipping_weight, picking.carrier_id.dhl_package_weight_unit)
-            pieces.append(piece)
-        if picking.weight_bulk:
-            index+=1
-            package_type = carrier.dhl_default_package_type_id
-            piece = self.factory_dct_request.PieceType()
-            piece.PieceID = index
-            piece.PackageTypeCode = package_type.shipper_package_code
-            piece.Width, piece.Height, piece.Depth = picking.carrier_id._dhl_convert_size(
-                package_type,
-                picking.carrier_id.dhl_package_dimension_unit
-            )
-            piece.Weight = picking.carrier_id._dhl_convert_weight(picking.weight_bulk, picking.carrier_id.dhl_package_weight_unit)
+            piece.PieceID = sequence
+            piece.PackageTypeCode = package.packaging_type
+            piece.Height = package.dimension['height']
+            piece.Depth = package.dimension['length']
+            piece.Width = package.dimension['width']
+            piece.Weight = carrier._dhl_convert_weight(package.weight, carrier.dhl_package_weight_unit)
             pieces.append(piece)
         bkg_details.Pieces = {'Piece': pieces}
         bkg_details.PaymentAccountNumber = carrier.dhl_account_number
@@ -204,38 +166,16 @@ class DHLProvider():
 
     def _set_shipment_details(self, picking):
         shipment_details = self.factory.ShipmentDetails()
-        #CHECK IF WEIGHT BULK AND PACKAGES
         pieces = []
-        index = 0
-        for package in picking.package_ids:
-            index+=1
-            package_type = package.package_type_id or picking.carrier_id.dhl_default_package_type_id
+        packages = picking.carrier_id._get_packages_from_picking(picking, picking.carrier_id.dhl_default_package_type_id)
+        for sequence, package in enumerate(packages):
             piece = self.factory.Piece()
-            piece.PieceID = index
-            piece.Weight = picking.carrier_id._dhl_convert_weight(
-                package.shipping_weight or package.weight,
-                picking.carrier_id.dhl_package_weight_unit
-            )
-            piece.Width, piece.Height, piece.Depth = picking.carrier_id._dhl_convert_size(
-                package_type,
-                picking.carrier_id.dhl_package_dimension_unit
-            )
+            piece.PieceID = sequence
+            piece.Height = package.dimension['height']
+            piece.Depth = package.dimension['length']
+            piece.Width = package.dimension['width']
+            piece.Weight = picking.carrier_id._dhl_convert_weight(package.weight, picking.carrier_id.dhl_package_weight_unit)
             piece.PieceContents = package.name
-            pieces.append(piece)
-        if picking.weight_bulk or picking.is_return_picking:
-            index+=1
-            package_type = picking.carrier_id.dhl_default_package_type_id
-            piece = self.factory.Piece()
-            piece.PieceID = index
-            piece.Weight = picking.carrier_id._dhl_convert_weight(
-                picking.weight_bulk,
-                picking.carrier_id.dhl_package_weight_unit
-            )
-            piece.Width, piece.Height, piece.Depth = picking.carrier_id._dhl_convert_size(
-                package_type,
-                picking.carrier_id.dhl_package_dimension_unit
-            )
-            piece.PieceContents = "Bulk Content"
             pieces.append(piece)
         shipment_details.Pieces = self.factory.Pieces(pieces)
         shipment_details.WeightUnit = picking.carrier_id.dhl_package_weight_unit
@@ -244,9 +184,10 @@ class DHLProvider():
         shipment_details.Date = date.today()
         shipment_details.Contents = "MY DESCRIPTION"
         shipment_details.DimensionUnit = picking.carrier_id.dhl_package_dimension_unit
+        shipment_details.InsuredAmount = float_round(sum(pkg.total_cost for pkg in packages) * picking.carrier_id.shipping_insurance / 100, precision_digits=2)
         if picking.carrier_id.dhl_dutiable:
             shipment_details.IsDutiable = "Y"
-        shipment_details.CurrencyCode = picking.sale_id.currency_id.name or picking.company_id.currency_id.name
+        shipment_details.CurrencyCode = packages[0].currency_id.name
         return shipment_details
 
     def _set_label_image_format(self, label_image_format):
@@ -306,7 +247,7 @@ class DHLProvider():
         # 'ErrorResponse', we could handle them differently if needed as
         # the 'ShipmentValidateErrorResponse' is something you cannot do,
         # and 'ErrorResponse' are bad values given in the request.
-        if response_element_xml.find('GetQuoteResponse'):
+        if response_element_xml.find('GetQuoteResponse') is not None:
             return response_element_xml
         else:
             condition = response_element_xml.find('Response/Status/Condition')
@@ -323,7 +264,11 @@ class DHLProvider():
         if not carrier.dhl_account_number:
             return _("DHL account number is missing, please modify your delivery method settings.")
 
-        if not recipient.street and not recipient.street2:
+        # The street isn't required if we compute the rate with a partial delivery address in the
+        # express checkout flow.
+        if not recipient.street and not recipient.street2 and not recipient._context.get(
+            'express_checkout_partial_delivery_address', False
+        ):
             recipient_required_field.append('street')
         res = [field for field in recipient_required_field if not recipient[field]]
         if res:
@@ -344,3 +289,37 @@ class DHLProvider():
             if error_lines:
                 return _("The estimated shipping price cannot be computed because the weight is missing for the following product(s): \n %s") % ", ".join(error_lines.product_id.mapped('name'))
         return False
+
+    def _set_export_declaration(self, carrier, picking, is_return=False):
+        export_lines = []
+        move_lines = picking.move_line_ids.filtered(lambda line: line.product_id.type in ['product', 'consu'])
+        currency_id = picking.sale_id and picking.sale_id.currency_id or picking.company_id.currency_id
+        for sequence, line in enumerate(move_lines, start=1):
+            if line.move_id.sale_line_id:
+                unit_quantity = line.product_uom_id._compute_quantity(line.qty_done, line.move_id.sale_line_id.product_uom)
+            else:
+                unit_quantity = line.product_uom_id._compute_quantity(line.qty_done, line.product_id.uom_id)
+            rounded_qty = max(1, float_round(unit_quantity, precision_digits=0, rounding_method='HALF-UP'))
+            item = self.factory.ExportLineItem()
+            item.LineNumber = sequence
+            item.Quantity = int(rounded_qty)
+            item.QuantityUnit = 'PCS'  # Pieces - very generic
+            if len(line.product_id.name) > 75:
+                raise UserError(_("DHL doesn't support products with name greater than 75 characters."))
+            item.Description = line.product_id.name
+            item.Value = float_repr(line.sale_price / rounded_qty, currency_id.decimal_places)
+            item.Weight = item.GrossWeight = {
+                "Weight": carrier._dhl_convert_weight(line.product_id.weight, carrier.dhl_package_weight_unit),
+                "WeightUnit": carrier.dhl_package_weight_unit,
+            }
+            item.ManufactureCountryCode = line.product_id.country_of_origin.code or line.picking_id.picking_type_id.warehouse_id.partner_id.country_id.code
+            export_lines.append(item)
+
+        export_declaration = self.factory.ExportDeclaration()
+        export_declaration.InvoiceDate = datetime.today()
+        export_declaration.InvoiceNumber = carrier.env['ir.sequence'].sudo().next_by_code('delivery_dhl.commercial_invoice')
+        if is_return:
+            export_declaration.ExportReason = 'RETURN'
+
+        export_declaration.ExportLineItem = export_lines
+        return export_declaration

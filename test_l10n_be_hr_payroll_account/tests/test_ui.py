@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-import base64 
+import base64
 import time
 
 from freezegun import freeze_time
@@ -15,7 +15,7 @@ from odoo.modules.module import get_module_resource
 class TestUi(odoo.tests.HttpCase):
     def test_ui(self):
         # no user available for belgian company so to set hr responsible change company of demo
-        demo = mail_new_test_user(self.env, name="Laurie Poiret", login='be_demo', groups='base.group_user')
+        demo = mail_new_test_user(self.env, name="Laurie Poiret", login='be_demo', groups='hr.group_hr_user,sign.group_sign_user')
         pdf_path = get_module_resource('hr_contract_salary', 'static', 'src', 'demo', 'employee_contract.pdf')
         pdf_content = base64.b64encode(open(pdf_path, "rb").read())
 
@@ -179,12 +179,12 @@ class TestUi(odoo.tests.HttpCase):
             'code': 'X1012',
             'name': 'Debtors - (test)',
             'reconcile': True,
-            'user_type_id': self.env.ref('account.data_account_type_receivable').id,
+            'account_type': 'asset_receivable',
         })
         a_pay = self.env['account.account'].create({
             'code': 'X1111',
             'name': 'Creditors - (test)',
-            'user_type_id': self.env.ref('account.data_account_type_payable').id,
+            'account_type': 'liability_payable',
             'reconcile': True,
         })
         self.env['ir.property']._set_default(
@@ -222,9 +222,9 @@ class TestUi(odoo.tests.HttpCase):
             'car_id': False
         })
 
-        demo.flush()
+        self.env.flush_all()
         with freeze_time("2022-01-01"):
-            self.start_tour("/", 'hr_contract_salary_tour', login='admin', timeout=300)
+            self.start_tour("/", 'hr_contract_salary_tour', login='admin', timeout=350)
 
         new_contract_id = self.env['hr.contract'].search([('name', 'ilike', 'nathalie')])
         self.assertTrue(new_contract_id, 'A contract has been created')
@@ -236,7 +236,7 @@ class TestUi(odoo.tests.HttpCase):
         vehicle = self.env['fleet.vehicle'].search([('company_id', '=', company_id.id), ('model_id', '=', model_corsa.id)])
         self.assertFalse(vehicle, 'A vehicle has not been created')
 
-        self.start_tour("/", 'hr_contract_salary_tour_hr_sign', login='admin', timeout=300)
+        self.start_tour("/", 'hr_contract_salary_tour_hr_sign', login='admin', timeout=350)
 
         # Contract is signed by new employee and HR, the new car must be created
         vehicle = self.env['fleet.vehicle'].search([('company_id', '=', company_id.id), ('model_id', '=', model_corsa.id)])
@@ -249,7 +249,7 @@ class TestUi(odoo.tests.HttpCase):
         # they are a new limit to available car: 1. In the new contract, we can choose to be in waiting list.
         self.env['ir.config_parameter'].sudo().set_param('l10n_be_hr_payroll_fleet.max_unused_cars', 1)
 
-        self.start_tour("/", 'hr_contract_salary_tour_2', login='admin', timeout=300)
+        self.start_tour("/", 'hr_contract_salary_tour_2', login='admin', timeout=350)
         new_contract_id = self.env['hr.contract'].search([('name', 'ilike', 'Mitchell Admin 3')])
         self.assertTrue(new_contract_id, 'A contract has been created')
         new_employee_id = new_contract_id.employee_id

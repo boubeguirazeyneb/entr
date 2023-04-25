@@ -5,12 +5,12 @@
     'sequence': 205,
     'summary': """All you need to make financial consolidation""",
     'description': """All you need to make financial consolidation""",
-    'author': "Odoo S.A.",
     'depends': ['account_reports','web_grid'],
     'data': [
         'security/account_consolidation_security.xml',
         'security/ir.model.access.csv',
-        'report/trial_balance.xml',
+        'data/consolidated_balance_report.xml',
+        'data/account_report_actions.xml',
         'views/account_account_views.xml',
         'views/account_move_views.xml',
         'views/consolidation_account_views.xml',
@@ -23,7 +23,6 @@
         'views/onboarding_templates.xml',
     ],
     'installable': True,
-    'auto_install': False,
     'application': True,
     'assets': {
         'web.assets_backend': [
@@ -32,15 +31,10 @@
             'account_consolidation/static/src/js/trial_balance_grid/controller.js',
             'account_consolidation/static/src/js/trial_balance_grid/renderer.js',
             'account_consolidation/static/src/js/trial_balance_grid/view.js',
-            'account_consolidation/static/src/js/move_line_list/renderer.js',
-            'account_consolidation/static/src/js/move_line_list/view.js',
-            'account_consolidation/static/src/js/json_field.js',
-        ],
-        'web.assets_qweb': [
-            'account_consolidation/static/src/xml/**/*',
+            'account_consolidation/static/src/components/**/*',
         ],
         'web.qunit_suite_tests': [
-            'account_consolidation/static/tests/**/*'
+            'account_consolidation/static/tests/**/*',
         ]
     },
     'license': 'OEEL-1',

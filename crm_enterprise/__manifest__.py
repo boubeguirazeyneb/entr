@@ -9,20 +9,20 @@
     'description': """
 Contains advanced features for CRM such as new views
     """,
-    'depends': ['crm', 'web_dashboard', 'web_cohort', 'web_map'],
+    'depends': ['crm', 'web_cohort', 'web_map'],
     'data': [
         'views/crm_lead_views.xml',
         'report/crm_activity_report_views.xml',
     ],
-    'demo': [
-    ],
     'installable': True,
-    'application': False,
     'auto_install': ['crm'],
     'license': 'OEEL-1',
     'assets': {
-        'web.assets_backend': [
-            'crm_enterprise/static/**/*',
+        'mail.assets_messaging': [
+            'crm_enterprise/static/src/models/*.js',
+        ],
+        'web.qunit_suite_tests': [
+            'crm_enterprise/static/tests/*.js',
         ],
     }
 }

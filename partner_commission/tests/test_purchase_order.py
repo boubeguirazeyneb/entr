@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from dateutil.relativedelta import relativedelta
 from unittest.mock import patch
 
 from odoo import fields
 from odoo.exceptions import AccessError
-from odoo.tools import format_date
+from odoo.tools import format_date, get_timedelta
 from odoo.tests.common import Form, tagged
 from odoo.addons.partner_commission.tests.setup import Line, Spec, TestCommissionsSetup
 from odoo.tools.misc import NON_BREAKING_SPACE
@@ -42,6 +43,8 @@ class TestPurchaseOrder(TestCommissionsSetup):
         # Case: OK.
         with patch('odoo.fields.Date.today', today):
             with patch('odoo.addons.mail.models.mail_template.MailTemplate.send_mail', _patched_send_mail):
+                # We test the non recurring flow: recurring_invoice is False on the product
+                self.crm.recurring_invoice = False
                 po = make_po(days_offset=-1)
                 self.env['purchase.order']._cron_confirm_purchase_orders()
                 self.assertEqual(po.state, 'purchase')
@@ -79,6 +82,8 @@ class TestPurchaseOrder(TestCommissionsSetup):
         Commission on {{move.name}}, {{move.partner_id.name}}, {{move.amount_untaxed}} €
         {{subscription.code}}, from {{date_from}} to {{subscription.recurring_next_date}} ({{number of months}})
         """
+        # Required for `partner_invoice_id`, `partner_shipping_id` to be visible in the view
+        self.salesman.groups_id += self.env.ref('account.group_delivery_invoice_address')
         self.referrer.commission_plan_id = self.gold_plan
         self.referrer.grade_id = self.gold
 
@@ -87,6 +92,8 @@ class TestPurchaseOrder(TestCommissionsSetup):
         form.partner_invoice_id = self.customer
         form.partner_shipping_id = self.customer
         form.referrer_id = self.referrer
+        # form.commission_plan_frozen = False
+        form.recurrence_id = self.recurrence_year
 
         # Testing same rules, with cap reached, are grouped together.
         with form.order_line.new() as line:
@@ -97,18 +104,14 @@ class TestPurchaseOrder(TestCommissionsSetup):
         so = form.save()
         so.pricelist_id = self.eur_20
         so.action_confirm()
-
         inv = so._create_invoices()
-        inv.name = 'INV/12345/0001'
         inv.action_post()
+        inv.name = 'INV/12345/0001'
         self._pay_invoice(inv)
+        date_from = fields.Date.today()
+        date_to = date_from + get_timedelta(1, 'year') - relativedelta(days=1)
 
-        sub = so.mapped('order_line.subscription_id')
-        date_to = sub.recurring_next_date
-        date_from = fields.Date.subtract(date_to, years=1)
-
-        expected = f"""Commission on INV/12345/0001, Customer, 2,000.00{NON_BREAKING_SPACE}€
-{sub.code}, from {format_date(self.env, date_from)} to {format_date(self.env, date_to)} (12 month(s))"""
+        expected = f"""Commission on INV/12345/0001, Customer, 2,000.00{NON_BREAKING_SPACE}€\n{so.name}, \nOdoo.sh Worker: from {format_date(self.env, date_from)} to {format_date(self.env, date_to)} (12 month(s))"""
         self.assertEqual(inv.commission_po_line_id.name, expected)
 
     def test_purchase_representative(self):
@@ -126,6 +129,8 @@ class TestPurchaseOrder(TestCommissionsSetup):
                 line.name = product.name
                 line.product_id = product
                 line.product_uom_qty = 1
+                if product.recurring_invoice:
+                    line.pricing_id = product.product_tmpl_id.product_pricing_ids[-1]
 
             so = form.save()
             so.action_confirm()
@@ -133,15 +138,14 @@ class TestPurchaseOrder(TestCommissionsSetup):
             inv = so._create_invoices()
             inv.action_post()
 
-            sub = so.order_line.mapped('subscription_id')
-            if sub and sub_sales_rep:
-                sub.sudo().user_id = sub_sales_rep
+            if so and sub_sales_rep:
+                so.sudo().user_id = sub_sales_rep
 
             self._pay_invoice(inv)
 
             po = inv.commission_po_line_id.order_id
 
-            return so, sub, po
+            return so, po
 
         with self.subTest("SO's salesperson is assigned as Purchase Representative."):
             foo = self.env['product.category'].create({
@@ -155,6 +159,7 @@ class TestPurchaseOrder(TestCommissionsSetup):
                 'property_account_income_id': self.account_sale.id,
                 'invoice_policy': 'order',
             })
+            self.env['product.pricing'].create({'recurrence_id': self.recurrence_month.id, 'price': 20, 'product_template_id': bar.product_tmpl_id.id})
             rule = self.env['commission.rule'].create({
                 'plan_id': self.gold_plan.id,
                 'category_id': foo.id,
@@ -163,9 +168,8 @@ class TestPurchaseOrder(TestCommissionsSetup):
             })
             self.gold_plan.write({'commission_rule_ids': [(4, rule.id)]})
 
-            so, sub, po = make_orders(bar)
+            so, po = make_orders(bar)
 
-            self.assertFalse(sub, 'This SO should not generate a subscription.')
             self.assertEqual(so.user_id, self.salesman)
             self.assertEqual(po.user_id, self.salesman)
 
@@ -178,25 +182,10 @@ class TestPurchaseOrder(TestCommissionsSetup):
                 'groups_id': [(6, 0, [self.ref('sales_team.group_sale_salesman')])],
             })
 
-            so, sub, po = make_orders(bar, so_sales_rep=sales_rep)
+            so, po = make_orders(bar, so_sales_rep=sales_rep)
 
             self.assertEqual(so.user_id, sales_rep)
             self.assertEqual(po.user_id, sales_rep)
-
-        with self.subTest("Subscription's salesperson takes precedence over SO's salesperson."):
-            sales_rep = self.env['res.users'].create({
-                'name': '...',
-                'login': 'sales_rep_2',
-                'email': 'sales_rep_2@odoo.com',
-                'company_id': self.company.id,
-                'groups_id': [(6, 0, [self.ref('sales_team.group_sale_salesman')])],
-            })
-
-            so, sub, po = make_orders(self.crm, so_sales_rep=sales_rep, sub_sales_rep=self.salesman)
-
-            self.assertEqual(so.user_id, sales_rep)
-            self.assertEqual(sub.user_id, self.salesman)
-            self.assertEqual(po.user_id, self.salesman)
 
     def test_access_rigths(self):
 

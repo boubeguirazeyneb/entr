@@ -6,63 +6,43 @@ import { sprintf } from "@web/core/utils/strings";
 import { localization } from "@web/core/l10n/localization";
 import { registry } from "@web/core/registry";
 
+import { Component, useState } from "@odoo/owl";
 const editorTabRegistry = registry.category("web_studio.editor_tabs");
 
-export class EditorMenu extends owl.Component {
+export class EditorMenu extends Component {
     setup() {
         this.l10n = localization;
         this.studio = useService("studio");
         this.rpc = useService("rpc");
-
-        useBus(this.studio.bus, "UPDATE", async () => {
-            await this.render();
-            toggleSnackBar("off");
+        this.state = useState({
+            redo_available: false,
+            undo_available: false,
+            snackbar: undefined,
         });
 
-        const toggleUndo = (display) => {
-            const el = this.el.querySelector(".o_web_studio_undo");
-            if (el) {
-                el.classList.toggle("o_web_studio_active", display);
-            }
-        };
-        const toggleRedo = (display) => {
-            const el = this.el.querySelector(".o_web_studio_redo");
-            if (el) {
-                el.classList.toggle("o_web_studio_active", display);
-            }
-        };
+        this.nextCrumbId = 1;
 
-        useBus(this.studio.bus, "undo_available", () => toggleUndo(true));
-        useBus(this.studio.bus, "undo_not_available", () => toggleUndo(false));
-        useBus(this.studio.bus, "redo_available", () => toggleRedo(true));
-        useBus(this.studio.bus, "redo_not_available", () => toggleRedo(false));
+        useBus(this.studio.bus, "UPDATE", async () => {
+            await this.render(true);
+            this.state.snackbar = "off";
+        });
 
-        const toggleSnackBar = (type) => {
-            const snackBarIcon = this.el.querySelector(".o_web_studio_snackbar_icon");
-            const snackBarText = this.el.querySelector(".o_web_studio_snackbar_text");
-            switch (type) {
-                case "saved":
-                    snackBarIcon.classList.remove("fa-circle-o-notch", "fa-spin");
-                    snackBarIcon.classList.add("show", "fa", "fa-check");
-                    snackBarText.textContent = this.env._t("Saved");
-                    break;
-                case "saving":
-                    snackBarIcon.classList.add("show", "fa", "fa-circle-o-notch", "fa-spin");
-                    snackBarText.textContent = this.env._t("Saving");
-                    break;
-                case "off":
-                    snackBarIcon.classList.remove(
-                        "fa-circle-o-notch",
-                        "fa-spin",
-                        "show",
-                        "fa-check"
-                    );
-                    snackBarText.textContent = "";
-                    break;
-            }
-        };
+        useBus(this.studio.bus, "undo_available", () => {
+            this.state.undo_available = true;
+        });
+        useBus(this.studio.bus, "undo_not_available", () => {
+            this.state.undo_available = false;
+        });
+        useBus(this.studio.bus, "redo_available", () => {
+            this.state.redo_available = true;
+        });
+        useBus(this.studio.bus, "redo_not_available", () => {
+            this.state.redo_available = false;
+        });
 
-        useBus(this.studio.bus, "toggle_snack_bar", toggleSnackBar);
+        useBus(this.studio.bus, "toggle_snack_bar", (e) => {
+            this.state.snackbar = e.detail;
+        });
     }
 
     get breadcrumbs() {
@@ -107,12 +87,15 @@ export class EditorMenu extends owl.Component {
                 handler: () => this.studio.setParams({}),
             });
         }
+        for (const crumb of crumbs) {
+            crumb.id = this.nextCrumbId++;
+        }
         return crumbs;
     }
 
     get activeViews() {
         const action = this.studio.editedAction;
-        const viewTypes = (action._views || action.views).map(([id, type]) => type);
+        const viewTypes = (action._views || action.views).map(([, type]) => type);
         return this.constructor.viewTypes.filter((vt) => viewTypes.includes(vt.type));
     }
 
@@ -122,7 +105,7 @@ export class EditorMenu extends owl.Component {
     }
 
     openTab(tab) {
-        this.trigger("switch-tab", { tab });
+        this.props.switchTab({ tab });
     }
 }
 EditorMenu.template = "web_studio.EditorMenu";
@@ -130,69 +113,63 @@ EditorMenu.viewTypes = [
     {
         title: _lt("Form"),
         type: "form",
-        faclass: "fa-address-card",
+        iconClasses: "fa fa-address-card",
     },
     {
         title: _lt("List"),
         type: "list",
-        faclass: "fa-list-ul",
+        iconClasses: "oi oi-view-list",
     },
     {
         title: _lt("Kanban"),
         type: "kanban",
-        faclass: "fa-th-large",
+        iconClasses: "oi oi-view-kanban",
     },
     {
         title: _lt("Map"),
         type: "map",
-        faclass: "fa-map-marker",
+        iconClasses: "fa fa-map-marker",
     },
     {
         title: _lt("Calendar"),
         type: "calendar",
-        faclass: "fa-calendar-o",
+        iconClasses: "fa fa-calendar",
     },
     {
         title: _lt("Graph"),
         type: "graph",
-        faclass: "fa-bar-chart",
+        iconClasses: "fa fa-area-chart",
     },
     {
         title: _lt("Pivot"),
         type: "pivot",
-        faclass: "fa-table",
+        iconClasses: "oi oi-view-pivot",
     },
     {
         title: _lt("Gantt"),
         type: "gantt",
-        faclass: "fa-tasks",
-    },
-    {
-        title: _lt("Dashboard"),
-        type: "dashboard",
-        faclass: "fa-tachometer",
+        iconClasses: "fa fa-tasks",
     },
     {
         title: _lt("Cohort"),
         type: "cohort",
-        faclass: "fa-signal",
+        iconClasses: "oi oi-view-cohort",
     },
     {
         title: _lt("Activity"),
         type: "activity",
-        faclass: "fa-th",
+        iconClasses: "fa fa-clock-o",
     },
     {
         title: _lt("Search"),
         type: "search",
-        faclass: "fa-search",
+        iconClasses: "oi oi-search",
     },
 ];
 
 editorTabRegistry
     .add("views", { name: _lt("Views"), action: "web_studio.action_editor" })
     .add("reports", { name: _lt("Reports") })
-    .add("translations", { name: _lt("Translations") })
     .add("automations", { name: _lt("Automations") })
     .add("acl", { name: _lt("Access Control") })
     .add("filters", { name: _lt("Filter Rules") });

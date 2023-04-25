@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-import logging
 import requests
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from dateutil.relativedelta import relativedelta
 from werkzeug.urls import url_join
-
-_logger = logging.getLogger(__name__)
 
 
 class SocialStreamPostYoutube(models.Model):
@@ -18,9 +15,10 @@ class SocialStreamPostYoutube(models.Model):
     youtube_video_id = fields.Char('YouTube Video ID', index=True)
     youtube_likes_count = fields.Integer('YouTube Likes')
     youtube_dislikes_count = fields.Integer('YouTube Dislikes')
+    youtube_likes_ratio = fields.Integer('YouTube Likes Ratio', compute='_compute_youtube_likes_ratio')
     youtube_comments_count = fields.Integer('YouTube Comments Count')
     youtube_views_count = fields.Integer('YouTube Views')
-    youtube_video_duration = fields.Float('YouTube Video Duration')  # in minutes
+    youtube_thumbnail_url = fields.Char('YouTube Thumbnail Url', compute="_compute_youtube_thumbnail_url")
 
     def _compute_author_link(self):
         youtube_posts = self._filter_by_media_types(['youtube'])
@@ -35,6 +33,22 @@ class SocialStreamPostYoutube(models.Model):
 
         for post in youtube_posts:
             post.post_link = 'https://www.youtube.com/watch?v=%s' % post.youtube_video_id
+
+    @api.depends('youtube_video_id')
+    def _compute_youtube_thumbnail_url(self):
+        for post in self:
+            post.youtube_thumbnail_url = "http://i3.ytimg.com/vi/%s/hqdefault.jpg" % post.youtube_video_id
+
+    @api.depends('youtube_likes_count', 'youtube_dislikes_count')
+    def _compute_youtube_likes_ratio(self):
+        for post in self:
+            if not post.youtube_likes_count and not post.youtube_dislikes_count:
+                post.youtube_likes_ratio = 0
+            else:
+                post.youtube_likes_ratio = int(
+                    100 * post.youtube_likes_count
+                    / (post.youtube_likes_count + post.youtube_dislikes_count)
+                )
 
     # ========================================================
     # COMMENTS / LIKES
@@ -147,10 +161,10 @@ class SocialStreamPostYoutube(models.Model):
             youtube_comment_replies = [
                 self.env['social.media']._format_youtube_comment(reply)
                 for reply in list(reversed(comment.get('replies', {}).get('comments', [])))]
-            if youtube_comment_replies:
-                youtube_comment['comments'] = {
-                    'data': youtube_comment_replies
-                }
+
+            youtube_comment['comments'] = {
+                'data': youtube_comment_replies if youtube_comment_replies else []
+            }
 
             comments.append(youtube_comment)
 
@@ -162,6 +176,16 @@ class SocialStreamPostYoutube(models.Model):
     # ========================================================
     # MISC / UTILITY
     # ========================================================
+
+    def _fetch_matching_post(self):
+        self.ensure_one()
+
+        if self.account_id.media_type == 'youtube' and self.youtube_video_id:
+            return self.env['social.live.post'].search(
+                [('youtube_video_id', '=', self.youtube_video_id)], limit=1
+            ).post_id
+        else:
+            return super(SocialStreamPostYoutube, self)._fetch_matching_post()
 
     @api.autovacuum
     def _gc_youtube_data(self):

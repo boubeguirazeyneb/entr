@@ -17,22 +17,44 @@ class Task(models.Model):
     quotation_count = fields.Integer(compute='_compute_quotation_count')
     material_line_product_count = fields.Integer(compute='_compute_material_line_totals')
     material_line_total_price = fields.Float(compute='_compute_material_line_totals')
-    currency_id = fields.Many2one('res.currency', related='company_id.currency_id', readonly=True)
+    currency_id = fields.Many2one('res.currency', compute='_compute_currency_id')
     display_create_invoice_primary = fields.Boolean(compute='_compute_display_create_invoice_buttons')
     display_create_invoice_secondary = fields.Boolean(compute='_compute_display_create_invoice_buttons')
     invoice_status = fields.Selection(related='sale_order_id.invoice_status')
     warning_message = fields.Char('Warning Message', compute='_compute_warning_message')
+    invoice_count = fields.Integer("Number of invoices", related='sale_order_id.invoice_count')
+    is_task_phone_update = fields.Boolean(compute='_compute_is_task_phone_update')
+    pricelist_id = fields.Many2one('product.pricelist', compute="_compute_pricelist_id")
+
+    # Project Sharing fields
+    portal_quotation_count = fields.Integer(compute='_compute_portal_quotation_count')
+    portal_invoice_count = fields.Integer('Invoice Count', compute='_compute_portal_invoice_count')
+    sale_line_id = fields.Many2one('sale.order.line', domain="[('company_id', '=', company_id),\
+            '|', ('order_partner_id', '=?', partner_id), ('order_id.partner_shipping_id', '=?', partner_id), \
+            ('is_service', '=', True), ('order_partner_id', '=?', partner_id), ('is_expense', '=', False), ('state', 'in', ['sale', 'done'])]")
 
     @property
     def SELF_READABLE_FIELDS(self):
         return super().SELF_READABLE_FIELDS | {'allow_material',
                                               'allow_quotations',
-                                              'quotation_count',
+                                              'portal_quotation_count',
                                               'material_line_product_count',
                                               'material_line_total_price',
                                               'currency_id',
-                                              'invoice_count',
+                                              'portal_invoice_count',
                                               'warning_message'}
+
+    @api.depends('sale_order_id.pricelist_id', 'partner_id.property_product_pricelist')
+    def _compute_pricelist_id(self):
+        pricelist_active = self.user_has_groups('product.group_product_pricelist')
+        for task in self:
+            task.pricelist_id = pricelist_active and \
+                                (task.sale_order_id.pricelist_id or task.partner_id.property_product_pricelist)
+
+    @api.depends('pricelist_id', 'company_id')
+    def _compute_currency_id(self):
+        for task in self:
+            task.currency_id = task.pricelist_id.currency_id or task.company_id.currency_id
 
     @api.depends('allow_material', 'material_line_product_count')
     def _compute_display_conditions_count(self):
@@ -47,11 +69,25 @@ class Task(models.Model):
                 'display_satisfied_conditions_count': satisfied
             })
 
+    @api.depends('partner_phone', 'partner_id.phone')
+    def _compute_is_task_phone_update(self):
+        for task in self:
+            task.is_task_phone_update = task.partner_phone != task.partner_id.phone
+
     def _compute_quotation_count(self):
         quotation_data = self.sudo().env['sale.order'].read_group([('task_id', 'in', self.ids)], ['task_id'], ['task_id'])
         mapped_data = dict([(q['task_id'][0], q['task_id_count']) for q in quotation_data])
         for task in self:
             task.quotation_count = mapped_data.get(task.id, 0)
+
+    def _compute_portal_quotation_count(self):
+        domain = [('task_id', 'in', self.ids)]
+        if self.user_has_groups('base.group_portal'):
+            domain = expression.AND([domain, [('state', '!=', 'draft')]])
+        quotation_data = self.env['sale.order'].read_group(domain, ['task_id'], ['task_id'])
+        mapped_data = {q['task_id'][0]: q['task_id_count'] for q in quotation_data}
+        for task in self:
+            task.portal_quotation_count = mapped_data.get(task.id, 0)
 
     @api.depends('sale_order_id.order_line.product_uom_qty', 'sale_order_id.order_line.price_total')
     def _compute_material_line_totals(self):
@@ -62,7 +98,7 @@ class Task(models.Model):
                 is_not_timesheet_line = is_not_timesheet_line and sale_line_id.product_id.id not in employee_mapping_product_ids
             is_not_empty = sale_line_id.product_uom_qty != 0
             is_not_service_from_so = sale_line_id != task.sale_line_id
-            is_task_related = sale_line_id.task_id == task
+            is_task_related = sale_line_id.task_id == (task or task._origin)
             return all([is_not_timesheet_line, is_not_empty, is_not_service_from_so, is_task_related])
 
         employee_mapping_timesheet_product_ids = {}  # keys = project_id, value = list of timesheet_product_id
@@ -81,7 +117,7 @@ class Task(models.Model):
         for task in self:
             material_sale_lines = sols_by_so[task.sudo().sale_order_id.id].sudo().filtered(lambda sol: if_fsm_material_line(sol, task, employee_mapping_timesheet_product_ids.get(task.project_id.id)))
             task.material_line_total_price = sum(material_sale_lines.mapped('price_total'))
-            task.material_line_product_count = sum(material_sale_lines.mapped('product_uom_qty'))
+            task.material_line_product_count = round(sum(material_sale_lines.mapped('product_uom_qty')))
 
     @api.depends(
         'is_fsm', 'fsm_done', 'allow_billable', 'timer_start',
@@ -117,6 +153,20 @@ class Task(models.Model):
                 task.warning_message = False
         (self - employee_rate_fsm_tasks).update({'warning_message': False})
 
+    @api.depends_context('uid')
+    @api.depends('sale_order_id.invoice_ids')
+    def _compute_portal_invoice_count(self):
+        """ The goal of portal_invoice_count field is to show the Invoices stat button in Project sharing feature. """
+        is_portal_user = self.user_has_groups('base.group_portal')
+        invoices_by_so = {}
+        available_invoices = False
+        if is_portal_user:
+            sale_orders_sudo = self.sale_order_id.sudo()
+            invoices_by_so = {so.id: set(so.invoice_ids.ids) for so in sale_orders_sudo}
+            available_invoices = set(self.env['account.move'].search([('id', 'in', sale_orders_sudo.invoice_ids.ids)]).ids)
+        for task in self:
+            task.portal_invoice_count = len(invoices_by_so.get(task.sale_order_id.id, set()).intersection(available_invoices)) if is_portal_user else task.invoice_count
+
     def action_create_invoice(self):
         # ensure the SO exists before invoicing, then confirm it
         so_to_confirm = self.filtered(
@@ -127,10 +177,15 @@ class Task(models.Model):
         # redirect create invoice wizard (of the Sales Order)
         action = self.env["ir.actions.actions"]._for_xml_id("sale.action_view_sale_advance_payment_inv")
         context = literal_eval(action.get('context', "{}"))
+        so_task_mapping = defaultdict(list)
+        for task in self:
+            if task.sale_order_id:
+                # As the key is anyway stringified in the JS, we casted the key here to make it clear.
+                so_task_mapping[str(task.sale_order_id.id)].append(task.id)
         context.update({
             'active_id': self.sale_order_id.id if len(self) == 1 else False,
             'active_ids': self.mapped('sale_order_id').ids,
-            'default_company_id': self.company_id.id,
+            'industry_fsm_message_post_task_id': so_task_mapping,
         })
         action['context'] = context
         return action
@@ -146,6 +201,7 @@ class Task(models.Model):
         invoices = self.mapped('sale_order_id.invoice_ids')
         # prevent view with onboarding banner
         list_view = self.env.ref('account.view_move_tree')
+        kanban_view = self.env.ref('account.view_account_move_kanban')
         form_view = self.env.ref('account.view_move_form')
         if len(invoices) == 1:
             return {
@@ -155,14 +211,31 @@ class Task(models.Model):
                 'view_mode': 'form',
                 'views': [[form_view.id, 'form']],
                 'res_id': invoices.id,
+                'context': {
+                    'create': False,
+                }
             }
         return {
             'type': 'ir.actions.act_window',
             'name': _('Invoices'),
             'res_model': 'account.move',
-            'view_mode': 'list,form',
-            'views': [[list_view.id, 'list'], [form_view.id, 'form']],
+            'view_mode': 'list,kanban,form',
+            'views': [[list_view.id, 'list'], [kanban_view.id, 'kanban'], [form_view.id, 'form']],
             'domain': [('id', 'in', invoices.ids)],
+            'context': {
+                'create': False,
+            }
+        }
+
+    def action_project_sharing_view_invoices(self):
+        """ Action used only in project sharing feature """
+        return {
+            "name": "Portal Invoices",
+            "type": "ir.actions.act_url",
+            "url":
+                self.env['account.move'].search([('id', 'in', self.sale_order_id.sudo().invoice_ids.ids)], limit=1).get_portal_url()
+                if self.portal_invoice_count == 1
+                else f"/my/projects/{self.project_id.id}/task/{self.id}/invoices",
         }
 
     def action_fsm_create_quotation(self):
@@ -178,11 +251,13 @@ class Task(models.Model):
                 'default_partner_id': self.partner_id.id,
                 'default_task_id': self.id,
                 'default_company_id': self.company_id.id,
+                'default_origin': _('%s - %s') % (self.project_id.name, self.name),
             },
         })
         return action
 
     def action_fsm_view_quotations(self):
+        self.ensure_one()
         action = self.env["ir.actions.actions"]._for_xml_id("sale.action_quotations")
         action.update({
             'name': self.name,
@@ -196,6 +271,18 @@ class Task(models.Model):
             action['res_id'] = self.env['sale.order'].search([('task_id', '=', self.id)]).id
             action['views'] = [(self.env.ref('sale.view_order_form').id, 'form')]
         return action
+
+    def action_project_sharing_view_quotations(self):
+        """ Action used only in project sharing feature """
+        self.ensure_one()
+        return {
+            "name": "Portal Quotations",
+            "type": "ir.actions.act_url",
+            "url":
+                self.env['sale.order'].search([('task_id', '=', self.id)], limit=1).get_portal_url()
+                if self.portal_quotation_count == 1
+                else f"/my/projects/{self.project_id.id}/task/{self.id}/quotes",
+        }
 
     def action_fsm_view_material(self):
         if not self.partner_id:
@@ -231,31 +318,36 @@ class Task(models.Model):
                 'default_invoice_policy': 'delivery',
             },
             'help': _("""<p class="o_view_nocontent_smiling_face">
-                            Create a new product
+                            No products found. Let's create one!
                         </p><p>
-                            You must define a product for everything you sell or purchase,
-                            whether it's a storable product, a consumable or a service.
+                            Keep track of the products you are using to complete your tasks, and invoice your customers for the goods.
+                            Tip: using kits, you can add multiple products at once.
+                        </p><p>
+                            When your task is marked as done, your stock will be updated automatically. Simply choose a warehouse
+                            in your profile from where to draw stock.
                         </p>""")
         }
 
-    def action_fsm_validate(self):
+    def action_fsm_validate(self, stop_running_timers=False):
         """ If allow billable on task, timesheet product set on project and user has privileges :
             Create SO confirmed with time and material.
         """
-        super().action_fsm_validate()
-        billable_tasks = self.filtered(lambda task: task.allow_billable and (task.allow_timesheets or task.allow_material))
-        timesheets_read_group = self.env['account.analytic.line'].sudo().read_group([('task_id', 'in', billable_tasks.ids), ('project_id', '!=', False)], ['task_id', 'id'], ['task_id'])
-        timesheet_count_by_task_dict = {timesheet['task_id'][0]: timesheet['task_id_count'] for timesheet in timesheets_read_group}
-        for task in billable_tasks:
-            timesheet_count = timesheet_count_by_task_dict.get(task.id)
-            if not task.sale_order_id and not timesheet_count:  # Prevent creating/confirming a SO if there are no products and timesheets
-                continue
-            task._fsm_ensure_sale_order()
-            if task.allow_timesheets:
-                task._fsm_create_sale_order_line()
-            if task.sudo().sale_order_id.state in ['draft', 'sent']:
-                task.sudo().sale_order_id.action_confirm()
-        billable_tasks._prepare_materials_delivery()
+        res = super().action_fsm_validate(stop_running_timers)
+        if res is True:
+            billable_tasks = self.filtered(lambda task: task.allow_billable and (task.allow_timesheets or task.allow_material))
+            timesheets_read_group = self.env['account.analytic.line'].sudo().read_group([('task_id', 'in', billable_tasks.ids), ('project_id', '!=', False)], ['task_id', 'id'], ['task_id'])
+            timesheet_count_by_task_dict = {timesheet['task_id'][0]: timesheet['task_id_count'] for timesheet in timesheets_read_group}
+            for task in billable_tasks:
+                timesheet_count = timesheet_count_by_task_dict.get(task.id)
+                if not task.sale_order_id and not timesheet_count:  # Prevent creating/confirming a SO if there are no products and timesheets
+                    continue
+                task._fsm_ensure_sale_order()
+                if task.allow_timesheets:
+                    task._fsm_create_sale_order_line()
+                if task.sudo().sale_order_id.state in ['draft', 'sent']:
+                    task.sudo().sale_order_id.action_confirm()
+            billable_tasks._prepare_materials_delivery()
+        return res
 
     def _fsm_ensure_sale_order(self):
         """ get the SO of the task. If no one, create it and return it """
@@ -274,25 +366,17 @@ class Task(models.Model):
         if self.user_has_groups('project.group_project_user'):
             SaleOrder = SaleOrder.sudo()
 
-        # TDE note: normally company comes from project, user should be in same company
-        # and _get_default_team_id already enforces company coherency + match
-        # Sale.onchange_user_id() that also calls _get_default_team_id
-        # Use the first assignee
         user_id = self.user_ids[0] if self.user_ids else self.env['res.users']
         team = self.env['crm.team'].sudo()._get_default_team_id(user_id=user_id.id, domain=None)
         sale_order = SaleOrder.create({
             'partner_id': self.partner_id.id,
             'company_id': self.company_id.id,
-            'task_id': self.id,
             'analytic_account_id': self._get_task_analytic_account_id().id,
             'team_id': team.id if team else False,
+            'origin': _('%s - %s') % (self.project_id.name, self.name),
         })
-        sale_order.onchange_partner_id()
-        # invoking onchange_partner_shipping_id to update fiscal position
-        sale_order.onchange_partner_shipping_id()
         # update after creation since onchange_partner_id sets the current user
         sale_order.user_id = user_id.id
-        sale_order.onchange_user_id()
 
         self.sale_order_id = sale_order
 
@@ -334,7 +418,7 @@ class Task(models.Model):
         """
         self.ensure_one()
         # Get all timesheets in the current task (step 1)
-        not_billed_timesheets = self.env['account.analytic.line'].sudo().search([('task_id', '=', self.id), ('project_id', '!=', False)]).filtered(lambda t: t._is_not_billed())
+        not_billed_timesheets = self.env['account.analytic.line'].sudo().search([('task_id', '=', self.id), ('project_id', '!=', False), ('is_so_line_edited', '=', False)]).filtered(lambda t: t._is_not_billed())
         if self.pricing_type == 'employee_rate':
             # classify these timesheets by employee (step 2)
             timesheets_by_employee_dict = defaultdict(lambda: self.env['account.analytic.line'])  # key: employee_id, value: timesheets
@@ -396,7 +480,7 @@ class Task(models.Model):
                     })
 
                 # Link the SOL to the timesheets
-                update_timesheet_commands.extend([fields.Command.update(timesheet_id, {'so_line': sol.id}) for timesheet_id in timesheets.ids])
+                update_timesheet_commands.extend([fields.Command.update(timesheet.id, {'so_line': sol.id}) for timesheet in timesheets if not timesheet.is_so_line_edited])
                 if not sol_in_task and (not product or (product.id == timesheet_product_id and product.lst_price == price_unit)):
                     # If there is no sol in task and the product variable is empty then we give the first sol in this loop to the task
                     # However, if the product is not empty then we search the sol with the same product and unit price to give to the current task
@@ -417,13 +501,12 @@ class Task(models.Model):
                     # The project and the task are given to prevent the SOL to create a new project or task based on the config of the product.
                     'project_id': self.project_id.id,
                     'task_id': self.id,
-                    'product_uom_qty': self.total_hours_spent,
-                    'product_uom': self.timesheet_product_id.uom_id.id,
+                    'product_uom_qty': sum(timesheet_id.unit_amount for timesheet_id in not_billed_timesheets),
                 })
             self.sudo().write({  # We need to sudo in case the user cannot see all timesheets in the current task.
                 'sale_line_id': sale_order_line.id,
                 # assign SOL to timesheets
-                'timesheet_ids': [fields.Command.update(timesheet_id, {'so_line': sale_order_line.id}) for timesheet_id in not_billed_timesheets.ids]
+                'timesheet_ids': [fields.Command.update(timesheet.id, {'so_line': sale_order_line.id}) for timesheet in not_billed_timesheets if not timesheet.is_so_line_edited]
             })
 
     def _prepare_materials_delivery(self):
@@ -437,6 +520,9 @@ class Task(models.Model):
         ])
         for sol in sale_order_lines:
             sol.qty_delivered = sol.product_uom_qty
+
+    def has_to_be_signed(self):
+        return super().has_to_be_signed() or (self.sale_order_id and not self.worksheet_signature)
 
 class ProjectTaskRecurrence(models.Model):
     _inherit = 'project.task.recurrence'

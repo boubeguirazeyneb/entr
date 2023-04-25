@@ -11,8 +11,11 @@ class ResConfigSettings(models.TransientModel):
 
     invoiced_timesheet = fields.Selection([
         ('all', "All recorded timesheets"),
-        ('approved', "Approved timesheets only"),
-    ], default=DEFAULT_INVOICED_TIMESHEET, string="Timesheets Invoicing", config_parameter='sale.invoiced_timesheet')
+        ('approved', "Validated timesheets only"),
+    ], default=DEFAULT_INVOICED_TIMESHEET, string="Timesheets Invoicing", config_parameter='sale.invoiced_timesheet',
+        help="With the 'all recorded timesheets' option, all timesheets will be invoiced without distinction, even if they haven't been validated."
+        " Additionally, all timesheets will be accessible in your customers' portal. \n"
+        "When you choose the 'validated timesheets only' option, only the validated timesheets will be invoiced and appear in your customers' portal.")
 
     def set_values(self):
         """ Override set_values to recompute the qty_delivered for each sale.order.line
@@ -30,20 +33,15 @@ class ResConfigSettings(models.TransientModel):
         if old_value and self.invoiced_timesheet != old_value:
             # recompute the qty_delivered in sale.order.line for sale.order
             # where his state is set to 'sale'.
-            sale_orders = self.env['sale.order'].search([
-                ('state', 'in', ['sale', 'done'])
+            sale_order_lines = self.env['sale.order.line'].sudo().search([
+                ('state', 'in', ['sale', 'done']),
+                ('invoice_status', 'in', ['no', 'to invoice']),
+                ('product_id.type', '=', 'service'),
+                ('product_id.service_type', '=', 'timesheet'),
             ])
 
-            for so in sale_orders:
-                sale_order_lines = so.order_line.filtered(
-                    lambda sol: sol.invoice_status in ['no', 'to invoice'] and sol.product_id.type == 'service' and sol.product_id.service_type == 'timesheet'
-                )
-
-                if sale_order_lines:
-                    # Too much write 3 * (n records)
-                    # We could simplify and merge the 3 methods to have
-                    # max 1 * (n records) writings in database.
-                    sale_order_lines._compute_qty_delivered()
-                    sale_order_lines._get_to_invoice_qty()
-                    sale_order_lines._compute_invoice_status()
-        return super(ResConfigSettings, self).set_values()
+            if sale_order_lines:
+                sale_order_lines._compute_qty_delivered()
+                sale_order_lines._compute_qty_to_invoice()
+                sale_order_lines._compute_invoice_status()
+        return super().set_values()

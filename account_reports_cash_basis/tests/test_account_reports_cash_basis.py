@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=C0326
 from odoo.tests import tagged
 from odoo import fields
 
@@ -7,7 +8,6 @@ from odoo.addons.account_reports.tests.common import TestAccountReportsCommon
 
 @tagged('post_install', '-at_install')
 class TestAccountReports(TestAccountReportsCommon):
-
     @classmethod
     def _reconcile_on(cls, lines, account):
         lines.filtered(lambda line: line.account_id == account and not line.reconciled).reconcile()
@@ -67,11 +67,10 @@ class TestAccountReports(TestAccountReportsCommon):
 
     def test_general_ledger_cash_basis(self):
         # Check the cash basis option.
-        self.env['res.currency'].search([('name', '!=', 'USD')]).active = False
-        report = self.env['account.general.ledger']
-        options = self._init_options(report, fields.Date.from_string('2016-01-01'), fields.Date.from_string('2016-12-31'))
-        options['cash_basis'] = True
-        report = report.with_context(report._set_context(options))
+        self.env['res.currency'].search([('name', '!=', 'USD')]).with_context(force_deactivate=True).active = False
+        report = self.env.ref('account_reports.general_ledger_report')
+        options = self._generate_options(report, fields.Date.from_string('2016-01-01'), fields.Date.from_string('2016-12-31'))
+        options['report_cash_basis'] = True
 
         lines = report._get_lines(options)
         self.assertLinesValues(
@@ -80,83 +79,132 @@ class TestAccountReports(TestAccountReportsCommon):
             [   0,                              4,          5,          6],
             [
                 # Accounts.
-                ('101404 Bank',                 460.0,      0.0,        460.0),
-                ('121000 Account Receivable',   460.0,      460.0,      0.0),
-                ('400000 Product Sales',        0.0,        460.0,      -460.0),
+                ('101404 Bank',                 460.0,      '',     460.0),
+                ('121000 Account Receivable',   460.0,      460.0,    0.0),
+                ('400000 Product Sales',        '',         460.0, -460.0),
                 # Report Total.
-                ('Total',                       920.0,      920.0,     0.0),
+                ('Total',                       920.0,      920.0,    0.0),
             ],
         )
 
         # Mark the '101200 Account Receivable' line to be unfolded.
-        line_id = lines[1]['id']
+        line_id = lines[2]['id'] # Index 2, because there is the total line for bank in position 1
         options['unfolded_lines'] = [line_id]
-        options['cash_basis'] = False  # Because we are in the same transaction, the table temp_account_move_line still exists
         self.assertLinesValues(
-            report._get_lines(options, line_id=line_id),
+            report._get_lines(options),
             # pylint: disable=C0326
             #   Name                                    Date            Debit           Credit          Balance
             [   0,                                      1,                    4,             5,             6],
             [
                 # Account.
+                ('101404 Bank',                         '',              460.00,            '',        460.00),
                 ('121000 Account Receivable',           '',              460.00,        460.00,          0.00),
-                ('Initial Balance',                     '',                0.00,          0.00,          0.00),
-                # Account Move Lines.
+                # Account Move Lines.from unfolded account
                 ('MISC/2016/01/0001',                   '02/01/2016',     69.00,            '',         69.00),
                 ('MISC/2016/01/0001',                   '02/01/2016',    161.00,            '',        230.00),
-                ('BNK1/2016/02/0001',                   '02/01/2016',        '',        230.00,          0.00),
-                ('MISC/2016/01/0001',                   '03/01/2016',     34.50,            '',         34.50),
-                ('MISC/2016/01/0001',                   '03/01/2016',     34.50,            '',         69.00),
-                ('MISC/2016/01/0001',                   '03/01/2016',     80.50,            '',        149.50),
-                ('MISC/2016/01/0001',                   '03/01/2016',     80.50,            '',        230.00),
-                ('BNK1/2016/03/0001',                   '03/01/2016',        '',        230.00,          0.00),
+                ('BNK1/2016/00001',                     '02/01/2016',        '',        230.00,          0.00),
+                ('MISC/2016/01/0001',                   '03/01/2016',     69.00,            '',         69.00),
+                ('MISC/2016/01/0001',                   '03/01/2016',    161.00,            '',        230.00),
+                ('BNK1/2016/00002',                     '03/01/2016',        '',        230.00,          0.00),
                 # Account Total.
                 ('Total 121000 Account Receivable',     '',              460.00,        460.00,          0.00),
+                ('400000 Product Sales',                '',                  '',        460.00,       -460.00),
+                # Report Total.
+                ('Total',                               '',              920.00,        920.00,          0.00),
             ],
         )
 
     def test_balance_sheet_cash_basis(self):
         # Check the cash basis option.
-        report = self.env.ref('account_reports.account_financial_report_balancesheet0')
-        options = self._init_options(report, fields.Date.from_string('2016-01-01'), fields.Date.from_string('2016-12-31'))
-        options['cash_basis'] = True
-        report = report.with_context(report._set_context(options))
+        report = self.env.ref('account_reports.balance_sheet')
+        options = self._generate_options(report, fields.Date.from_string('2016-01-01'), fields.Date.from_string('2016-12-31'))
+        options['report_cash_basis'] = True
 
         self.assertLinesValues(
-            report._get_table(options)[1],
+            report._get_lines(options),
             #   Name                                            Balance
             [   0,                                              1],
             [
                 ('ASSETS',                                      460.0),
                 ('Current Assets',                              460.0),
                 ('Bank and Cash Accounts',                      460.0),
-                ('Receivables',                                 0.0),
-                ('Current Assets',                              0.0),
-                ('Prepayments',                                 0.0),
+                ('Receivables',                                 ''),
+                ('Current Assets',                              ''),
+                ('Prepayments',                                 ''),
                 ('Total Current Assets',                        460.0),
-                ('Plus Fixed Assets',                           0.0),
-                ('Plus Non-current Assets',                     0.0),
+                ('Plus Fixed Assets',                           ''),
+                ('Plus Non-current Assets',                     ''),
                 ('Total ASSETS',                                460.0),
 
-                ('LIABILITIES',                                 0.0),
-                ('Current Liabilities',                         0.0),
-                ('Current Liabilities',                         0.0),
-                ('Payables',                                    0.0),
-                ('Total Current Liabilities',                   0.0),
-                ('Plus Non-current Liabilities',                0.0),
-                ('Total LIABILITIES',                           0.0),
+                ('LIABILITIES',                                 ''),
+                ('Current Liabilities',                         ''),
+                ('Current Liabilities',                         ''),
+                ('Payables',                                    ''),
+                ('Total Current Liabilities',                   ''),
+                ('Plus Non-current Liabilities',                ''),
+                ('Total LIABILITIES',                           ''),
 
                 ('EQUITY',                                      460.0),
                 ('Unallocated Earnings',                        460.0),
                 ('Current Year Unallocated Earnings',           460.0),
                 ('Current Year Earnings',                       460.0),
-                ('Current Year Allocated Earnings',             0.0),
+                ('Current Year Allocated Earnings',             ''),
                 ('Total Current Year Unallocated Earnings',     460.0),
-                ('Previous Years Unallocated Earnings',         0.0),
+                ('Previous Years Unallocated Earnings',         ''),
                 ('Total Unallocated Earnings',                  460.0),
-                ('Retained Earnings',                           0.0),
+                ('Retained Earnings',                           ''),
                 ('Total EQUITY',                                460.0),
 
                 ('LIABILITIES + EQUITY',                        460.0),
+            ],
+        )
+
+    def test_cash_basis_payment_in_the_past(self):
+        self.env['res.currency'].search([('name', '!=', 'USD')]).with_context(force_deactivate=True).active = False
+
+        payment_date = fields.Date.from_string('2010-01-01')
+        invoice_date = fields.Date.from_string('2011-01-01')
+
+        invoice = self.init_invoice('out_invoice', amounts=[100.0], partner=self.partner_a, invoice_date=invoice_date, post=True)
+        self.env['account.payment.register'].with_context(active_ids=invoice.ids, active_model='account.move').create({
+            'payment_date': payment_date,
+        })._create_payments()
+
+        # Check the impact in the reports: the invoice date should be the one the invoice appears at, since it greater than the payment's
+        report = self.env.ref('account_reports.general_ledger_report')
+
+        options = self._generate_options(report, payment_date, payment_date)
+        options['cash_basis'] = True
+
+        self.assertLinesValues(
+            # pylint: disable=C0326
+            report._get_lines(options),
+            #   Name                                     Debit           Credit          Balance
+            [   0,                                       4,              5,              6],
+            [
+                # Accounts.
+                ('101402 Outstanding Receipts',        115,             '',            115),
+                ('121000 Account Receivable',           '',            115,           -115),
+                # Report Total.
+                ('Total',                              115,            115,             0),
+            ],
+        )
+
+        options = self._generate_options(report, invoice_date, invoice_date)
+        options['cash_basis'] = True
+
+        self.assertLinesValues(
+            # pylint: disable=C0326
+            report._get_lines(options),
+            #   Name                                     Debit           Credit          Balance
+            [   0,                                       4,              5,              6],
+            [
+                # Accounts.
+                ('101402 Outstanding Receipts',        115,             '',            115),
+                ('121000 Account Receivable',          115,            115,              0),
+                ('251000 Tax Received',                 '',             15,            -15),
+                ('400000 Product Sales',                '',            100,           -100),
+                # Report Total.
+                ('Total',                              230,            230,             0),
             ],
         )

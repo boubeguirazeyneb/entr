@@ -12,14 +12,21 @@
         'website',
     ],
     'data': [
-        'views/assets.xml',
+        'data/helpdesk_data.xml',
         'views/helpdesk_views.xml',
         'views/helpdesk_templates.xml',
+        'security/website_helpdesk_security.xml',
+        'views/snippets.xml',
     ],
     'license': 'OEEL-1',
+    'post_init_hook': '_configure_teams',
     'assets': {
         'web.assets_frontend': [
             'website_helpdesk/static/**/*',
+            ('remove', 'website_helpdesk/static/src/js/website_helpdesk_form_editor.js'),
+        ],
+        'website.assets_editor':[
+            'website_helpdesk/static/src/js/website_helpdesk_form_editor.js',
         ],
     }
 }

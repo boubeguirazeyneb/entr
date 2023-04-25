@@ -1,14 +1,16 @@
 odoo.define('timesheet_grid.TimerStartComponent', function (require) {
     "use strict";
 
-    class TimerStartComponent extends owl.Component {
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
+
+    class TimerStartComponent extends LegacyComponent {
 
         //----------------------------------------------------------------------
         // Getters
         //----------------------------------------------------------------------
 
         get letter() {
-            if (this.props.runningIndex !== this.props.index && this.props.index < 26) {
+            if (this.props.runningIndex !== this.props.index && this.props.index < 26 && !this.env.device.isMobile) {
                 const from = this.props.addTimeMode ? 65 : 97;
                 return String.fromCharCode(from + this.props.index);
             } else {
@@ -16,15 +18,28 @@ odoo.define('timesheet_grid.TimerStartComponent', function (require) {
             }
         }
         get iconClass() {
+            let classNames = [];
             if (this.props.runningIndex === this.props.index) {
-                return 'fa fa-play primary-green';
-            } else if (this.props.index < 26) {
-                return '';
-            } else if (this.props.addTimeMode) {
-                return 'fa fa-plus';
+                classNames = ['d-flex', 'align-items-center', 'justify-content-center', 'fa', 'fa-play', 'text-bg-primary']
+            } else if (this.props.index >= 26 || this.env.device.isMobile) {
+                if (this.props.addTimeMode) {
+                    classNames = ['fa', 'fa-plus', 'bg-transparent'];
+                } else {
+                    classNames = ['d-flex', 'align-items-center', 'justify-content-center', 'fa', 'fa-play', 'text-success'];
+                }
             } else {
-                return 'fa fa-play';
+                classNames.push('bg-transparent');
             }
+            if (this.props.hovered && !this.env.device.isMobile) {
+                if (this.props.runningIndex === this.props.index) {
+                    classNames = ['d-flex', 'align-items-center', 'justify-content-center', 'fa', 'fa-stop', 'border-danger', 'text-bg-danger']
+                } else if (this.props.addTimeMode) {
+                    classNames.push('text-bg-primary');
+                } else {
+                    classNames = ['d-flex', 'align-items-center', 'justify-content-center', 'fa', 'fa-play', 'text-bg-primary']
+                }
+            }
+            return Array.from(new Set(classNames)).join(' ');
         }
 
         //--------------------------------------------------------------------------
@@ -51,7 +66,15 @@ odoo.define('timesheet_grid.TimerStartComponent', function (require) {
             type: Number,
             optional: true
         },
-        addTimeMode: Boolean
+        addTimeMode: Boolean,
+        onTimerStartedFromLine: {
+            type: Function,
+            optional: true
+        },
+        hovered: {
+            type: Boolean,
+            optional: true
+        },
     };
 
     return TimerStartComponent;

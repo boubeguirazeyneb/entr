@@ -3,19 +3,20 @@
 # 	* approvals
 # 
 # Translators:
-# sakodoo <sak@odoo.com>, 2022
-# Martin Trigaux, 2022
-# Rastislav Brencic <rastislav.brencic@azet.sk>, 2022
+# SAKodoo <sak@odoo.com>, 2022
 # Damian Brencic <brencicdamian12313@gmail.com>, 2022
+# Rastislav Brencic <rastislav.brencic@azet.sk>, 2022
+# Jaroslav Bosansky <jaro.bosansky@ekoenergo.sk>, 2022
+# Martin Trigaux, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:59+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: Damian Brencic <brencicdamian12313@gmail.com>, 2022\n"
-"Language-Team: Slovak (https://www.transifex.com/odoo/teams/41243/sk/)\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Martin Trigaux, 2022\n"
+"Language-Team: Slovak (https://app.transifex.com/odoo/teams/41243/sk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -112,6 +113,7 @@ msgid "An additional reference that should be specified on the request."
 msgstr "Dodatočný odkaz, ktorý je potrebné uviesť v žiadosti."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #, python-format
 msgid "An user may not be in the approver list multiple times."
@@ -179,7 +181,7 @@ msgid "Approvals to review"
 msgstr "Schválenia na kontrolu"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/components/approval/approval.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
@@ -198,10 +200,17 @@ msgstr "Schválené"
 
 #. module: approvals
 #: model:ir.model,name:approvals.model_approval_approver
-#: model:res.groups,name:approvals.group_approval_user
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_form
 msgid "Approver"
 msgstr "Schvaľovateľ"
+
+#. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_category.py:0
+#, python-format
+msgid ""
+"Approver Sequence can only be activated with at least 1 minimum approver."
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__user_ids
@@ -219,6 +228,12 @@ msgstr "Schvaľovateľ"
 #: model_terms:ir.ui.view,arch_db:approvals.approval_category_view_form
 msgid "Approvers"
 msgstr "Schvaľovatelia"
+
+#. module: approvals
+#: model:ir.model.fields,field_description:approvals.field_approval_category__approver_sequence
+#: model:ir.model.fields,field_description:approvals.field_approval_request__approver_sequence
+msgid "Approvers Sequence?"
+msgstr ""
 
 #. module: approvals
 #: model_terms:ir.ui.view,arch_db:approvals.approval_category_view_form
@@ -258,6 +273,11 @@ msgid "Business Trip"
 msgstr "Pracovná cesta"
 
 #. module: approvals
+#: model:ir.model.fields,field_description:approvals.field_approval_request__change_request_owner
+msgid "Can Change Request Owner"
+msgstr ""
+
+#. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_approver__can_edit
 msgid "Can Edit"
 msgstr "Môžete upravovať"
@@ -280,6 +300,11 @@ msgstr "Aplikácia na požičanie auta"
 #: model:ir.model.fields,field_description:approvals.field_approval_request__category_id
 msgid "Category"
 msgstr "Kategória"
+
+#. module: approvals
+#: model:ir.model.fields,field_description:approvals.field_approval_approver__category_approver
+msgid "Category Approver"
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__sequence_code
@@ -366,7 +391,7 @@ msgid "Date start"
 msgstr "Dátum začiatku"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #, python-format
@@ -558,7 +583,6 @@ msgstr "Ikona indikujúca výnimočnú aktivitu."
 
 #. module: approvals
 #: model:ir.model.fields,help:approvals.field_approval_request__message_needaction
-#: model:ir.model.fields,help:approvals.field_approval_request__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Ak označené, potom nové správy vyžadujú vašu pozornosť."
 
@@ -576,6 +600,13 @@ msgid ""
 msgstr ""
 "Ak je táto možnosť začiarknutá, v žiadostiach o schválenie bude automaticky "
 "generovaný názov založený na danom kóde."
+
+#. module: approvals
+#: model:ir.model.fields,help:approvals.field_approval_category__approver_sequence
+#: model:ir.model.fields,help:approvals.field_approval_request__approver_sequence
+msgid ""
+"If checked, the approvers have to approve in sequence (one after the other)."
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__image
@@ -650,10 +681,10 @@ msgstr ""
 #: model:ir.model.fields,field_description:approvals.field_approval_request__location
 #: model_terms:ir.ui.view,arch_db:approvals.approval_category_view_form
 msgid "Location"
-msgstr "Miesto (adresa)"
+msgstr "Miesto"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #, python-format
@@ -687,6 +718,7 @@ msgid "Minimum Approval"
 msgstr "Minimálne schválenie"
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #, python-format
 msgid ""
@@ -725,8 +757,11 @@ msgid "Name"
 msgstr "Meno"
 
 #. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_category.py:0
 #: model:ir.model.fields.selection,name:approvals.selection__approval_approver__status__new
 #: model:ir.model.fields.selection,name:approvals.selection__approval_request__user_status__new
+#, python-format
 msgid "New"
 msgstr "Nové"
 
@@ -739,7 +774,7 @@ msgstr "Nová požiadavka"
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_request__activity_calendar_event_id
 msgid "Next Activity Calendar Event"
-msgstr "Ďalšia udalosť kalendára aktivít"
+msgstr "Kalendár ďalších aktivít eventu"
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_request__activity_date_deadline
@@ -816,9 +851,9 @@ msgid "Number of requests to validate"
 msgstr "Počet žiadostí o overenie"
 
 #. module: approvals
-#: model:ir.model.fields,help:approvals.field_approval_request__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Počet neprečítaných správ"
+#: model:res.groups,name:approvals.group_approval_user
+msgid "Officer : Approve all requests"
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields.selection,name:approvals.selection__approval_category__has_amount__optional
@@ -882,6 +917,7 @@ msgstr "Varianty produktu"
 #: model:ir.ui.menu,name:approvals.approvals_menu_product_template
 #: model_terms:ir.ui.view,arch_db:approvals.approval_product_line_view_form
 #: model_terms:ir.ui.view,arch_db:approvals.approval_product_line_view_tree
+#: model_terms:ir.ui.view,arch_db:approvals.approval_product_line_view_tree_independent
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_form
 msgid "Products"
 msgstr "Produkty"
@@ -905,7 +941,7 @@ msgid "Reference Sequence"
 msgstr "Referenčná sekvencia"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/components/approval/approval.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
@@ -965,9 +1001,12 @@ msgid "Responsible User"
 msgstr "Zodpovedný užívateľ"
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #: code:addons/approvals/models/approval_category.py:0
+#: model:ir.model.fields,field_description:approvals.field_approval_approver__sequence
 #: model:ir.model.fields,field_description:approvals.field_approval_category__sequence
+#: model:ir.model.fields,field_description:approvals.field_approval_category_approver__sequence
 #, python-format
 msgid "Sequence"
 msgstr "Postupnosť"
@@ -1002,8 +1041,8 @@ msgstr "Odoslané"
 
 #. module: approvals
 #: model:res.groups,comment:approvals.group_approval_user
-msgid "The user will be able to see approvals created by himself."
-msgstr "Užívateľ bude môcť vidieť schválenia, ktoré vytvoril sám."
+msgid "The user will be able to access all requests and approve/refuse them."
+msgstr ""
 
 #. module: approvals
 #: model:res.groups,comment:approvals.group_approval_manager
@@ -1011,6 +1050,7 @@ msgid "The user will have access to the approvals configuration."
 msgstr "Používateľ bude mať prístup ku konfigurácii schvalovania."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid ""
@@ -1019,6 +1059,7 @@ msgid ""
 msgstr ""
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid ""
@@ -1027,6 +1068,7 @@ msgid ""
 msgstr ""
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid ""
@@ -1035,7 +1077,7 @@ msgid ""
 msgstr ""
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/components/approval/approval.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: model:ir.model.fields.selection,name:approvals.selection__approval_approver__status__pending
@@ -1065,17 +1107,7 @@ msgid "Unit of Measure"
 msgstr "Merná jednotka"
 
 #. module: approvals
-#: model:ir.model.fields,field_description:approvals.field_approval_request__message_unread
-msgid "Unread Messages"
-msgstr "Neprečítané správy"
-
-#. module: approvals
-#: model:ir.model.fields,field_description:approvals.field_approval_request__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Počítadlo neprečítaných správ"
-
-#. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: model:ir.model.fields,field_description:approvals.field_approval_approver__user_id
@@ -1090,24 +1122,48 @@ msgid "User Status"
 msgstr "Status užívateľa"
 
 #. module: approvals
+#: model:ir.model.fields.selection,name:approvals.selection__approval_approver__status__waiting
+#: model:ir.model.fields.selection,name:approvals.selection__approval_request__user_status__waiting
+msgid "Waiting"
+msgstr "Čaká"
+
+#. module: approvals
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_form
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_kanban
 msgid "Withdraw"
 msgstr "Vyberte"
 
 #. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_request.py:0
+#, python-format
+msgid "You cannot approve before the previous approver."
+msgstr ""
+
+#. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_request.py:0
+#, python-format
+msgid ""
+"You cannot assign the same approver multiple times on the same request."
+msgstr ""
+
+#. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid "You have to add at least %s approvers to confirm your request."
 msgstr "Na potvrdenie vašej žiadosti %smusíte aspoň pridať schvaľovateľov."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid "You have to attach at lease one document."
 msgstr "Musíte priložiť aspoň jeden dokument."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #, python-format
 msgid "Your minimum approval exceeds the total of default approvers."

@@ -15,6 +15,7 @@ This module allows the creation of the EDI documents and the communication with 
     """,
     'depends': [
         'account_edi',
+        'account_accountant',
         'l10n_mx',
         'base_vat',
         'product_unspsc'
@@ -47,10 +48,8 @@ This module allows the creation of the EDI documents and the communication with 
         "views/l10n_mx_edi_report_bank_statement_line.xml",
         'views/res_partner_view.xml',
         'views/res_bank_view.xml',
-        'views/res_company_view.xml',
         'views/res_config_settings_view.xml',
         'views/res_country_view.xml',
-        'views/res_partner_views.xml',
         'data/res_country_data.xml',
     ],
     'demo': [
@@ -59,7 +58,7 @@ This module allows the creation of the EDI documents and the communication with 
     ],
     'post_init_hook': 'post_init_hook',
     'installable': True,
-    'auto_install': True,
+    'auto_install': ['l10n_mx', 'account_edi'],
     'license': 'OEEL-1',
     'assets': {
         'web.report_assets_pdf': [

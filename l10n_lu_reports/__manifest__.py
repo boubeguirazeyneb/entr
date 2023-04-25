@@ -7,6 +7,9 @@
     'description': """
 Accounting reports for Luxembourg
 =================================
+Luxembourgish SAF-T (also known as FAIA) is standard file format for exporting various types of accounting transactional data using the XML format.
+The first version of the SAF-T Financial is limited to the general ledger level including customer and supplier transactions.
+Necessary master data is also included.
     """,
     'category': 'Accounting/Localizations/Reporting',
     'depends': ['l10n_lu', 'account_asset', 'account_reports', 'account_saft'],
@@ -15,8 +18,8 @@ Accounting reports for Luxembourg
         'data/account_financial_html_report_pl_abr.xml',
         'data/account_financial_html_report_bs.xml',
         'data/account_financial_html_report_bs_abr.xml',
-        'data/account.tax.report.line.csv',
-        'data/ir_cron_data.xml',
+        'data/account.report.line.csv',
+        'data/tax_report.xml',
         'data/saft_report.xml',
         'data/ec_sales_list_report.xml',
         'views/account_ec_sales_xml_template.xml',
@@ -26,11 +29,16 @@ Accounting reports for Luxembourg
         'views/l10n_lu_stored_sales_report_views.xml',
         'views/l10n_lu_yearly_tax_report_manual_views.xml',
         'wizard/l10n_lu_generate_accounts_report.xml',
-        'wizard/l10n_lu_generate_tax_report.xml',
         'wizard/l10n_lu_generate_sales_report.xml',
         'security/ir.model.access.csv',
+        'security/l10n_lu_yearly_tax_report_manual_security.xml',
     ],
     'demo': ['demo/demo_company.xml'],
-    'auto_install': True,
+    'auto_install': ['l10n_lu', 'account_reports'],
     'license': 'OEEL-1',
+    'assets': {
+        'web.assets_backend': [
+            'l10n_lu_reports/static/src/scss/tax_fields_views.scss',
+        ],
+    },
 }

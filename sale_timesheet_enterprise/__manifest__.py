@@ -17,6 +17,8 @@
     'data': [
         'views/account_invoice_views.xml',
         'views/hr_timesheet_views.xml',
+        'views/project_task_views.xml',
+        'views/project_sharing_views.xml',
         'views/res_config_settings_views.xml',
     ],
     'demo': [
@@ -26,10 +28,10 @@
     'license': 'OEEL-1',
     'assets': {
         'web.assets_backend': [
-            'sale_timesheet_enterprise/static/src/js/**/*',
-        ],
-        'web.assets_qweb': [
-            'sale_timesheet_enterprise/static/src/xml/**/*',
+            'sale_timesheet_enterprise/static/src/js/sale_timesheet_grid_renderer.js',
+            'sale_timesheet_enterprise/static/src/js/sale_timesheet_grid_model.js',
+            'sale_timesheet_enterprise/static/src/js/timesheets_m2o_soline.js',
+            'sale_timesheet_enterprise/static/src/xml/*',
         ],
     }
 }

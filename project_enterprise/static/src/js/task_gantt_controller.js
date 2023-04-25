@@ -1,9 +1,10 @@
 /** @odoo-module **/
 
 import GanttController from 'web_gantt.GanttController';
+import { _t } from 'web.core';
 
 
-const TaskGanttController = GanttController.extend({
+export default GanttController.extend({
     custom_events: Object.assign(
         { },
         GanttController.prototype.custom_events,
@@ -28,6 +29,32 @@ const TaskGanttController = GanttController.extend({
                 display_project_name: !!this.context.search_default_my_tasks,
             });
         this.renderer.display_milestone_popover(ev.data.popoverData, ev.data.targetElement);
+    },
+
+    /**
+     * @private
+     * @override
+     * @param {Object} context
+     */
+    _openPlanDialog(context) {
+        this.openPlanDialogCallback = (res) => {
+            if (res) {
+                if (res.action) {
+                    this.do_action(res.action);
+                }
+                if (res.warnings) {
+                    for (const warning of res.warnings) {
+                        this.displayNotification({
+                            title: _t('Warning'),
+                            message: warning,
+                            sticky: true,
+                        });
+                    }
+                }
+            }
+        };
+        context.smart_task_scheduling = true;
+        this._super(context);
     },
 
     //--------------------------------------------------------------------------
@@ -64,8 +91,9 @@ const TaskGanttController = GanttController.extend({
                 delete context[mapping.many2many_field];
             }
         }
+        if ('user_ids' in context && !context['user_ids']) {
+            delete context['user_ids'];
+        }
         return context;
     },
 });
-
-export default TaskGanttController;

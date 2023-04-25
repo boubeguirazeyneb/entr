@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, _
+from odoo import api, fields, models, _, Command
 from odoo.exceptions import UserError
 
 
@@ -16,9 +16,7 @@ class SignSendRequest(models.TransientModel):
             return res
         template = self.env['sign.template'].browse(res['template_id'])
         res['has_default_template'] = bool(template)
-        invalid_selections = template.sign_item_ids.filtered(lambda item: item.type_id.item_type == 'selection' and not item.option_ids)
-        if invalid_selections:
-            raise UserError(_("One or more selection items have no associated options"))
+        template._check_send_ready()
         if 'filename' in fields:
             res['filename'] = template.display_name
         if 'subject' in fields:
@@ -46,14 +44,16 @@ class SignSendRequest(models.TransientModel):
         default=lambda self: self.env.context.get('active_id', None),
     )
     signer_ids = fields.One2many('sign.send.request.signer', 'sign_send_request_id', string="Signers")
+    set_sign_order = fields.Boolean(string="Specify Signing Order", help="Signatures will be requested from lowest order to highest order.")
     signer_id = fields.Many2one('res.partner', string="Send To")
     signers_count = fields.Integer()
-    follower_ids = fields.Many2many('res.partner', string="Copy to")
+    cc_partner_ids = fields.Many2many('res.partner', string="Copy to", help="Contacts in copy will be notified by email once the document is either fully signed or refused.")
     is_user_signer = fields.Boolean(compute='_compute_is_user_signer')
+    refusal_allowed = fields.Boolean(default=False, string="Can be refused", help="Allow the contacts to refuse the document for a specific reason.")
 
     subject = fields.Char(string="Subject", required=True)
     message = fields.Html("Message", help="Message to be sent to signers of the specified document")
-    message_cc = fields.Html("CC Message", help="Message to be sent to followers of the signed document")
+    message_cc = fields.Html("CC Message", help="Message to be sent to contacts in copy of the signed document")
     attachment_ids = fields.Many2many('ir.attachment', string='Attachments')
     filename = fields.Char("Filename", required=True)
 
@@ -89,81 +89,50 @@ class SignSendRequest(models.TransientModel):
         feedback = _('Signature requested for template: %s\nSignatories: %s') % (self.template_id.name, signatories)
         self.activity_id._action_done(feedback=feedback)
 
-    def create_request(self, send=True, without_mail=False):
+    def create_request(self):
         template_id = self.template_id.id
         if self.signers_count:
-            signers = [{'partner_id': signer.partner_id.id, 'role': signer.role_id.id} for signer in self.signer_ids]
+            signers = [{'partner_id': signer.partner_id.id, 'role_id': signer.role_id.id, 'mail_sent_order': signer.mail_sent_order} for signer in self.signer_ids]
         else:
-            signers = [{'partner_id': self.signer_id.id, 'role': self.env.ref('sign.sign_item_role_default').id}]
-        followers = [*self.follower_ids.ids, *[signer['partner_id'] for signer in signers]]
+            signers = [{'partner_id': self.signer_id.id, 'role_id': self.env.ref('sign.sign_item_role_default').id, 'mail_sent_order': self.signer_ids.mail_sent_order}]
+        cc_partner_ids = self.cc_partner_ids.ids
         reference = self.filename
         subject = self.subject
         message = self.message
         message_cc = self.message_cc
         attachment_ids = self.attachment_ids
-        return self.env['sign.request'].initialize_new(
-            template_id=template_id,
-            signers=signers,
-            followers=followers,
-            reference=reference,
-            subject=subject,
-            message=message,
-            message_cc=message_cc,
-            attachment_ids=attachment_ids,
-            send=send,
-            without_mail=without_mail
-        )
+        refusal_allowed = self.refusal_allowed
+        sign_request = self.env['sign.request'].create({
+            'template_id': template_id,
+            'request_item_ids': [Command.create({
+                'partner_id': signer['partner_id'],
+                'role_id': signer['role_id'],
+                'mail_sent_order': signer['mail_sent_order'],
+            }) for signer in signers],
+            'reference': reference,
+            'subject': subject,
+            'message': message,
+            'message_cc': message_cc,
+            'attachment_ids': [Command.set(attachment_ids.ids)],
+            'refusal_allowed': refusal_allowed,
+        })
+        sign_request.message_subscribe(partner_ids=cc_partner_ids)
+        return sign_request
 
     def send_request(self):
-        res = self.create_request()
-        request = self.env['sign.request'].browse(res['id'])
+        request = self.create_request()
         if self.activity_id:
             self._activity_done()
             return {'type': 'ir.actions.act_window_close'}
         return request.go_to_document()
 
     def sign_directly(self):
-        res = self.create_request()
+        request = self.create_request()
         if self.activity_id:
             self._activity_done()
-        request = self.env['sign.request'].browse(res['id'])
-        user_item = request.request_item_ids.filtered(
-            lambda item: item.partner_id == item.env.user.partner_id)[:1]
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'sign.SignableDocument',
-            'name': _('Sign'),
-            'context': {
-                'id': request.id,
-                'token': user_item.access_token,
-                'sign_token': user_item.access_token,
-                'create_uid': request.create_uid.id,
-                'state': request.state,
-            },
-        }
-
-    def sign_directly_without_mail(self):
-        res = self.create_request(False, True)
-        request = self.env['sign.request'].browse(res['id'])
-
-        user_item = request.request_item_ids[0]
-
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'sign.SignableDocument',
-            'name': _('Sign'),
-            'context': {
-                'id': request.id,
-                'token': user_item.access_token,
-                'sign_token': user_item.access_token,
-                'create_uid': request.create_uid.id,
-                'state': request.state,
-                # Don't use mapped to avoid ignoring duplicated signatories
-                'token_list': [item.access_token for item in request.request_item_ids[1:]],
-                'current_signor_name': user_item.partner_id.name,
-                'name_list': [item.partner_id.name for item in request.request_item_ids[1:]],
-            },
-        }
+        if self._context.get('sign_all'):
+            return request.go_to_signable_document(request.request_item_ids)
+        return request.go_to_signable_document()
 
 
 class SignSendRequestSigner(models.TransientModel):
@@ -172,6 +141,7 @@ class SignSendRequestSigner(models.TransientModel):
 
     role_id = fields.Many2one('sign.item.role', readonly=True, required=True)
     partner_id = fields.Many2one('res.partner', required=True, string="Contact")
+    mail_sent_order = fields.Integer(string='Sign Order', default=1)
     sign_send_request_id = fields.Many2one('sign.send.request')
 
     def create(self, vals_list):

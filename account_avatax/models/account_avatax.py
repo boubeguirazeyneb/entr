@@ -29,18 +29,25 @@ class AccountAvatax(models.AbstractModel):
     _inherit = ['account.avatax.unique.code']
     _description = 'Mixin to manage taxes with Avatax on various business documents'
 
-    is_avatax = fields.Boolean(
-        compute='_compute_is_avatax',
-        help='Technical field used for the visibility of fields and buttons.',
-    )
+    # Technical field used for the visibility of fields and buttons
+    is_avatax = fields.Boolean(compute='_compute_is_avatax')
 
     @api.constrains('partner_id', 'fiscal_position_id')
     def _check_address(self):
-        for record in self.filtered('fiscal_position_id.is_avatax'):
+        incomplete_partner_to_records = {}
+        for record in self.filtered(lambda r: r._perform_address_validation()):
             partner = record.partner_id
             country = partner.country_id
             if not country or (country.zip_required and not partner.zip) or (country.state_required and not partner.state_id):
-                raise ValidationError(_('Customers are required to have a zip, state and country when using Avatax.'))
+                incomplete_partner_to_records.setdefault(partner, []).append(record)
+
+        if incomplete_partner_to_records:
+            error = _("The following customer(s) need to have a zip, state and country when using Avatax:")
+            partner_errors = [
+                _("- %s (ID: %s) on %s") % (partner.display_name, partner.id, ", ".join(record.display_name for record in records))
+                for partner, records in incomplete_partner_to_records.items()
+            ]
+            raise ValidationError(error + "\n" + "\n".join(partner_errors))
 
     @api.depends('company_id', 'fiscal_position_id')
     def _compute_is_avatax(self):
@@ -85,7 +92,14 @@ class AccountAvatax(models.AbstractModel):
 
         :return (Model): a `res.partner` record
         """
-        return self.partner_id
+        return self.partner_shipping_id or self.partner_id
+
+    def _perform_address_validation(self):
+        """Allows to bypass the _check_address constraint.
+
+        :return (bool): whether to execute the _check_address constraint
+        """
+        return self.fiscal_position_id.is_avatax
 
     # #############################################################################################
     # HELPERS
@@ -223,7 +237,6 @@ class AccountAvatax(models.AbstractModel):
             def repartition_line(repartition_type, account=None):
                 return (0, 0, {
                     'repartition_type': repartition_type,
-                    'factor_percent': 100.0,
                     'tag_ids': [],
                     'company_id': doc.company_id.id,
                     'account_id': account and account.id,
@@ -240,7 +253,7 @@ class AccountAvatax(models.AbstractModel):
                 tax_cache[key] = self.env['account.tax'].search([
                     ('name', '=', tax_name),
                     ('company_id', '=', doc.company_id.id),
-                ]) or self.env['account.tax'].with_company(doc.company_id).create({
+                ]) or self.env['account.tax'].sudo().with_company(doc.company_id).create({
                     'name': tax_name,
                     'amount': detail['rate'] * 100,
                     'amount_type': 'percent',
@@ -376,7 +389,7 @@ class AccountAvatax(models.AbstractModel):
                 ''' This creates a new cursor to make sure the log is committed even when an
                     exception is thrown later in this request.
                 '''
-                self.flush()
+                self.env.flush_all()
                 dbname = self._cr.dbname
                 with registry(dbname).cursor() as cr:
                     env = api.Environment(cr, SUPERUSER_ID, {})

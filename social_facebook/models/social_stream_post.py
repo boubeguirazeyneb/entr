@@ -93,6 +93,8 @@ class SocialStreamPostFacebook(models.Model):
                 comment["from"] = {"name": _("Unknown")}
 
             inner_comments = comment.get('comments', {}).get('data', [])
+            if not inner_comments:
+                comment['comments'] = {'data': []}
             for inner_comment in inner_comments:
                 inner_comment['likes'] = {'summary': {'total_count': inner_comment.get('like_count', 0)}}
                 inner_comment['formatted_created_time'] = self._format_facebook_published_date(inner_comment)
@@ -152,3 +154,13 @@ class SocialStreamPostFacebook(models.Model):
         return self.env['social.stream.post']._format_published_date(
             dateutil.parser.parse(comment.get('created_time'), ignoretz=True)
         )
+
+    def _fetch_matching_post(self):
+        self.ensure_one()
+
+        if self.account_id.media_type == 'facebook' and self.facebook_post_id:
+            return self.env['social.live.post'].search(
+                [('facebook_post_id', '=', self.facebook_post_id)], limit=1
+            ).post_id
+        else:
+            return super(SocialStreamPostFacebook, self)._fetch_matching_post()

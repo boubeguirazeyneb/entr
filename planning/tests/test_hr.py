@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details
-from datetime import datetime
+from datetime import datetime, time, timedelta
+from freezegun import freeze_time
 import pytz
 
-from odoo.addons.resource.models.resource import Intervals
-from odoo.tests.common import Form
-from .common import TestCommonPlanning
+from odoo import fields
 
+from odoo.addons.resource.models.resource import Intervals
+from .common import TestCommonPlanning
 
 class TestPlanningHr(TestCommonPlanning):
     @classmethod
     def setUpClass(cls):
         super(TestPlanningHr, cls).setUpClass()
-        cls.setUpEmployees()
+        cls.classPatch(cls.env.cr, 'now', fields.Datetime.now)
+        with freeze_time('2015-1-1'):
+            cls.setUpEmployees()
         calendar_joseph = cls.env['resource.calendar'].create({
             'name': 'Calendar 1',
             'tz': 'UTC',
@@ -41,11 +44,85 @@ class TestPlanningHr(TestCommonPlanning):
         self.assertTrue(role_a in self.employee_joseph.planning_role_ids, "role a should be added to his planning roles")
 
         self.employee_joseph.write({'planning_role_ids': [(5, 0, 0)]})
-        self.assertTrue(role_a in self.employee_joseph.planning_role_ids, "role a should be automatically added to his planning roles")
+        self.assertFalse(self.employee_joseph.planning_role_ids, "role a should be automatically removed from his planning roles")
 
+        self.employee_joseph.write({'planning_role_ids': role_a})
         self.employee_joseph.default_planning_role_id = role_b
         self.assertTrue(role_a in self.employee_joseph.planning_role_ids, "role a should still be in planning roles")
         self.assertTrue(role_b in self.employee_joseph.planning_role_ids, "role b should be added to planning roles")
+
+    def test_relation_employee_role_ids_resource_id_role_ids(self):
+
+        """
+            This test checks that the fields employee.planning_role_ids, employee.default_planning_role_id and employee.resource_id.role_ids
+            are all consistent and properly update on the change of the fields. Here's the expected behavior :
+            Invariant :
+                resource_id.role_ids = planning_role_ids
+                default_planning_role_id in planning_role_ids
+            on planning_role_ids update :
+                resource_id.role_ids is set accordingly.
+                if planning_role_ids is set to False, set default_role_id to False
+                if default_role_id is not in planning_role_ids anymore, set default_role_id to planning_role_ids[0]
+            on resource_id.role_ids update :
+                planning_role_ids is set accordingly.
+                if planning_role_ids is set to False, set default_role_id to False
+                if default_role_id is not in planning_role_ids anymore, set default_role_id to planning_role_ids[0]
+            on default_planning_role_id update:
+                if default_planning_role_id not in planning_role_ids, add default_planning_role_id to planning_role_ids and resource_id.role_ids
+                default_planning_role_id is not removed from planning_role_ids
+                if planning_role_ids is set to False in the same write as the change of default_planning_role_id, both the fields are set to False
+        """
+        self.assertFalse(self.employee_joseph.default_planning_role_id, "Joseph should have no default planning role")
+        self.assertFalse(self.employee_joseph.planning_role_ids, "Joseph should have no planning roles")
+
+        role_a, role_b, role_c = self.env['planning.role'].create([
+            {'name': 'role a'},
+            {'name': 'role b'},
+            {'name': 'role c'},
+        ])
+
+        roles = self.env['planning.role']
+        roles |= role_a
+        roles |= role_b
+        roles |= role_c
+        # change on employee.planning_role_ids
+        self.employee_joseph.planning_role_ids = roles
+        self.assertEqual(self.employee_joseph.default_planning_role_id, role_a, "Joseph should have role a as default role")
+        self.assertEqual(self.employee_joseph.resource_id.role_ids, roles, "Joseph should have role a, b and c as roles")
+        self.assertEqual(self.employee_joseph.planning_role_ids, roles, "Joseph should have role a, b and c as resource_id.role_ids")
+
+        self.employee_joseph.planning_role_ids = False
+        self.assertFalse(self.employee_joseph.default_planning_role_id, "Joseph should have role a as default role")
+        self.assertFalse(self.employee_joseph.resource_id.role_ids, "Joseph should have role a, b and c as roles")
+        self.assertFalse(self.employee_joseph.planning_role_ids, "Joseph should have role a, b and c as resource_id.role_ids")
+
+        #change on employee.resource_id.role_ids
+        self.employee_joseph.resource_id.role_ids = roles
+        dummy = self.employee_joseph.planning_role_ids # use to trigger the compute of planning_role_ids
+        self.assertEqual(self.employee_joseph.resource_id.role_ids, roles, "Joseph should have role a, b and c as roles")
+        self.assertEqual(self.employee_joseph.default_planning_role_id, role_a, "Joseph should have role a as default role")
+        self.assertEqual(self.employee_joseph.planning_role_ids, roles, "Joseph should have role a, b and c as resource_id.role_ids")
+
+        self.employee_joseph.resource_id.role_ids = False
+        dummy = self.employee_joseph.planning_role_ids  # use to trigger the compute of planning_role_ids
+        self.assertFalse(self.employee_joseph.resource_id.role_ids, "Joseph should have role a, b and c as roles")
+        self.assertFalse(self.employee_joseph.default_planning_role_id, "Joseph should have role a as default role")
+        self.assertFalse(self.employee_joseph.planning_role_ids, "Joseph should have role a, b and c as resource_id.role_ids")
+
+        #change mixin
+        role_d, role_e = self.env['planning.role'].create([
+            {'name': 'role d'},
+            {'name': 'role e'},
+        ])
+        roles |= role_d
+        roles = roles - role_a
+
+        self.employee_joseph.write({'planning_role_ids': roles, 'default_planning_role_id': role_e})
+        roles |= role_e
+
+        self.assertEqual(self.employee_joseph.resource_id.role_ids, roles, "Joseph should have role b, c, d and e as roles")
+        self.assertEqual(self.employee_joseph.default_planning_role_id, role_e, "Joseph should have role e as default role")
+        self.assertEqual(self.employee_joseph.planning_role_ids, roles, "Joseph should have role b, c, d and e as resource_id.role_ids")
 
     def test_hr_employee_view_planning(self):
         self.env['planning.slot'].create({
@@ -78,7 +155,7 @@ class TestPlanningHr(TestCommonPlanning):
     def test_employee_work_intervals(self):
         start = datetime(2015, 11, 8, 00, 00, 00, tzinfo=pytz.UTC)
         end = datetime(2015, 11, 21, 23, 59, 59, tzinfo=pytz.UTC)
-        work_intervals = self.employee_joseph.resource_id._get_work_intervals_batch(start, end)
+        work_intervals, _ = self.employee_joseph.resource_id._get_valid_work_intervals(start, end)
         sum_work_intervals = sum(
             (stop - start).total_seconds() / 3600
             for start, stop, _resource in work_intervals[self.employee_joseph.resource_id.id]
@@ -96,17 +173,17 @@ class TestPlanningHr(TestCommonPlanning):
             'resource_id': joseph_resource_id.id,
             'start_datetime': datetime(2015, 11, 16, 8, 0),
             'end_datetime': datetime(2015, 11, 16, 17, 0),
-            # allocated_hours will be : 9h
+            # allocated_hours will be : 0h (see calendar)
         }, {
             'resource_id': joseph_resource_id.id,
             'start_datetime': datetime(2015, 11, 17, 8, 0),
             'end_datetime': datetime(2015, 11, 17, 17, 0),
-            # allocated_hours will be : 9h
+            # allocated_hours will be : 0h (see calendar)
         }, {
             'resource_id': joseph_resource_id.id,
             'start_datetime': datetime(2015, 11, 18, 8, 0),
             'end_datetime': datetime(2015, 11, 18, 17, 0),
-            # allocated_hours will be : 9h
+            # allocated_hours will be : 0h (see calendar)
         }, {
             'resource_id': joseph_resource_id.id,
             'start_datetime': datetime(2015, 11, 23, 8, 0),
@@ -115,18 +192,54 @@ class TestPlanningHr(TestCommonPlanning):
             # allocated_hours will be : 4h (see calendar)
         }])
 
-        planning_hours_info = joseph_resource_id.get_planning_hours_info('2015-11-08 00:00:00', '2015-11-28 23:59:59')
-        self.assertEqual(24, planning_hours_info[joseph_resource_id.id]['work_hours'], "Work hours for the employee Jules should be 8h+8h+8h = 24h")
-        self.assertEqual(39, planning_hours_info[joseph_resource_id.id]['planned_hours'], "Planned hours for the employee Jules should be 3*9h+8h+4h = 39h")
+        planning_hours_info = self.env['planning.slot'].gantt_progress_bar(
+            ['resource_id'], {'resource_id': joseph_resource_id.ids}, '2015-11-08 00:00:00', '2015-11-28 23:59:59'
+        )['resource_id']
+        self.assertEqual(24, planning_hours_info[joseph_resource_id.id]['max_value'], "Work hours for the employee Jules should be 8h+8h+8h = 24h")
+        self.assertEqual(12, planning_hours_info[joseph_resource_id.id]['value'], "Planned hours for the employee Jules should be 8h+4h = 12h")
 
-        planning_hours_info = joseph_resource_id.get_planning_hours_info('2015-11-12 00:00:00', '2015-11-12 23:59:59')
-        self.assertEqual(8, planning_hours_info[joseph_resource_id.id]['work_hours'],
+        planning_hours_info = self.env['planning.slot'].gantt_progress_bar(
+            ['resource_id'], {'resource_id': joseph_resource_id.ids}, '2015-11-12 00:00:00', '2015-11-12 23:59:59'
+        )['resource_id']
+        self.assertEqual(8, planning_hours_info[joseph_resource_id.id]['max_value'],
                          "Work hours for the employee Jules should be 8h as its a Thursday.")
-        self.assertEqual(8, planning_hours_info[joseph_resource_id.id]['planned_hours'],
+        self.assertEqual(8, planning_hours_info[joseph_resource_id.id]['value'],
                          "Planned hours for the employee Jules should be 8h as its a Thursday and hours are computed on a forecast slot.")
 
-        planning_hours_info = joseph_resource_id.get_planning_hours_info('2015-11-26 00:00:00', '2015-11-26 23:59:59')
-        self.assertEqual(8, planning_hours_info[joseph_resource_id.id]['work_hours'],
+        planning_hours_info = self.env['planning.slot'].gantt_progress_bar(
+            ['resource_id'], {'resource_id': joseph_resource_id.ids}, '2015-11-26 00:00:00', '2015-11-26 23:59:59'
+        )['resource_id']
+        self.assertEqual(8, planning_hours_info[joseph_resource_id.id]['max_value'],
                          "Work hours for the employee Jules should be 8h as its a Thursday.")
-        self.assertEqual(4, planning_hours_info[joseph_resource_id.id]['planned_hours'],
+        self.assertEqual(4, planning_hours_info[joseph_resource_id.id]['value'],
                          "Planned hours for the employee Jules should be 4h as its a Thursday and hours are computed on a forecast slot (allocated_percentage = 50).")
+
+    def test_archive_employee(self):
+        with freeze_time("2020-04-22"):
+            slot_1, slot_2, slot_3 = self.env['planning.slot'].create([
+                {
+                    'resource_id': self.resource_bert.id,
+                    'start_datetime': datetime(2020, 4, 20, 8, 0),
+                    'end_datetime': datetime(2020, 4, 24, 17, 0),
+                },
+                {
+                    'resource_id': self.resource_bert.id,
+                    'start_datetime': datetime(2020, 4, 20, 8, 0),
+                    'end_datetime': datetime(2020, 4, 21, 17, 0),
+                },
+                {
+                    'resource_id': self.resource_bert.id,
+                    'start_datetime': datetime(2020, 4, 23, 8, 0),
+                    'end_datetime': datetime(2020, 4, 24, 17, 0),
+                },
+            ])
+
+            slot1_initial_end_date = slot_1.end_datetime
+            slot2_initial_end_date = slot_2.end_datetime
+
+            self.resource_bert.employee_id.action_archive()
+
+            self.assertEqual(slot_1.end_datetime, datetime.combine(fields.Date.today()+ timedelta(days=1), time.min), 'End date of the splited shift should be today')
+            self.assertNotEqual(slot_1.end_datetime, slot1_initial_end_date, 'End date should be updated')
+            self.assertEqual(slot_2.end_datetime, slot2_initial_end_date, 'End date should be the same')
+            self.assertFalse(slot_3.resource_id, 'Resource should be the False for archeived resource shifts')

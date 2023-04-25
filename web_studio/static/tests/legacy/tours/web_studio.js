@@ -15,6 +15,7 @@ tour.register('web_studio_tests_tour', {
 }, [{
     // open studio
     trigger: '.o_main_navbar .o_web_studio_navbar_item',
+    extra_trigger: ".o_home_menu_background",
 }, {
     trigger: '.o_web_studio_new_app',
 }, {
@@ -46,16 +47,16 @@ tour.register('web_studio_tests_tour', {
     trigger: '.o_web_studio_model_configurator_next',
 }, {
     // toggle the home menu outside of studio and come back in studio
-    extra_trigger: '.o_menu_toggle.fa-th',
+    extra_trigger: '.o_menu_toggle:not(.o_menu_toggle_back)',
     trigger: '.o_web_studio_leave > a.btn',
     timeout: 60000, /* previous step reloads registry, etc. - could take a long time */
 }, {
     extra_trigger: `.o_web_client:not(.o_in_studio)`,  /* wait to be out of studio */
-    trigger: '.o_menu_toggle.fa-th',
+    trigger: '.o_menu_toggle:not(.o_menu_toggle_back)',
     timeout: 60000, /* previous step reloads registry, etc. - could take a long time */
 }, {
     trigger: '.o_main_navbar .o_web_studio_navbar_item',
-    extra_trigger: '.o_home_menu',
+    extra_trigger: '.o_home_menu_background',
 }, {
     // open the app creator and leave it
     trigger: '.o_web_studio_new_app',
@@ -75,14 +76,25 @@ tour.register('web_studio_tests_tour', {
     // this should open the previous app outside of studio
     extra_trigger: `.o_web_client:not(.o_in_studio) .o_menu_brand:contains(${createdAppString})`,
     // go back to the home menu
-    trigger: '.o_menu_toggle.fa-th',
+    trigger: '.o_menu_toggle:not(.o_menu_toggle_back)',
 }, {
-    // check that the menu exists
-    trigger: 'input.o_menu_search_input',
-    run: 'text ' + createdMenuString,
+    trigger: 'input.o_search_hidden',
+    // Open Command Palette
+    run: 'text ' + createdMenuString[0],
+}, {
+    trigger: '.o_command_palette_search input',
+    run: 'text ' + "/" + createdMenuString,
 }, {
     // search results should have been updated
-    extra_trigger: `.o_menuitem.o_focused:contains(${createdAppString} / ${createdMenuString})`,
+    extra_trigger: `.o_command.focused:contains(${createdAppString} / ${createdMenuString})`,
+    trigger: '.o_command_palette',
+    // Close the Command Palette
+    run: () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Escape',
+        }));
+    },
+}, {
     // enter Studio
     trigger: '.o_main_navbar .o_web_studio_navbar_item',
 }, {
@@ -146,7 +158,7 @@ tour.register('web_studio_tests_tour', {
     run: 'drag_and_drop .o_web_studio_form_view_editor .o_inner_group',
 }, {
     // click on the field
-    trigger: '.o_web_studio_form_view_editor td.o_td_label:first',
+    trigger: '.o_web_studio_form_view_editor .o_wrap_label:first label',
     // when it's there
     extra_trigger: 'input[data-type="field_name"]',
 }, {
@@ -210,7 +222,7 @@ tour.register('web_studio_tests_tour', {
     trigger: '.modal-footer .btn.btn-primary',
 }, {
     // verify that the currency field is in the view
-    extra_trigger: '.o_web_studio_form_view_editor td.o_td_label:contains("Currency")',
+    extra_trigger: '.o_web_studio_form_view_editor .o_wrap_label label:contains("Currency")',
     trigger: '.o_web_studio_sidebar .o_web_studio_new',
     async run() {
         // When adding a new field, the UI is blocked. When the rpc returns, the UI is
@@ -232,16 +244,16 @@ tour.register('web_studio_tests_tour', {
     run: 'drag_and_drop (.o_web_studio_form_view_editor .o_inner_group:first .o_web_studio_hook:eq(1))',
 }, {
     // verify that the monetary field is in the view
-    extra_trigger: '.o_web_studio_form_view_editor td.o_td_label:eq(1):contains("New Monetary")',
+    extra_trigger: '.o_web_studio_form_view_editor .o_wrap_label:eq(1) label:contains("New Monetary")',
     // switch the two first fields
-    trigger: '.o_web_studio_form_view_editor .o_inner_group:first .ui-draggable:eq(1)',
-    run: 'drag_and_drop .o_inner_group:first .o_web_studio_hook:first',
+    trigger: '.o_web_studio_form_view_editor .o_inner_group:first .o-draggable:eq(1)',
+    run: 'drag_and_drop_native .o_inner_group:first .o_web_studio_hook:first',
 }, {
     // click on "Add" tab
     trigger: '.o_web_studio_sidebar .o_web_studio_new',
 }, {
     // verify that the fields have been switched
-    extra_trigger: '.o_web_studio_form_view_editor td.o_td_label:eq(0):contains("New Monetary")',
+    extra_trigger: '.o_web_studio_form_view_editor .o_wrap_label:eq(0) label:contains("New Monetary")',
     // add a m2m field
     trigger: '.o_web_studio_sidebar .o_web_studio_field_type_container:eq(1) .o_web_studio_field_many2many',
     run: 'drag_and_drop .o_inner_group:first .o_web_studio_hook:first',
@@ -257,7 +269,7 @@ tour.register('web_studio_tests_tour', {
     trigger: 'button:contains(Confirm)',
 }, {
     // select the m2m to set its properties
-    trigger: 'tr:has(.o_field_many2many)',
+    trigger: '.o_wrap_input:has(.o_field_many2many)',
     timeout: 15000,  // creating M2M relations can take some time...
 }, {
     // change the `widget` attribute
@@ -310,15 +322,19 @@ tour.register('web_studio_tests_tour', {
 }, {
     // come back to the home menu to check if the menu data have changed
     extra_trigger: '.o_web_client:not(.o_in_studio)',
-    trigger: '.o_menu_toggle.fa-th',
+    trigger: '.o_menu_toggle:not(.o_menu_toggle_back)',
 }, {
-    trigger: 'input.o_menu_search_input',
-    run: 'text ' + createdMenuString,
+    trigger: 'input.o_search_hidden',
+    // Open Command Palette
+    run: 'text ' + createdMenuString[0],
+}, {
+    trigger: '.o_command_palette_search input',
+    run: 'text ' + "/" + createdMenuString,
 }, {
     // search results should have been updated
-    extra_trigger: `.o_menuitem.o_focused:contains(${createdAppString} / ${createdMenuString})`,
-    // cleans the search bar query
-    trigger: '.o_home_menu',
+    extra_trigger: `.o_command.focused:contains(${createdAppString} / ${createdMenuString})`,
+    trigger: '.o_command_palette',
+    // Close the Command Palette
     run: () => {
         window.dispatchEvent(new KeyboardEvent('keydown', {
             bubbles: true,
@@ -326,8 +342,8 @@ tour.register('web_studio_tests_tour', {
         }));
     },
 }, {
-    // go back again to the app (using keyboard)
     trigger: '.o_home_menu',
+    // go back again to the app (using keyboard)
     run: () => {
         window.dispatchEvent(new KeyboardEvent('keydown', {
             bubbles: true,
@@ -392,7 +408,7 @@ tour.register('web_studio_tests_tour', {
     // add a graph view
     trigger: '.o_web_studio_view_category .o_web_studio_view_type.o_web_studio_inactive[data-type="graph"] .o_web_studio_thumbnail',
 }, {
-    extra_trigger: '.o_legacy_graph_renderer',
+    extra_trigger: '.o_graph_renderer',
     trigger: '.o_web_studio_menu .o_menu_sections li a:contains("Views")',
 }, {
     extra_trigger: '.o_web_studio_views',
@@ -400,7 +416,7 @@ tour.register('web_studio_tests_tour', {
     trigger: '.o_web_studio_view_category .o_web_studio_view_type[data-type="search"] .o_web_studio_thumbnail',
 }, {
     extra_trigger: '.o_web_studio_search_view_editor',
-    trigger: '.o_menu_toggle.fa-th',
+    trigger: '.o_menu_toggle:not(.o_menu_toggle_back)',
 }, {
     trigger: '.o_web_studio_home_studio_menu .dropdown-toggle',
 }, {
@@ -546,11 +562,11 @@ tour.register('web_studio_model_option_value_tour', {
     timeout: 60000, /* previous step reloads registry, etc. - could take a long time */
 }, {
     // wait for the graph editor to be rendered and also check for sample data
-    extra_trigger: '.o_view_sample_data .o_legacy_graph_renderer .o_view_nocontent_empty_folder',
+    extra_trigger: '.o_view_sample_data .o_graph_renderer',
     trigger: '.o_web_studio_menu .o_web_studio_views_icons a[title="Pivot"]',
 }, {
     // wait for the pivot editor to be rendered and also check for sample data
-    extra_trigger: '.o_view_sample_data .o_legacy_pivot .o_view_nocontent_empty_folder',
+    extra_trigger: '.o_pivot_view .o_view_sample_data .o_view_nocontent_empty_folder',
     trigger: '.o_web_studio_leave > a.btn',
 }]);
 
@@ -560,6 +576,7 @@ tour.register('web_studio_new_report_tour', {
 }, [{
     // open studio
     trigger: '.o_main_navbar .o_web_studio_navbar_item',
+    extra_trigger: ".o_home_menu_background",
 }, {
     // click on the created app
     trigger: '.o_app[data-menu-xmlid*="studio"]:first',
@@ -676,9 +693,9 @@ tour.register('web_studio_new_report_tour', {
     // a invisible element cannot be used as a trigger so this small hack is
     // mandatory for the next step
     run: function () {
-        $('.o_kanban_record:contains(My Awesome Report) .o_dropdown_kanban').css('visibility', 'visible');
+        $('.o_kanban_record:contains(My Awesome Report) .dropdown-toggle').css('visibility', 'visible');
     },
-    trigger: '.o_kanban_view',
+    trigger: '.o_legacy_kanban_view',
 }, {
     // open the dropdown
     trigger: '.o_kanban_record:contains(My Awesome Report) .dropdown-toggle',
@@ -704,6 +721,7 @@ tour.register('web_studio_new_report_basic_layout_tour', {
 }, [{
     // open studio
     trigger: '.o_main_navbar .o_web_studio_navbar_item',
+    extra_trigger: ".o_home_menu_background",
 }, {
     // click on the created app
     trigger: '.o_app[data-menu-xmlid*="studio"]:first',
@@ -819,9 +837,9 @@ tour.register('web_studio_new_report_basic_layout_tour', {
     // a invisible element cannot be used as a trigger so this small hack is
     // mandatory for the next step
     run: function () {
-        $('.o_kanban_record:contains(My Awesome basic layout Report) .o_dropdown_kanban').css('visibility', 'visible');
+        $('.o_kanban_record:contains(My Awesome basic layout Report) .dropdown-toggle').css('visibility', 'visible');
     },
-    trigger: '.o_kanban_view',
+    trigger: '.o_legacy_kanban_view',
 }, {
     // open the dropdown
     trigger: '.o_kanban_record:contains(My Awesome basic layout Report) .dropdown-toggle',
@@ -856,7 +874,7 @@ tour.register('web_studio_approval_tour', {
     trigger: '.o_web_studio_views_icons > a[title="Form"]',
 }, {
     // click on first button it finds that has a node id
-    trigger: '.o_web_studio_form_view_editor button[data-node-id]',
+    trigger: '.o_web_studio_form_view_editor button.o-web-studio-editor--element-clickable',
 }, {
     // enable approvals for the button
     trigger: '.o_web_studio_sidebar label[for="studio_approval"]',
@@ -903,15 +921,16 @@ tour.register('web_studio_approval_tour', {
     // open first record (should be the one that was used, so the button should be there)
     trigger: '.o_kanban_view .o_kanban_record .o_dropdown_kanban .dropdown-toggle',
 }, {
-    trigger: '.dropdown-menu.show .dropdown-item',
+    trigger: '.o_kanban_view .o_kanban_record .o-dropdown--menu .dropdown-item',
 },{
     // try to do the action
     trigger: 'button[studio_approval]',
 }, {
     // there should be a warning
-    trigger: '.o_notification.bg-warning'
-}
-]);
+    trigger: '.o_notification.border-warning'
+}, {
+    trigger: '.breadcrumb .o_back_button'
+}]);
 
 tour.register('web_studio_custom_field_tour', {
     url: "/web",
@@ -969,6 +988,376 @@ tour.register('web_studio_local_storage_tour', {
     // studio left after refresh.
     trigger: '.o_app[data-menu-xmlid="base.menu_management"]',
     extra_trigger: '.o_web_client:not(.o_in_studio)'
+}]);
+
+tour.register('web_studio_custom_background_tour', {
+    url: "/web",
+    test: true,
+}, [{
+    content: 'class for custom background must be enabled (outside studio)',
+    trigger: '.o_home_menu_background_custom.o_home_menu_background:not(.o_in_studio)',
+    run: () => null,
+}, {
+    content: 'opening studio',
+    trigger: '.o_main_navbar .o_web_studio_navbar_item',
+}, {
+    content: 'class for custom background must be enabled (in studio)',
+    trigger: '.o_home_menu_background_custom.o_home_menu_background.o_in_studio',
+    run: () => null,
+}, {
+    content: 'click on Customizations button',
+    trigger: '.o_web_studio_home_studio_menu button',
+}, {
+    content: 'reset the background',
+    trigger: '.o_web_studio_reset_default_background',
+}, {
+    content: 'validate the reset of the background',
+    trigger: '.modal-dialog .btn-primary',
+}, {
+    content: 'class for custom background must be disabled (inside studio)',
+    trigger: '.o_home_menu_background.o_in_studio:not(.o_home_menu_background_custom)',
+    run: () => null,
+}, {
+    content: 'leaving studio',
+    trigger: '.o_web_studio_leave a',
+}, {
+    content: 'class for custom background must be disabled (outside studio)',
+    trigger: '.o_home_menu_background:not(.o_in_studio.o_home_menu_background_custom)',
+    run: () => null,
+}]);
+
+tour.register("web_studio_create_app_with_pipeline_and_user_assignment", {
+    test: true,
+}, [{
+    // open studio
+    trigger: '.o_main_navbar .o_web_studio_navbar_item',
+    extra_trigger: ".o_home_menu_background",
+}, {
+    trigger: '.o_web_studio_new_app',
+}, {
+    // the next steps are here to create a new app
+    trigger: '.o_web_studio_app_creator_next',
+}, {
+    trigger: '.o_web_studio_app_creator_name > input',
+    run: 'text ' + (createdAppString = randomString(6)),
+}, {
+    trigger: '.o_web_studio_app_creator_next.is_ready',
+}, {
+    trigger: '.o_web_studio_app_creator_menu > input',
+    run: 'text ' + (createdMenuString = randomString(6)),
+}, {
+    trigger: '.o_web_studio_app_creator_next.is_ready',
+}, {
+    trigger: "input#use_stages"
+}, {
+    trigger: "input#use_responsible"
+}, {
+    trigger: '.o_web_studio_model_configurator_next',
+}, {
+    trigger: ".o_web_studio_editor .o_menu_sections a:contains(Views)"
+}, {
+    trigger: ".o_web_studio_view_type[data-type='kanban'] .o_web_studio_thumbnail"
+}, {
+    extra_trigger: ".o_web_studio_kanban_view_editor",
+    trigger: "img.oe_kanban_avatar",
+    run() {
+        const avatarImg = document.querySelector("img.oe_kanban_avatar");
+        if (!avatarImg.getAttribute("title") === "Unassigned") {
+            throw new Error("The title of the new avatar should be set, even if there are no record");
+        }
+    }
+}]);
+
+tour.register('web_studio_alter_field_existing_in_multiple_views_tour', {
+    test: true,
+}, [{
+    // open studio
+    trigger: '.o_main_navbar .o_web_studio_navbar_item a',
+    extra_trigger: ".o_home_menu_background",
+}, {
+    trigger: '.o_web_studio_new_app',
+}, {
+    // the next steps are here to create a new app
+    trigger: '.o_web_studio_app_creator_next',
+}, {
+    trigger: '.o_web_studio_app_creator_name > input',
+    run: 'text ' + (createdAppString = randomString(6)),
+}, {
+    trigger: '.o_web_studio_app_creator_next.is_ready',
+}, {
+    trigger: '.o_web_studio_app_creator_menu > input',
+    run: `text ${createdAppString}`,
+}, {
+    trigger: '.o_web_studio_app_creator_next.is_ready',
+}, {
+    trigger: '.o_web_studio_model_configurator_next',
+}, {
+    extra_trigger: '.o_web_studio_sidebar',
+    // unfold 'Existing Fieldqs' section
+    trigger: '.o_web_studio_existing_fields_header',
+    timeout: 60000,
+},{
+    // add an existing field (the one we created)
+    trigger: '.o_web_studio_sidebar .o_web_studio_field_type_container:eq(2) .o_web_studio_field_many2many[title="Followers (Partners)"]',
+    run: 'drag_and_drop .o_inner_group:first .o_web_studio_hook:first',
+}, {
+    trigger: '.o_web_studio_new ',
+}, {
+    trigger: '.o_web_studio_sidebar .o_web_studio_field_type_container:eq(1) .o_web_studio_field_many2many',
+    run: 'drag_and_drop div.o_web_studio_hook:last',
+}, {
+    extra_trigger: '.modal-body',
+    trigger: '.o_field_many2one[name="model"] input',
+    run: `text ${createdAppString}`,
+}, {
+    // select the first model
+    trigger: '.ui-autocomplete > .ui-menu-item:first > a',
+    in_modal: false,
+}, {
+    trigger: 'button:contains(Confirm)',
+}, {
+    // edit list view
+    trigger: '.o_web_studio_editX2Many',
+}, {
+    // wait for list view to be loaded
+    extra_trigger: '.o_web_studio_list_view_editor',
+    // go to view
+    trigger: '.o_web_studio_view ',
+}, {
+    // show invisible elements
+    trigger: 'label[for="show_invisible"]',
+}, {
+    trigger: '.o_web_studio_new ',
+}, {
+    // unfold 'Existing Fieldqs' section
+    trigger: '.o_web_studio_existing_fields_header',
+},{
+    // add an existing field (the one we created)
+    trigger: '.o_web_studio_sidebar .o_web_studio_field_type_container:eq(1) .o_web_studio_field_many2many[title="Followers (Partners)"]',
+    run: 'drag_and_drop .o_web_studio_list_view_editor th.o_web_studio_hook:first',
+}, {
+    // select field
+    trigger: "th[data-name='message_partner_ids']",
+    run: "click",
+}, {
+    // make it invisible
+    trigger: "#invisible",
+    run: "click",
+}, {
+    extra_trigger: ".o_web_studio_snackbar_icon.show.fa.fa-check",
+    // check if the invisible option is checked
+    trigger: "#invisible:checked",
+}]);
+
+tour.register(
+    "web_studio_test_create_one2many_lines_then_edit_name",
+    {
+        test: true,
+        sequence: 260
+    },
+    [
+        {
+            trigger: "a[data-menu-xmlid='web_studio.studio_test_partner_menu']"
+        },
+        {
+            extra_trigger: ".o_form_view",
+            trigger: ".o_web_studio_navbar_item a"
+        },
+        {
+            trigger: ".o_web_studio_sidebar .o_web_studio_new_fields .o_web_studio_field_lines",
+            run: "drag_and_drop (.o_web_studio_hook:eq(0))"
+        },
+        {
+            trigger: ".o_form_label",
+            extra_trigger: ".o_field_x2many_list"
+        },
+        {
+            extra_trigger: ".o_web_studio_sidebar .o_web_studio_properties.active",
+            trigger: "input[name='string']",
+            run: "text new name",
+        },
+        {
+            trigger: ".o_web_studio_leave"
+        },
+    ]
+);
+
+tour.register(
+    "web_studio_test_address_view_id_no_edit",
+    {
+        test: true,
+        sequence: 260
+    },
+    [
+        {
+            trigger: "a[data-menu-xmlid='web_studio.studio_test_partner_menu']"
+        },
+        {
+            extra_trigger: ".o_form_view",
+            trigger: ".o_address_format",
+            run: function() {
+                if (this.$anchor.find('[name=lang]').length || !this.$anchor.find('[name=street]').length) {
+                    throw new Error("The address view id set on the company country should be displayed");
+                };
+            }
+        },
+        {
+            trigger: ".o_web_studio_navbar_item a"
+        },
+        {
+            extra_trigger: ".o_web_studio_view_renderer",
+            trigger: ".o_address_format",
+            run: function() {
+                if (this.$anchor.find('[name=street]').length || !this.$anchor.find('[name=lang]').length) {
+                    throw new Error("The address view id set on the company country shouldn't be editable");
+                };
+            }
+        },
+        {
+            trigger: ".o_web_studio_leave"
+        },
+    ] 
+);
+
+tour.register(
+    "web_studio_test_create_new_model_from_existing_view",
+    {
+        test: true,
+        sequence: 260
+    },
+    [
+        {
+            trigger: "a[data-menu-xmlid='web_studio.studio_test_partner_menu']"
+        },
+        {
+            extra_trigger: ".o_kanban_view",
+            trigger: ".o_web_studio_navbar_item a"
+        },
+        {
+            trigger: ".o_web_create_new_model"
+        },
+        {
+            extra_trigger: ".modal-dialog",
+            trigger: "input[name='name']",
+            run: "text new model",
+        },
+        {
+            trigger: ".confirm_button",
+        },
+        {
+            trigger: ".o_web_studio_model_configurator_next"
+        },
+        {
+            trigger: ".o_form_view",
+        }
+    ]
+);
+
+tour.register(
+    "web_studio_test_create_model_with_clickable_stages",
+    {
+        test: true,
+        sequence: 260
+    },
+    [
+        {
+            trigger: "a[data-menu-xmlid='web_studio.studio_test_partner_menu']"
+        },
+        {
+            extra_trigger: ".o_form_view",
+            trigger: ".o_web_studio_navbar_item a"
+        },
+        {
+            trigger: ".o_web_create_new_model"
+        },
+        {
+            extra_trigger: ".modal-dialog",
+            trigger: "input[name='name']",
+            run: "text new model",
+        },
+        {
+            trigger: ".confirm_button",
+        },
+        {
+            trigger: "#use_stages"
+        },
+        {
+            trigger: ".o_web_studio_model_configurator_next"
+        },
+        {
+            trigger: ".o_web_studio_leave"
+        },
+        {
+            extra_trigger: ".o_form_view",
+            trigger: "input#x_name",
+            run: "text new record",
+        },
+        {
+            trigger: ".o_arrow_button:contains(In Progress)"
+        },
+        {
+            trigger: ".o_arrow_button_current:contains(In Progress)"
+        },
+        {
+            trigger: ".o_form_button_save"
+        },
+        {
+            trigger: ".o_back_button"
+        },
+        {
+            trigger: ".o_kanban_group:contains(In Progress) .o_kanban_record_details:contains(new record)"
+        }
+    ]
+);
+
+tour.register('web_studio_test_hide_page_of_notebook', {
+    test: true,
+}, [{
+    // open studio
+    trigger: '.o_main_navbar .o_web_studio_navbar_item a',
+    extra_trigger: ".o_home_menu_background",
+}, {
+    trigger: '.o_web_studio_new_app',
+}, {
+    // the next steps are here to create a new app
+    trigger: '.o_web_studio_app_creator_next',
+}, {
+    trigger: '.o_web_studio_app_creator_name > input',
+    run: 'text ' + (createdAppString = randomString(6)),
+}, {
+    trigger: '.o_web_studio_app_creator_next.is_ready',
+}, {
+    trigger: '.o_web_studio_app_creator_menu > input',
+    run: `text ${createdAppString}`,
+}, {
+    trigger: '.o_web_studio_app_creator_next.is_ready',
+}, {
+    trigger: 'input[name="lines"]'
+}, {
+    trigger: '.o_web_studio_model_configurator_next',
+}, {
+    // wait for studio to be loaded
+    extra_trigger: '.o_web_studio_sidebar',
+    // go to view
+    trigger: '.o_web_studio_view ',
+    timeout: 60000,
+}, {
+    // show invisible elements
+    trigger: 'label[for="show_invisible"]',
+}, {
+    // select the first page of the notebook
+    trigger: 'a[name="lines"]',
+}, {
+    // make it invisible
+    trigger: "#invisible",
+    run: "click",
+}, {
+    extra_trigger: ".o_web_studio_snackbar_icon.show.fa.fa-check",
+    // click again on the page to refresh the sidebar
+    trigger: 'a[name="lines"]',
+}, {
+    // invisible checkbox must be checked
+    trigger: "#invisible:checked",
 }]);
 
 });

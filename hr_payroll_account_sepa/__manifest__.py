@@ -3,7 +3,6 @@
 {
     'name': "SEPA Payments for Payroll",
     'summary': "Pay your employees with SEPA payment.",
-    'description': '',
     'category': 'Human Resources/Payroll',
     'version': '1.0',
     'depends': ['hr_payroll_account', 'account_sepa'],
@@ -13,4 +12,10 @@
         'wizard/hr_payroll_account_sepa_wizard_views.xml',
     ],
     'license': 'OEEL-1',
+    'assets': {
+        'web.assets_backend': [
+            'hr_payroll_account_sepa/static/src/**/*.js',
+            'hr_payroll_account_sepa/static/src/**/*.xml',
+        ],
+    },
 }

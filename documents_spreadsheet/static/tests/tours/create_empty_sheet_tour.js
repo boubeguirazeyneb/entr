@@ -10,6 +10,7 @@ odoo.define("documents_spreadsheet.create_empty_sheet_tour", function (require) 
             test: true,
         },
         [
+            tour.stepUtils.showAppsMenuItem(),
             {
                 trigger: '.o_app[data-menu-xmlid="documents.menu_root"]',
                 content: "Open document app",
@@ -26,12 +27,12 @@ odoo.define("documents_spreadsheet.create_empty_sheet_tour", function (require) 
                 run: "click",
             },
             {
-                trigger: 'span[title="Fill Color"]',
+                trigger: 'div[title="Fill Color"]',
                 content: "Choose a color",
                 run: "click",
             },
             {
-                trigger: '.o-color-picker .o-color-picker-line div[data-color="#990000"]',
+                trigger: '.o-color-picker-line-item[data-color="#990000"]',
                 content: "Choose a color",
                 run: "click",
             },
@@ -53,6 +54,7 @@ odoo.define("documents_spreadsheet.create_empty_sheet_tour", function (require) 
             test: true,
         },
         [
+            tour.stepUtils.showAppsMenuItem(),
             {
                 trigger: '.o_app[data-menu-xmlid="documents.menu_root"]',
                 content: "Open document app",
@@ -65,7 +67,7 @@ odoo.define("documents_spreadsheet.create_empty_sheet_tour", function (require) 
             },
             {
                 trigger: ".o_favorite_menu button",
-                extra_trigger: ".o_list_view",
+                extra_trigger: ".o_list_view, .o_legacy_list_view",
                 content: "Open the favorites menu",
                 run: "click",
             },

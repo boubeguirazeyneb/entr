@@ -3,33 +3,24 @@
 # 	* project_timesheet_forecast
 # 
 # Translators:
-# Martin Trigaux, 2021
-# file aio <fileaio@gmail.com>, 2021
-# fanha99 <fanha99@hotmail.com>, 2021
-# thanhnguyen.icsc <thanhnguyen.icsc@gmail.com>, 2021
-# Duy BQ <duybq86@gmail.com>, 2021
-# Vo Thanh Thuy, 2022
+# Thanh Nguyễn Văn, 2022
+# Martin Trigaux, 2022
+# Thi Huong Nguyen, 2023
+# Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:59+0000\n"
-"PO-Revision-Date: 2021-09-14 12:42+0000\n"
-"Last-Translator: Vo Thanh Thuy, 2022\n"
-"Language-Team: Vietnamese (https://www.transifex.com/odoo/teams/41243/vi/)\n"
+"POT-Creation-Date: 2022-10-10 13:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2023\n"
+"Language-Team: Vietnamese (https://app.transifex.com/odoo/teams/41243/vi/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: vi\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-
-#. module: project_timesheet_forecast
-#. openerp-web
-#: code:addons/project_timesheet_forecast/static/src/xml/forecast_gantt.xml:0
-#, python-format
-msgid "&nbsp;"
-msgstr "&nbsp;"
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_forecast_view_form_inherit_project_timesheet_forecast
@@ -43,17 +34,27 @@ msgstr ""
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_forecast_view_form_inherit_project_timesheet_forecast
 msgid "<span class=\"o_stat_text\">Recorded</span>"
-msgstr "<span class=\"o_stat_text\">Đã ghi</span>"
+msgstr "<span class=\"o_stat_text\">Recorded</span>"
 
 #. module: project_timesheet_forecast
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.planning_view_gantt
-msgid "<strong>Effective Hours — </strong>"
-msgstr "<strong>Số giờ có hiệu lực — </strong>"
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_analysis_report__allocated_hours_cost
+msgid "Allocated Hours Cost"
+msgstr ""
+
+#. module: project_timesheet_forecast
+#: model:ir.model.fields,help:project_timesheet_forecast.field_planning_analysis_report__remaining_hours
+msgid "Allocated hours minus the effective hours."
+msgstr ""
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_slot__allow_timesheets
 msgid "Allow timesheets"
-msgstr "Cho phép bảng chấm công"
+msgstr "Dùng quản thời gian biểu"
+
+#. module: project_timesheet_forecast
+#: model:ir.model,name:project_timesheet_forecast.model_account_analytic_line
+msgid "Analytic Account"
+msgstr "Tài khoản phân tích"
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__user_id
@@ -82,10 +83,16 @@ msgid "Display Name"
 msgstr "Tên hiển thị"
 
 #. module: project_timesheet_forecast
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_analysis_report__effective_hours
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_slot__effective_hours
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__effective_hours
 msgid "Effective Hours"
-msgstr "Số giờ có hiệu lực"
+msgstr "Giờ hiệu quả"
+
+#. module: project_timesheet_forecast
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_analysis_report__effective_hours_cost
+msgid "Effective Hours Cost"
+msgstr ""
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__employee_id
@@ -96,7 +103,12 @@ msgstr "Nhân viên"
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_slot__encode_uom_in_days
 msgid "Encode Uom In Days"
-msgstr "Mã hóa đơn vị theo ngày"
+msgstr "Encode Uom In Days"
+
+#. module: project_timesheet_forecast
+#: model:ir.actions.server,name:project_timesheet_forecast.planning_slot_generate_timesheet_action
+msgid "Generate Timesheets"
+msgstr ""
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_search
@@ -109,9 +121,24 @@ msgid "ID"
 msgstr "ID"
 
 #. module: project_timesheet_forecast
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__is_published
+msgid "Is Published"
+msgstr "Được đăng"
+
+#. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis____last_update
 msgid "Last Modified on"
 msgstr "Sửa lần cuối vào"
+
+#. module: project_timesheet_forecast
+#: model:ir.model,name:project_timesheet_forecast.model_ir_ui_menu
+msgid "Menu"
+msgstr "Trình đơn"
+
+#. module: project_timesheet_forecast
+#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_search
+msgid "My Department"
+msgstr "Phòng ban của tôi"
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_search
@@ -120,13 +147,14 @@ msgstr "Dự án của tôi"
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_search
-msgid "My Tasks"
-msgstr "Nhiệm vụ của tôi"
-
-#. module: project_timesheet_forecast
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_search
 msgid "My Team"
 msgstr "Đội của tôi"
+
+#. module: project_timesheet_forecast
+#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.planning_slot_view_search_inherit_project_timesheet_forecast
+#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_forecast_view_search_inherit_project_timesheet_forecast
+msgid "No Timesheets"
+msgstr ""
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.actions.act_window,help:project_timesheet_forecast.project_timesheet_forecast_report_action
@@ -139,7 +167,7 @@ msgid "No shifts found. Let's create one!"
 msgstr "Không tìm thấy ca trực. Hãy tạo một ca!"
 
 #. module: project_timesheet_forecast
-#: model:ir.model.fields,help:project_timesheet_forecast.field_planning_slot__effective_hours
+#: model:ir.model.fields,help:project_timesheet_forecast.field_planning_analysis_report__effective_hours
 msgid ""
 "Number of hours on the employee's Timesheets for this task (and its sub-"
 "tasks) during the timeframe of the shift."
@@ -148,9 +176,16 @@ msgstr ""
 "phụ) trong khung giờ của ca trực."
 
 #. module: project_timesheet_forecast
+#: model:ir.model.fields,help:project_timesheet_forecast.field_planning_slot__effective_hours
+msgid ""
+"Number of hours the employee recorded on their Timesheetes for this task "
+"(and its sub-tasks) for the period of this shift."
+msgstr ""
+
+#. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__planned_hours
 msgid "Planned Hours"
-msgstr "Số giờ dự kiến"
+msgstr "Số giờ theo kế hoạch"
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields.selection,name:project_timesheet_forecast.selection__project_timesheet_forecast_report_analysis__line_type__forecast
@@ -158,14 +193,25 @@ msgid "Planning"
 msgstr "Kế hoạch"
 
 #. module: project_timesheet_forecast
+#: model:ir.model,name:project_timesheet_forecast.model_planning_analysis_report
+msgid "Planning Analysis Report"
+msgstr "Báo cáo phân tích kế hoạch"
+
+#. module: project_timesheet_forecast
 #: model:ir.model,name:project_timesheet_forecast.model_planning_slot
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_account_analytic_line__slot_id
 msgid "Planning Shift"
-msgstr "Ca kế hoạch"
+msgstr "Ca dự kiến"
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_slot__percentage_hours
 msgid "Progress"
-msgstr "Tiến trình"
+msgstr "Xử lý"
+
+#. module: project_timesheet_forecast
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_analysis_report__percentage_hours
+msgid "Progress (%)"
+msgstr "Tiến độ (%)"
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__project_id
@@ -174,6 +220,7 @@ msgid "Project"
 msgstr "Dự án"
 
 #. module: project_timesheet_forecast
+#: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_analysis_report__remaining_hours
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__difference
 msgid "Remaining Hours"
 msgstr "Giờ còn lại"
@@ -186,11 +233,11 @@ msgstr "Lịch trình theo vai trò"
 #. module: project_timesheet_forecast
 #: model_terms:ir.actions.act_window,help:project_timesheet_forecast.project_timesheet_action_schedule_by_role
 msgid ""
-"Shifts are periods allocated to your employees for a specific role. "
-"Together, they constitute your employees' planning."
+"Schedule your human and material resources across roles, projects and sales "
+"orders."
 msgstr ""
-"Ca trực là các giai đoạn được phân công cho các nhân viên để thực hiện một "
-"nhiệm vụ cụ thể. Chúng tạo thành kế hoạch nhân viên của bạn."
+"Lên lịch cho nguồn nhân lực và vật chất của bạn theo vai trò, dự án và đơn "
+"đặt hàng."
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_analysis_view_tree
@@ -208,32 +255,41 @@ msgid "Sum of Planned Hours"
 msgstr "Tổng số giờ dự kiến"
 
 #. module: project_timesheet_forecast
-#: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__task_id
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_search
-msgid "Task"
-msgstr "Nhiệm vụ"
+#: code:addons/project_timesheet_forecast/models/project_forecast.py:0
+#, python-format
+msgid "The timesheet entries have successfully been generated."
+msgstr ""
+
+#. module: project_timesheet_forecast
+#: code:addons/project_timesheet_forecast/models/project_forecast.py:0
+#: code:addons/project_timesheet_forecast/models/project_forecast.py:0
+#, python-format
+msgid "There are no timesheets to generate or you don't have the right."
+msgstr ""
+
+#. module: project_timesheet_forecast
+#: code:addons/project_timesheet_forecast/models/project_forecast.py:0
+#, python-format
+msgid ""
+"This project isn't expected to have slot during this period. Planned hours :"
+msgstr ""
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_planning_slot__timesheet_ids
 #: model:ir.model.fields.selection,name:project_timesheet_forecast.selection__project_timesheet_forecast_report_analysis__line_type__timesheet
 msgid "Timesheet"
-msgstr "Bảng chấm công"
+msgstr "Thời gian biểu"
 
 #. module: project_timesheet_forecast
 #: model:ir.model,name:project_timesheet_forecast.model_project_timesheet_forecast_report_analysis
 msgid "Timesheet & Planning Statistics"
-msgstr "Thống kê bảng chấm công & kế hoạch"
+msgstr "Thống kê thời gian biểu & dự báo"
 
 #. module: project_timesheet_forecast
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_graph
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast.project_timesheet_forecast_report_view_pivot
 msgid "Timesheet and Planning Analysis"
-msgstr "Phân tích bảng chấm công và kế hoạch"
-
-#. module: project_timesheet_forecast
-#: model:ir.filters,name:project_timesheet_forecast.ir_filter_project_timesheet_forecast
-msgid "Timesheet vs Planning"
-msgstr "Bảng chấm công so với kế hoạch"
+msgstr "Phân tích thời gian biểu và dự báo"
 
 #. module: project_timesheet_forecast
 #: code:addons/project_timesheet_forecast/models/project_forecast.py:0
@@ -258,12 +314,16 @@ msgstr "Bảng chấm công có thể được ghi nhận ở khung giờ này."
 #: model_terms:ir.actions.act_window,help:project_timesheet_forecast.project_timesheet_forecast_report_action
 msgid ""
 "Track the progress of your projects by comparing the hours initially planned"
-" with the effective hours recorded on your tasks"
+" with the effective hours recorded"
 msgstr ""
-"Theo dõi tiến trình của dự án bằng cách so sánh số giờ dự kiến ban đầu với "
-"số giờ hiệu lực được ghi lại trong nhiệm vụ."
 
 #. module: project_timesheet_forecast
 #: model:ir.model.fields,field_description:project_timesheet_forecast.field_project_timesheet_forecast_report_analysis__line_type
 msgid "Type"
 msgstr "Loại"
+
+#. module: project_timesheet_forecast
+#: code:addons/project_timesheet_forecast/models/project_forecast.py:0
+#, python-format
+msgid "You do not have the right to create timesheets."
+msgstr ""

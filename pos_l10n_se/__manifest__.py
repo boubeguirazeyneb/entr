@@ -14,18 +14,16 @@
         'views/pos_daily_reports.xml',
         'security/ir.model.access.csv',
         'views/pos_config.xml',
+        'views/res_config_settings_views.xml',
         'views/order.xml',
     ],
     'assets': {
         'point_of_sale.assets': [
             'pos_l10n_se/static/src/js/PosBlackBoxSweden.js',
-            'pos_l10n_se/static/src/js/NumpadWidget.js',
             'pos_l10n_se/static/src/js/PrintBill.js',
             'pos_l10n_se/static/src/js/ReprintReceiptButton.js',
-            'pos_l10n_se/static/src/js/OrderReceipt.js'
-        ],
-        'web.assets_qweb': [
-            'pos_l10n_se/static/src/xml/**/*',
+            'pos_l10n_se/static/src/js/OrderReceipt.js',
+            'pos_l10n_se/static/src/xml/OrderReceipt.xml',
         ],
     },
     'installable': True,

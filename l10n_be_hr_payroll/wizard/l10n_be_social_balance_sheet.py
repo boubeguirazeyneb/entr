@@ -186,7 +186,7 @@ class L10nBeSocialBalanceSheet(models.TransientModel):
 
         cdi = self.env.ref('l10n_be_hr_payroll.l10n_be_contract_type_cdi')
         cdd = self.env.ref('l10n_be_hr_payroll.l10n_be_contract_type_cdd')
-        replacement = self.env.ref('l10n_be_hr_payroll.l10n_be_contract_type_cdd')
+        replacement = self.env.ref('l10n_be_hr_payroll.l10n_be_contract_type_replacement')
         defined_work = self.env.ref('l10n_be_hr_payroll.l10n_be_contract_type_clearly_defined_work')
         mapped_types = {
             cdi: '110',
@@ -232,7 +232,7 @@ class L10nBeSocialBalanceSheet(models.TransientModel):
             workers_data[contract_type]['fte'] += 1 * calendar.work_time_rate / 100.0
 
             if (gender, contract.employee_id.certificate) not in mapped_certificates:
-                raise UserError(_("The employee %s doens't have a specified certificate", contract.employee_id.name))
+                raise UserError(_("The employee %s doesn't have a specified certificate", contract.employee_id.name))
             gender_code = '120' if gender == 'male' else '121'
             workers_data[gender_code][contract_time] += 1
             workers_data[gender_code]['fte'] += 1 * calendar.work_time_rate / 100.0
@@ -352,11 +352,12 @@ class L10nBeSocialBalanceSheet(models.TransientModel):
             report_data[code] = 0
 
         filename = 'SocialBalance-%s-%s.pdf' % (self.date_from.strftime("%d%B%Y"), self.date_to.strftime("%d%B%Y"))
-        export_274_sheet_pdf, dummy = self.env.ref('l10n_be_hr_payroll.action_report_social_balance').sudo()._render_qweb_pdf(res_ids=self.ids, data=report_data)
+        export_274_sheet_pdf, dummy = self.env["ir.actions.report"].sudo()._render_qweb_pdf(
+            self.env.ref('l10n_be_hr_payroll.action_report_social_balance').id,
+            res_ids=self.ids, data=report_data)
 
         self.social_balance_filename = filename
         self.social_balance_sheet = base64.encodebytes(export_274_sheet_pdf)
-        # YTI TODO: Bind to documents
         self.state = 'done'
         return {
             'type': 'ir.actions.act_window',

@@ -15,7 +15,6 @@ import bus from "web_studio.bus";
 import ViewEditorManager from "web_studio.ViewEditorManager";
 
 const _t = core._t;
-const _lt = core._lt;
 
 export const ActionEditorMain = Widget.extend({
     custom_events: {
@@ -37,6 +36,7 @@ export const ActionEditorMain = Widget.extend({
      */
     init: function (parent, options) {
         this._super.apply(this, arguments);
+        this.wowlEnv = options.wowlEnv;
 
         this._title = _t("Studio");
         if (this.controlPanelProps) {
@@ -91,7 +91,7 @@ export const ActionEditorMain = Widget.extend({
             // add class when activating a pivot/graph view through studio
             const model = self.view_editor && self.view_editor.view.model;
             if (model && model._isInSampleMode) {
-                self.el.classList.add("o_view_sample_data");
+                self.el.classList.add("o_legacy_view_sample_data");
             }
         });
     },
@@ -159,20 +159,52 @@ export const ActionEditorMain = Widget.extend({
             // add studio in loadViews context to retrieve groups server-side
             // We load views in the base language to make sure we read/write on the source term field
             // of ir.ui.view
-            var context = _.extend({}, self.action.context, { studio: true, lang: false });
-            var loadViewDef = self.loadViews(self.action.res_model, context, self.views, {
-                load_filters: true,
-            });
-            return loadViewDef.then(function (fields_views) {
+            const context = Object.assign({}, self.action.context, { studio: true, lang: false, no_address_format: true });
+            const resModel = self.action.res_model;
+            const views = self.views;
+            const actionId = self.action.id;
+            const loadActionMenus = false;
+            const loadIrFilters = true;
+            const loadViewDef = self.wowlEnv.services.view.loadViews(
+                { context, resModel, views },
+                { actionId, loadActionMenus, loadIrFilters }
+            );
+            return loadViewDef.then(async function (viewDescriptions) {
+                const legacyFieldsView = viewDescriptions.__legacy__;
+                const fields_views = legacyFieldsView.fields_views;
+                for (const viewType in fields_views) {
+                    const fvg = fields_views[viewType];
+                    fvg.viewFields = fvg.fields;
+                    fvg.fields = viewDescriptions.fields;
+                }
                 if (!self.action.controlPanelFieldsView) {
+                    let controlPanelFieldsView;
+                    if (fields_views.search) {
+                        controlPanelFieldsView = Object.assign({}, fields_views.search, {
+                            favoriteFilters: legacyFieldsView.filters,
+                            fields: legacyFieldsView.fields,
+                            viewFields: fields_views.search.fields,
+                        });
+                    }
                     // in case of Studio navigation, the processing done on the
                     // action in ActWindowActionManager@_executeWindowAction
                     // is by-passed
-                    self.action.controlPanelFieldsView = fields_views.search;
+                    self.action.controlPanelFieldsView = controlPanelFieldsView;
                 }
                 if (!self.controllerState.currentId) {
                     self.controllerState.currentId =
                         self.controllerState.resIds && self.controllerState.resIds[0];
+                    // FIXME: legacy/wowl views compatibility
+                    // This can be reworked when studio will be converted
+                    if (!self.controllerState.currentId && self.viewType === "form") {
+                        const result = await self._rpc({
+                            model: self.action.res_model,
+                            method: "search",
+                            args: [[]],
+                            kwargs: { limit: 1 },
+                        });
+                        self.controllerState.currentId = result[0];
+                    }
                 }
                 var params = {
                     action: self.action,
@@ -183,6 +215,8 @@ export const ActionEditorMain = Widget.extend({
                     studio_view_arch: self.studioView.studio_view_arch,
                     x2mEditorPath: self.x2mEditorPath,
                     controllerState: self.controllerState,
+                    wowlEnv: self.wowlEnv,
+                    viewDescriptions,
                 };
                 self.view_editor = new ViewEditorManager(self, params);
 

@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields, api, _
-from odoo.tools.float_utils import float_compare
+from odoo import fields, models, api, _
 from odoo.tools import html2plaintext, is_html_empty
+from odoo.exceptions import UserError
 
 
 class StockPicking(models.Model):
-    _name = 'stock.picking'
-    _inherit = ['stock.picking', 'barcodes.barcode_events_mixin']
+    _inherit = 'stock.picking'
     _barcode_field = 'name'
 
     def action_cancel_from_barcode(self):
@@ -65,10 +64,13 @@ class StockPicking(models.Model):
         return action
 
     def action_print_barcode_pdf(self):
-        return self.action_open_label_layout()
+        return self.action_open_label_type()
 
     def action_print_delivery_slip(self):
         return self.env.ref('stock.action_report_delivery').report_action(self)
+
+    def action_print_packges(self):
+        return self.env.ref('stock.action_report_picking_packages').report_action(self)
 
     def _get_stock_barcode_data(self):
         # Avoid to get the products full name because code and name are separate in the barcode app.
@@ -80,34 +82,37 @@ class StockPicking(models.Model):
         products = move_lines.product_id
         packagings = products.packaging_ids
 
-        uoms = products.uom_id
+        uoms = products.uom_id | move_lines.product_uom_id
         # If UoM setting is active, fetch all UoM's data.
         if self.env.user.has_group('uom.group_uom'):
-            uoms = self.env['uom.uom'].search([])
+            uoms |= self.env['uom.uom'].search([])
+
+        # Fetch `stock.location`
+        source_locations = self.env['stock.location'].search([('id', 'child_of', self.location_id.ids)])
+        destination_locations = self.env['stock.location'].search([('id', 'child_of', self.location_dest_id.ids)])
+        locations = move_lines.location_id | move_lines.location_dest_id | source_locations | destination_locations
 
         # Fetch `stock.quant.package` and `stock.package.type` if group_tracking_lot.
         packages = self.env['stock.quant.package']
         package_types = self.env['stock.package.type']
         if self.env.user.has_group('stock.group_tracking_lot'):
             packages |= move_lines.package_id | move_lines.result_package_id
-            packages |= self.env['stock.quant.package']._get_usable_packages()
+            packages |= self.env['stock.quant.package'].with_context(pack_locs=destination_locations.ids)._get_usable_packages()
             package_types = package_types.search([])
 
-        # Fetch `stock.location`
-        source_locations = self.env['stock.location'].search([('id', 'child_of', self.location_id.ids)])
-        destination_locations = self.env['stock.location'].search([('id', 'child_of', self.location_dest_id.ids)])
-        locations = move_lines.location_id | move_lines.location_dest_id | source_locations | destination_locations
         data = {
             "records": {
                 "stock.picking": self.read(self._get_fields_stock_barcode(), load=False),
+                "stock.picking.type": self.picking_type_id.read(self.picking_type_id._get_fields_stock_barcode(), load=False),
                 "stock.move.line": move_lines.read(move_lines._get_fields_stock_barcode(), load=False),
-                "product.product": products.read(products._get_fields_stock_barcode(), load=False),
+                # `self` can be a record set (e.g.: a picking batch), set only the first partner in the context.
+                "product.product": products.with_context(partner_id=self[:1].partner_id.id).read(products._get_fields_stock_barcode(), load=False),
                 "product.packaging": packagings.read(packagings._get_fields_stock_barcode(), load=False),
                 "res.partner": owners.read(owners._get_fields_stock_barcode(), load=False),
                 "stock.location": locations.read(locations._get_fields_stock_barcode(), load=False),
                 "stock.package.type": package_types.read(package_types._get_fields_stock_barcode(), False),
                 "stock.quant.package": packages.read(packages._get_fields_stock_barcode(), load=False),
-                "stock.production.lot": lots.read(lots._get_fields_stock_barcode(), load=False),
+                "stock.lot": lots.read(lots._get_fields_stock_barcode(), load=False),
                 "uom.uom": uoms.read(uoms._get_fields_stock_barcode(), load=False),
             },
             "nomenclature_id": [self.env.company.nomenclature_id.id],
@@ -117,152 +122,12 @@ class StockPicking(models.Model):
         # Extracts pickings' note if it's empty HTML.
         for picking in data['records']['stock.picking']:
             picking['note'] = False if is_html_empty(picking['note']) else html2plaintext(picking['note'])
+
+        data['config'] = self.picking_type_id._get_barcode_config()
+        data['line_view_id'] = self.env.ref('stock_barcode.stock_move_line_product_selector').id
+        data['form_view_id'] = self.env.ref('stock_barcode.stock_picking_barcode').id
+        data['package_view_id'] = self.env.ref('stock_barcode.stock_quant_barcode_kanban').id
         return data
-
-    def get_po_to_split_from_barcode(self, barcode):
-        """ Returns the lot wizard's action for the move line matching
-        the barcode. This method is intended to be called by the
-        `picking_barcode_handler` javascript widget when the user scans
-        the barcode of a tracked product.
-        """
-        product_id = self.env['product.product'].search([('barcode', '=', barcode)])
-        candidates = self.env['stock.move.line'].search([
-            ('picking_id', 'in', self.ids),
-            ('product_barcode', '=', barcode),
-            ('location_processed', '=', False),
-            ('result_package_id', '=', False),
-        ])
-
-        action_ctx = dict(
-            self.env.context,
-            default_picking_id=self.id,
-            serial=self.product_id.tracking == 'serial',
-            default_product_id=product_id.id,
-            candidates=candidates.ids)
-        view_id = self.env.ref('stock_barcode.view_barcode_lot_form').id
-        return {
-            'name': _('Lot/Serial Number Details'),
-            'type': 'ir.actions.act_window',
-            'view_mode': 'form',
-            'res_model': 'stock_barcode.lot',
-            'views': [(view_id, 'form')],
-            'view_id': view_id,
-            'target': 'new',
-            'context': action_ctx}
-
-    def _check_product(self, product, qty=1.0):
-        """ This method is called when the user scans a product. Its goal
-        is to find a candidate move line (or create one, if necessary)
-        and process it by incrementing its `qty_done` field with the
-        `qty` parameter.
-        """
-        # Get back the move line to increase. If multiple are found, chose
-        # arbitrary the first one. Filter out the ones processed by
-        # `_check_location` and the ones already having a # destination
-        # package.
-        picking_move_lines = self.move_line_ids_without_package
-        if not self.show_reserved:
-            picking_move_lines = self.move_line_nosuggest_ids
-
-        corresponding_ml = picking_move_lines.filtered(lambda ml: ml.product_id.id == product.id and not ml.result_package_id and not ml.location_processed and not ml.lots_visible)[:1]
-
-        if corresponding_ml:
-            corresponding_ml.qty_done += qty
-        else:
-            # If a candidate is not found, we create one here. If the move
-            # line we add here is linked to a tracked product, we don't
-            # set a `qty_done`: a next scan of this product will open the
-            # lots wizard.
-            picking_type_lots = (self.picking_type_id.use_create_lots or self.picking_type_id.use_existing_lots)
-            new_move_line = self.move_line_ids.new({
-                'product_id': product.id,
-                'product_uom_id': product.uom_id.id,
-                'location_id': self.location_id.id,
-                'location_dest_id': self.location_dest_id.id,
-                'qty_done': (product.tracking == 'none' and picking_type_lots) and qty or 0.0,
-                'product_uom_qty': 0.0,
-                'date': fields.datetime.now(),
-            })
-            if self.show_reserved:
-                self.move_line_ids_without_package += new_move_line
-            else:
-                self.move_line_nosuggest_ids += new_move_line
-        return True
-
-    def _check_source_package(self, package):
-        corresponding_po = self.move_line_ids.filtered(lambda r: r.package_id.id == package.id and r.result_package_id.id == package.id)
-        for po in corresponding_po:
-            po.qty_done = po.product_uom_qty
-        if corresponding_po:
-            self.package_level_ids_details.filtered(lambda p: p.package_id == package).is_done = True
-            return True
-        else:
-            return False
-
-    def _check_destination_package(self, package):
-        """ This method is called when the user scans a package currently
-        located in (or in any of the children of) the destination location
-        of the picking. Its goal is to set this package as a destination
-        package for all the processed move lines not having a destination
-        package.
-        """
-        corresponding_ml = self.move_line_ids.filtered(lambda ml: not ml.result_package_id and float_compare(ml.qty_done, 0, precision_rounding=ml.product_uom_id.rounding) == 1)
-        # If the user processed the whole reservation (or more), simply
-        # write the `package_id` field.
-        # If the user processed less than the reservation, split the
-        # concerned move line in two: one where the `package_id` field
-        # is set with the processed quantity as `qty_done` and another
-        # one with the initial values.
-        for ml in corresponding_ml:
-            rounding = ml.product_uom_id.rounding
-            if float_compare(ml.qty_done, ml.product_uom_qty, precision_rounding=rounding) == -1:
-                self.move_line_ids += self.move_line_ids.new({
-                    'product_id': ml.product_id.id,
-                    'package_id': ml.package_id.id,
-                    'product_uom_id': ml.product_uom_id.id,
-                    'location_id': ml.location_id.id,
-                    'location_dest_id': ml.location_dest_id.id,
-                    'qty_done': 0.0,
-                    'move_id': ml.move_id.id,
-                    'date': fields.datetime.now(),
-                })
-            ml.result_package_id = package.id
-        return True
-
-    def _check_destination_location(self, location):
-        """ This method is called when the user scans a location. Its goal
-        is to find the move lines previously processed and write the scanned
-        location as their `location_dest_id` field.
-        """
-        # Get back the move lines the user processed. Filter out the ones where
-        # this method was already applied thanks to `location_processed`.
-        corresponding_ml = self.move_line_ids.filtered(lambda ml: not ml.location_processed and float_compare(ml.qty_done, 0, precision_rounding=ml.product_uom_id.rounding) == 1)
-
-        # If the user processed the whole reservation (or more), simply
-        # write the `location_dest_id` and `location_processed` fields
-        # on the concerned move line.
-        # If the user processed less than the reservation, split the
-        # concerned move line in two: one where the `location_dest_id`
-        # and `location_processed` fields are set with the processed
-        # quantity as `qty_done` and another one with the initial values.
-        for ml in corresponding_ml:
-            rounding = ml.product_uom_id.rounding
-            if float_compare(ml.qty_done, ml.product_uom_qty, precision_rounding=rounding) == -1:
-                self.move_line_ids += self.move_line_ids.new({
-                    'product_id': ml.product_id.id,
-                    'package_id': ml.package_id.id,
-                    'product_uom_id': ml.product_uom_id.id,
-                    'location_id': ml.location_id.id,
-                    'location_dest_id': ml.location_dest_id.id,
-                    'qty_done': 0.0,
-                    'move_id': ml.move_id.id,
-                    'date': fields.datetime.now(),
-                })
-            ml.update({
-                'location_processed': True,
-                'location_dest_id': location.id,
-            })
-        return True
 
     @api.model
     def _create_new_picking(self, picking_type):
@@ -315,113 +180,161 @@ class StockPicking(models.Model):
             'picking_type_entire_packs',
             'use_create_lots',
             'use_existing_lots',
+            'user_id',
         ]
 
-    def on_barcode_scanned(self, barcode):
-        if not self.env.company.nomenclature_id or self.env.company.nomenclature_id.is_gs1_nomenclature:
-            # Logic for products
-            product = self.env['product.product'].search(['|', ('barcode', '=', barcode), ('default_code', '=', barcode)], limit=1)
-            if product:
-                if self._check_product(product):
-                    return
-
-            product_packaging = self.env['product.packaging'].search([('barcode', '=', barcode)], limit=1)
-            if product_packaging:
-                if self._check_product(product_packaging.product_id, product_packaging.qty):
-                    return
-
-            # Logic for packages in source location
-            if self.move_line_ids:
-                package_source = self.env['stock.quant.package'].search([('name', '=', barcode), ('location_id', 'child_of', self.location_id.id)], limit=1)
-                if package_source:
-                    if self._check_source_package(package_source):
-                        return
-
-            # Logic for packages in destination location
-            package = self.env['stock.quant.package'].search([('name', '=', barcode), '|', ('location_id', '=', False), ('location_id', 'child_of', self.location_dest_id.id)], limit=1)
-            if package:
-                if self._check_destination_package(package):
-                    return
-
-            # Logic only for destination location
-            location = self.env['stock.location'].search(['|', ('name', '=', barcode), ('barcode', '=', barcode)], limit=1)
-            if location and location.search_count([('id', '=', location.id), ('id', 'child_of', self.location_dest_id.ids)]):
-                if self._check_destination_location(location):
-                    return
-        else:
-            parsed_result = self.env.company.nomenclature_id.parse_barcode(barcode)
-            if parsed_result['type'] in ['weight', 'product']:
-                if parsed_result['type'] == 'weight':
-                    product_barcode = parsed_result['base_code']
-                    qty = parsed_result['value']
-                else:  # product
-                    product_barcode = parsed_result['code']
-                    qty = 1.0
-                product = self.env['product.product'].search(['|', ('barcode', '=', product_barcode), ('default_code', '=', product_barcode)], limit=1)
-                if product:
-                    if self._check_product(product, qty):
-                        return
-
-            if parsed_result['type'] == 'package':
-                if self.move_line_ids:
-                    package_source = self.env['stock.quant.package'].search([('name', '=', parsed_result['code']), ('location_id', 'child_of', self.location_id.id)], limit=1)
-                    if package_source:
-                        if self._check_source_package(package_source):
-                            return
-                package = self.env['stock.quant.package'].search([('name', '=', parsed_result['code']), '|', ('location_id', '=', False), ('location_id', 'child_of', self.location_dest_id.id)], limit=1)
-                if package:
-                    if self._check_destination_package(package):
-                        return
-
-            if parsed_result['type'] == 'location':
-                location = self.env['stock.location'].search(['|', ('name', '=', parsed_result['code']), ('barcode', '=', parsed_result['code'])], limit=1)
-                if location and location.search_count([('id', '=', location.id), ('id', 'child_of', self.location_dest_id.ids)]):
-                    if self._check_destination_location(location):
-                        return
-
-            product_packaging = self.env['product.packaging'].search([('barcode', '=', parsed_result['code'])], limit=1)
-            if product_packaging:
-                if self._check_product(product_packaging.product_id, product_packaging.qty):
-                    return
-
-        return {'warning': {
-            'title': _('Wrong barcode'),
-            'message': _('The barcode "%(barcode)s" doesn\'t correspond to a proper product, package or location.') % {'barcode': barcode}
-        }}
-
     @api.model
-    def filter_on_product(self, barcode):
-        """ Search for ready pickings for the scanned product. If at least one
-        picking is found, returns the picking kanban view filtered on this product.
+    def filter_on_barcode(self, barcode):
+        """ Searches ready pickings for the scanned product/package.
         """
-        product = self.env['product.product'].search_read([('barcode', '=', barcode)], ['id'], limit=1)
-        if product:
-            product_id = product[0]['id']
-            picking_type = self.env['stock.picking.type'].search_read(
-                [('id', '=', self.env.context.get('active_id'))],
-                ['name'],
-            )[0]
-            if not self.search_count([
-                ('product_id', '=', product_id),
-                ('picking_type_id', '=', picking_type['id']),
-                ('state', 'not in', ['cancel', 'done', 'draft']),
-            ]):
-                return {'warning': {
-                    'title': _("No %s ready for this product", picking_type['name']),
-                }}
-            action = self.env['ir.actions.actions']._for_xml_id('stock_barcode.stock_picking_action_kanban')
-            action['context'] = dict(self.env.context)
-            action['context']['search_default_product_id'] = product_id
-            return {'action': action}
-        return {'warning': {
-            'title': _("No product found for barcode %s", barcode),
-            'message': _("Scan a product to filter the transfers."),
-        }}
+        barcode_type = None
+        nomenclature = self.env.company.nomenclature_id
+        if nomenclature.is_gs1_nomenclature:
+            parsed_results = nomenclature.parse_barcode(barcode)
+            if parsed_results:
+                # filter with the last feasible rule
+                for result in parsed_results[::-1]:
+                    if result['rule'].type in ('product', 'package'):
+                        barcode_type = result['rule'].type
+                        break
+
+        active_id = self.env.context.get('active_id')
+        picking_type = self.env['stock.picking.type'].browse(self.env.context.get('active_id'))
+        base_domain = [
+            ('picking_type_id', '=', picking_type.id),
+            ('state', 'not in', ['cancel', 'done', 'draft'])
+        ]
+
+        picking_nums = 0
+        additional_context = {'active_id': active_id}
+        if barcode_type == 'product' or not barcode_type:
+            product = self.env['product.product'].search_read([('barcode', '=', barcode)], ['id'], limit=1)
+            if product:
+                product_id = product[0]['id']
+                picking_nums = self.search_count(base_domain + [('product_id', '=', product_id)])
+                additional_context['search_default_product_id'] = product_id
+        if self.env.user.has_group('stock.group_tracking_lot') and (barcode_type == 'package' or (not barcode_type and not picking_nums)):
+            package = self.env['stock.quant.package'].search_read([('name', '=', barcode)], ['id'], limit=1)
+            if package:
+                package_id = package[0]['id']
+                pack_domain = ['|', ('move_line_ids.package_id', '=', package_id), ('move_line_ids.result_package_id', '=', package_id)]
+                picking_nums = self.search_count(base_domain + pack_domain)
+                additional_context['search_default_move_line_ids'] = barcode
+        if not barcode_type and not picking_nums:  # Nothing found yet, try to find picking by name.
+            picking_nums = self.search_count(base_domain + [('name', '=', barcode)])
+            additional_context['search_default_name'] = barcode
+
+        if not picking_nums:
+            if barcode_type:
+                return {
+                    'warning': {
+                        'title': _("No %(picking_type)s ready for this %(barcode_type)s", picking_type=picking_type.name, barcode_type=barcode_type),
+                    }
+                }
+            return {
+                'warning': {
+                    'title': _('No product or package found for barcode %s', barcode),
+                    'message': _('Scan a product or a package to filter the transfers.'),
+                }
+            }
+
+        action = picking_type._get_action('stock_barcode.stock_picking_action_kanban')
+        action['context'].update(additional_context)
+        return {'action': action}
 
 
 class StockPickingType(models.Model):
-
     _inherit = 'stock.picking.type'
+
+    barcode_validation_after_dest_location = fields.Boolean("Force a destination on all products")
+    barcode_validation_all_product_packed = fields.Boolean("Force all products to be packed")
+    barcode_validation_full = fields.Boolean(
+        "Allow full picking validation", default=True,
+        help="Allow to validate a picking even if nothing was scanned yet (and so, do an immediate transfert)")
+    restrict_scan_product = fields.Boolean(
+        "Force Product scan?", help="Line's product must be scanned before the line can be edited")
+    restrict_put_in_pack = fields.Selection(
+        [
+            ('mandatory', "After each product"),
+            ('optional', "After group of Products"),
+            ('no', "No"),
+        ], "Force put in pack?",
+        help="Does the picker have to put in a package the scanned products? If yes, at which rate?",
+        default="optional", required=True)
+    restrict_scan_tracking_number = fields.Selection(
+        [
+            ('mandatory', "Mandatory Scan"),
+            ('optional', "Optional Scan"),
+        ], "Force Lot/Serial scan?", default='optional', required=True)
+    restrict_scan_source_location = fields.Selection(
+        [
+            ('no', "No Scan"),
+            ('mandatory', "Mandatory Scan"),
+        ], "Force Source Location scan?", default='no', required=True)
+    restrict_scan_dest_location = fields.Selection(
+        [
+            ('mandatory', "After each product"),
+            ('optional', "After group of Products"),
+            ('no', "No"),
+        ], "Force Destination Location scan?",
+        help="Does the picker have to scan the destination? If yes, at which rate?",
+        default='optional', required=True)
+    show_barcode_validation = fields.Boolean(
+        compute='_compute_show_barcode_validation',
+        help='Technical field used to compute whether the "Final Validation" group should be displayed, solving combined groups/invisible complexity.')
+
+    @api.depends('restrict_scan_product', 'restrict_put_in_pack', 'restrict_scan_dest_location')
+    def _compute_show_barcode_validation(self):
+        for picking_type in self:
+            # reflect all fields invisible conditions
+            hide_full = picking_type.restrict_scan_product
+            hide_all_product_packed = not self.user_has_groups('stock.group_tracking_lot') or\
+                                      picking_type.restrict_put_in_pack != 'optional'
+            hide_dest_location = not self.user_has_groups('stock.group_stock_multi_locations') or\
+                                 (picking_type.code == 'outgoing' or picking_type.restrict_scan_dest_location != 'optional')
+            # show if not all hidden
+            picking_type.show_barcode_validation = not (hide_full and hide_all_product_packed and hide_dest_location)
+
+    @api.constrains('restrict_scan_source_location', 'restrict_scan_dest_location')
+    def _check_restrinct_scan_locations(self):
+        for picking_type in self:
+            if picking_type.code == 'internal' and\
+               picking_type.restrict_scan_dest_location == 'optional' and\
+               picking_type.restrict_scan_source_location == 'mandatory':
+                raise UserError(_("If the source location must be scanned, then the destination location must either be scanned after each product or not scanned at all."))
 
     def get_action_picking_tree_ready_kanban(self):
         return self._get_action('stock_barcode.stock_picking_action_kanban')
+
+    def _get_barcode_config(self):
+        self.ensure_one()
+        # Defines if all lines need to be packed to be able to validate a transfer.
+        locations_enable = self.env.user.has_group('stock.group_stock_multi_locations')
+        lines_need_to_be_packed = self.env.user.has_group('stock.group_tracking_lot') and (
+            self.restrict_put_in_pack == 'mandatory' or (
+                self.restrict_put_in_pack == 'optional'
+                and self.barcode_validation_all_product_packed
+            )
+        )
+        config = {
+            # Boolean fields.
+            'barcode_validation_after_dest_location': self.barcode_validation_after_dest_location,
+            'barcode_validation_all_product_packed': self.barcode_validation_all_product_packed,
+            'barcode_validation_full': not self.restrict_scan_product and self.barcode_validation_full,  # Forced to be False when scanning a product is mandatory.
+            'restrict_scan_product': self.restrict_scan_product,
+            # Selection fields converted into boolean.
+            'restrict_scan_tracking_number': self.restrict_scan_tracking_number == 'mandatory',
+            'restrict_scan_source_location': locations_enable and self.restrict_scan_source_location == 'mandatory',
+            # Selection fields.
+            'restrict_put_in_pack': self.restrict_put_in_pack,
+            'restrict_scan_dest_location': self.restrict_scan_dest_location if locations_enable else 'no',
+            # Additional parameters.
+            'lines_need_to_be_packed': lines_need_to_be_packed,
+        }
+        return config
+
+    def _get_fields_stock_barcode(self):
+        return [
+            'default_location_dest_id',
+            'default_location_src_id',
+        ]

@@ -148,71 +148,6 @@ class WebStudioController(http.Controller):
             """),
         }
 
-    def _get_studio_action_translations(self, model, **kwargs):
-        """ Open a view for translating the field(s) of the record (model, id). """
-        domains = [['|', ('name', '=', model.model), ('name', 'ilike', model.model + ',')]]
-        view_domains = [[('model', '=', model.model)]]
-
-        # search report views related to model
-        reports = request.env['ir.actions.report'].search([
-            ("model_id.transient", "=", False),
-            ("model_id.abstract", "=", False),
-            ("report_type", "not in", ['qweb-text']),
-            ("model", "=", model.model),
-        ])
-        for report in reports:
-            view_domains.append(report.associated_view().get('domain'))
-
-        # search view + its inheritancies + report views
-        views = request.env['ir.ui.view'].search(expression.OR(view_domains))
-        domains.append(['&', ('name', '=', 'ir.ui.view,arch_db'), ('res_id', 'in', views.ids)])
-
-        def make_domain(fld, rec):
-            name = "%s,%s" % (fld.model_name, fld.name)
-            return ['&', ('res_id', '=', rec.id), ('name', '=', name)]
-
-        def insert_missing(fld, rec):
-            if not fld.translate:
-                return []
-
-            if fld.related:
-                try:
-                    # traverse related fields up to their data source
-                    while fld.related:
-                        rec, fld = fld.traverse_related(rec)
-                    if rec:
-                        return make_domain(fld, rec)
-                except AccessError:
-                    return []
-
-            assert fld.translate and rec._name == fld.model_name
-            request.env['ir.translation'].insert_missing(fld, rec)
-            return []
-
-        # insert missing translations of views
-        for view in views:
-            for name, fld in view._fields.items():
-                domains.append(insert_missing(fld, view))
-
-        # insert missing translations of model, and extend domain for related fields
-        record = request.env[model.model].search([], limit=1)
-        if record:
-            for name, fld in record._fields.items():
-                domains.append(insert_missing(fld, record))
-        domain = expression.OR(domains)
-
-        action = {
-            'name': _('Translate view'),
-            'type': 'ir.actions.act_window',
-            'res_model': 'ir.translation',
-            'view_mode': 'tree',
-            'views': [[request.env.ref('base.view_translation_dialog_tree').id, 'list']],
-            'target': 'current',
-            'domain': domain,
-        }
-
-        return action
-
     @http.route('/web_studio/create_new_app', type='json', auth='user')
     def create_new_app(self, app_name=False, menu_name=False, model_choice=False, model_id=False, model_options=False, icon=None):
         """Create a new app @app_name, linked to a new action associated to the model_id or the newlyy created model.
@@ -259,9 +194,7 @@ class WebStudioController(http.Controller):
         menu_values.update(self._get_icon_fields(icon))
         menu_values['child_id'] = child_menu_vals
 
-        new_context = dict(request.context)
-        new_context.update({'ir.ui.menu.full_list': True})  # allows to create a menu without action
-        new_menu = request.env['ir.ui.menu'].with_context(new_context).create(menu_values)
+        new_menu = request.env['ir.ui.menu'].with_context(**{'ir.ui.menu.full_list': True}).create(menu_values)
 
         return {
             'menu_id': new_menu.id,
@@ -440,7 +373,7 @@ class WebStudioController(http.Controller):
                 model.write({'is_mail_activity': True})
 
         try:
-            request.env[res_model].fields_view_get(view_type=view_type)
+            request.env[res_model].get_view(view_type=view_type)
         except UserError:
             return False
         self.edit_action(action_type, action_id, args)
@@ -522,13 +455,14 @@ class WebStudioController(http.Controller):
 
     def _return_view(self, view, studio_view):
         ViewModel = request.env[view.model]
-        fields_view = ViewModel.with_context(studio=True).fields_view_get(view.id, view.type)
+        fields_view = ViewModel.with_context(studio=True).get_view(view.id, view.type)
         view_type = 'list' if view.type == 'tree' else view.type
+        models = fields_view['models']
 
         return {
-            'fields_views': {view_type: fields_view},
-            'fields': ViewModel.fields_get(),
+            'views': {view_type: fields_view},
             'studio_view_id': studio_view.id,
+            'models': {model: request.env[model].fields_get() for model in models}
         }
 
     @http.route('/web_studio/restore_default_view', type='json', auth='user')
@@ -616,17 +550,21 @@ class WebStudioController(http.Controller):
             # create a new field if it does not exist
             if 'node' in op:
                 if op['node'].get('tag') == 'field' and op['node'].get('field_description'):
-                    if op['node']['field_description'].get('special') == 'lines':
-                        field = request.env['ir.model']._get(model)._setup_one2many_lines()
-                    else:
+                    is_special_lines = op['node']['field_description'].get('special') == 'lines'
+                    if not is_special_lines:
                         model = op['node']['field_description']['model_name']
-                        # Check if field exists before creation
-                        field = IrModelFields.search([
-                            ('name', '=', op['node']['field_description']['name']),
-                            ('model', '=', model),
-                        ], limit=1)
+                    # Check if field exists before creation
+                    field = IrModelFields.search([
+                        ('name', '=', op['node']['field_description']['name']),
+                        ('model', '=', model),
+                    ], limit=1)
+
                     if not field:
-                        field = self.create_new_field(op['node']['field_description'])
+                        if is_special_lines:
+                            field = request.env['ir.model']._get(model)._setup_one2many_lines(
+                                op['node']['field_description']['name'])
+                        else:
+                            field = self.create_new_field(op['node']['field_description'])
                     op['node']['attrs']['name'] = field.name
                 if op['node'].get('tag') == 'filter' and op['target']['tag'] == 'group' and op['node']['attrs'].get('create_group'):
                     op['node']['attrs'].pop('create_group')
@@ -694,19 +632,21 @@ class WebStudioController(http.Controller):
                 filename_field_id.write({'name': new_name + '_filename'})
 
     def _create_studio_view(self, view, arch):
-        # We have to play with priorities. Consider the following:
-        # View Base: <field name="x"/><field name="y"/>
-        # View Standard inherits Base: <field name="x" position="after"><field name="z"/></field>
-        # View Custo inherits Base: <field name="x" position="after"><field name="x2"/></field>
-        # We want x,x2,z,y, because that's what we did in studio, but the order of xpath
-        # resolution is sequence,name, not sequence,id. Because "Custo" < "Standard", it
-        # would first resolve in x,x2,y, then resolve "Standard" with x,z,x2,y as result.
+        # We have to play with priorities in order for our customization to be the last
+        # to be applied.
+        # In studio, what the user sees is the resulting view from all the inheritance.
+        # Hence if the user does something it is on that result. To apply what they wanted, we need
+        # to set the customization as last.
+        priority = max(view.inherit_children_ids.mapped("priority"), default=0) * 10
+        default_prio = view._fields["priority"].default(view)
+        if priority <= default_prio:
+            priority = 99
         return request.env['ir.ui.view'].create({
             'type': view.type,
             'model': view.model,
             'inherit_id': view.id,
             'mode': 'extension',
-            'priority': 99,
+            'priority': priority,
             'arch': arch,
             'name': self._generate_studio_view_name(view),
         })
@@ -742,14 +682,8 @@ Are you sure you want to remove the selection values of those records?""") % len
             view.write({'arch': view_arch})
             ViewModel = request.env[view.model]
             try:
-                fields_view = ViewModel.with_context(studio=True).fields_view_get(view.id, view.type)
-                view_type = 'list' if view.type == 'tree' else view.type
-                return {
-                    'fields_views': {
-                        view_type: fields_view,
-                    },
-                    'fields': ViewModel.fields_get(),
-                }
+                studio_view = self._get_studio_view(view)
+                return self._return_view(view, studio_view)
             except Exception:
                 return False
 
@@ -818,7 +752,7 @@ Are you sure you want to remove the selection values of those records?""") % len
             # by studio will be only '/tree' but this is useless since the
             # subview xpath already specify this element. So in this case,
             # we don't add the expr computed by studio.
-            elif len(xpath) - len(expr) != xpath.find(expr):
+            elif not xpath.endswith(expr):
                 expr = xpath + expr
         return expr
 
@@ -924,7 +858,7 @@ Are you sure you want to remove the selection values of those records?""") % len
         btn_name = operation.get('btn_name')
         view_id = operation.get('view_id')
         parser = etree.XMLParser(remove_blank_text=True)
-        raw_base_arch = request.env[model].fields_view_get(view_id, 'form')['arch']
+        raw_base_arch = request.env[model].get_view(view_id, 'form')['arch']
         base_arch = etree.fromstring(raw_base_arch, parser=parser)
 
         # if no rule is found, create one on the fly
@@ -1068,7 +1002,7 @@ Are you sure you want to remove the selection values of those records?""") % len
     def _operation_buttonbox(self, arch, operation, model=None):
         studio_view_arch = arch  # The actual arch is the studio view arch
         # Get the arch of the form view with inherited views applied
-        arch = request.env[model].fields_view_get(view_type='form')['arch']
+        arch = request.env[model].get_view(view_type='form')['arch']
         parser = etree.XMLParser(remove_blank_text=True)
         arch = etree.fromstring(arch, parser=parser)
 
@@ -1169,7 +1103,7 @@ Are you sure you want to remove the selection values of those records?""") % len
         # add the dropdown before the rest
         dropdown_node = etree.fromstring("""
             <div class="o_dropdown_kanban dropdown" name="kanban_dropdown">
-                <a class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu" role="button">
+                <a class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu" role="button">
                     <span class="fa fa-ellipsis-v"/>
                 </a>
                 <div class="dropdown-menu" role="menu">
@@ -1226,7 +1160,7 @@ Are you sure you want to remove the selection values of those records?""") % len
 
         # check if there's already a bottom right section
         # boy o boy i sure hope there's only one kanban!
-        base_arch = request.env[model].fields_view_get(view_type='kanban')['arch']
+        base_arch = request.env[model].get_view(view_type='kanban')['arch']
         base_tree = etree.fromstring(base_arch)
         has_br_container = base_tree.xpath('//div[hasclass("oe_kanban_bottom_right")]')
 
@@ -1304,7 +1238,7 @@ Are you sure you want to remove the selection values of those records?""") % len
             """ % (field_id.name))
         )
         studio_view_arch = arch
-        arch = request.env[model]._fields_view_get(view_type='kanban')['arch']
+        arch = request.env[model].get_view(view_type='kanban')['arch']
         parser = etree.XMLParser(remove_blank_text=True)
         arch = etree.fromstring(arch, parser=parser)
 
@@ -1374,7 +1308,7 @@ Are you sure you want to remove the selection values of those records?""") % len
 
     def _operation_avatar_image(self, arch, operation, model):
         studio_view_arch = arch  # The actual arch is the studio view arch
-        arch = request.env[model].fields_view_get(view_type='form')['arch']
+        arch = request.env[model].get_view(view_type='form')['arch']
         parser = etree.XMLParser(remove_blank_text=True)
         arch = etree.fromstring(arch, parser=parser)
 
@@ -1591,19 +1525,15 @@ Are you sure you want to remove the selection values of those records?""") % len
             studio_view = self._create_studio_view(view, '<data/>')
         parser = etree.XMLParser(remove_blank_text=True)
         arch = etree.fromstring(studio_view.arch_db, parser=parser)
-        expr = "//field[@name='%s']" % field_name
-        if subview_xpath:
-            expr = subview_xpath + expr
         position = 'inside'
-        xpath_node = arch.find('xpath[@expr="%s"][@position="%s"]' % (expr, position))
+        xpath_node = arch.find('xpath[@expr="%s"][@position="%s"]' % (subview_xpath, position))
         if xpath_node is None:  # bool(node) == False if node has no children
             xpath_node = etree.SubElement(arch, 'xpath', {
-                'expr': expr,
+                'expr': subview_xpath,
                 'position': position
             })
-        inline_view = request.env[model]._fields_view_get(view_type=subview_type)
-        view_arch = inline_view['arch']
-        xml_node = self._inline_view_filter_nodes(etree.fromstring(view_arch))
+        view_arch, _ = request.env[model]._get_view(view_type=subview_type)
+        xml_node = self._inline_view_filter_nodes(view_arch)
         xpath_node.insert(0, xml_node)
         studio_view.arch_db = etree.tostring(arch, encoding='utf-8', pretty_print=True)
         return studio_view.arch_db

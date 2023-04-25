@@ -26,6 +26,18 @@ const TimerHeaderM2O = Widget.extend(StandaloneFieldManagerMixin, {
         this.taskId = arguments[2];
     },
     /**
+     * @private
+     * @param {number} projectId
+     * @return {Object} taskDomain
+     */
+     _getTaskDomain(projectId) {
+        const taskDomain = [['allow_timesheets', '=', true]];
+        if (projectId) {
+            taskDomain.push(['project_id', '=', projectId]);
+        }
+        return taskDomain;
+     },
+    /**
      * @override
      */
     willStart: async function () {
@@ -53,7 +65,7 @@ const TimerHeaderM2O = Widget.extend(StandaloneFieldManagerMixin, {
             relation: 'project.task',
             type: 'many2one',
             value: this.taskId,
-            domain: this.projectId ? [['project_id', '=', this.projectId]] : []
+            domain: this._getTaskDomain(this.projectId),
         }]);
     },
     /**
@@ -72,31 +84,40 @@ const TimerHeaderM2O = Widget.extend(StandaloneFieldManagerMixin, {
         const projectRecord = this.model.get(this.project);
         const projectMany2one = new Many2One(this, 'project_id', projectRecord, {
             attrs: {
+                string: _t('Project'),
                 placeholder: placeholderProject,
+                options: { no_create_edit: true },
             },
             noOpen: true,
-            noCreate: true,
             mode: 'edit',
             required: true,
         });
         projectMany2one.field['required'] = true;
         this._registerWidget(this.project, 'project_id', projectMany2one);
-        await projectMany2one.appendTo(this.$('.timer_project_id'));
+        projectMany2one.renderElement();
+        const timerProjectId = this.el.querySelector('.timer_project_id');
+        await projectMany2one.appendTo(timerProjectId);
         this.projectMany2one = projectMany2one;
+        projectMany2one.el.classList.add('w-100');
 
         const taskRecord = this.model.get(this.task);
         const taskMany2one = new TaskWithHours(this, 'task_id', taskRecord, {
             attrs: {
+                string: _t('Task'),
                 placeholder: placeholderTask,
+                options: { no_create_edit: true },
             },
             noOpen: true,
-            noCreate: true,
             mode: 'edit',
         });
+        taskMany2one.field['context'] = this.projectId ? { 'default_project_id': this.projectId } : {};
         this._registerWidget(this.task, 'task_id', taskMany2one);
-        await taskMany2one.appendTo(this.$('.timer_task_id'));
+        taskMany2one.renderElement();
+        const timerTaskId = this.el.querySelector('.timer_task_id');
+        await taskMany2one.appendTo(timerTaskId);
         this.taskMany2one = taskMany2one;
-        this.$('.timer_project_id').addClass('o_required_modifier');
+        timerTaskId.classList.add('o_required_modifier');
+        taskMany2one.el.classList.add('w-100');
 
         _super.apply(...arguments);
     },
@@ -130,11 +151,9 @@ const TimerHeaderM2O = Widget.extend(StandaloneFieldManagerMixin, {
             if (project !== newId) {
                 this.projectId = newId;
                 this.taskId = false;
-
-                this.taskMany2one.value = [];
-                this.taskMany2one.m2o_value = this.taskMany2one._formatValue([]);
                 this.taskMany2one._render();
-                this.taskMany2one.field.domain = [['project_id', '=?', newId]];
+                this.taskMany2one.field.domain = this._getTaskDomain(newId);
+                this.taskMany2one.field.context = newId ? {'default_project_id': newId} : {};
                 this.trigger_up('timer-edit-project', {'projectId': newId});
                 this._updateRequiredField();
             }

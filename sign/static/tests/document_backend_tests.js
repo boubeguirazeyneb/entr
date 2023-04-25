@@ -1,17 +1,20 @@
-odoo.define('sign.document_backend_tests', function (require) {
+/** @odoo-module **/
+
 "use strict";
 
-var FormView = require('web.FormView');
-const framework = require('web.framework');
-var testUtils = require('web.test_utils');
+import FormView from 'web.FormView';
+import framework from 'web.framework';
+import testUtils from 'web.test_utils';
 
-var createView = testUtils.createView;
+const { createView } = testUtils;
 
-const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
+import { getFixture } from "@web/../tests/helpers/utils";
+import { createWebClient, doAction } from '@web/../tests/webclient/helpers';
+
+import { DocumentAction } from '@sign/js/backend/document';
+
 let serverData;
-
-const DocumentBackend = require('sign.DocumentBackend');
-
+let target;
 QUnit.module('document_backend_tests', {
     beforeEach: function () {
         this.data = {
@@ -36,6 +39,7 @@ QUnit.module('document_backend_tests', {
             },
         };
         serverData = {models: this.data};
+        target = getFixture();
     }
 }, function () {
     QUnit.test('simple rendering', async function (assert) {
@@ -77,7 +81,7 @@ QUnit.module('document_backend_tests', {
 
         assert.verifySteps(['blockUI', 'unblockUI']);
 
-        assert.strictEqual($(webClient.el).find('.o_sign_document').text().trim(), 'def',
+        assert.strictEqual(target.querySelector('.o_sign_document').innerText.trim(), 'def',
             'should display text from server');
 
         testUtils.mock.unpatch(framework);
@@ -93,7 +97,7 @@ QUnit.module('document_backend_tests', {
         });
 
         const proms = [];
-        testUtils.mock.patch(DocumentBackend, {
+        testUtils.mock.patch(DocumentAction, {
             _init_page() {
                 const prom = this._super.apply(this, arguments);
                 proms.push(prom);
@@ -127,7 +131,7 @@ QUnit.module('document_backend_tests', {
         await Promise.all(proms);
 
         assert.verifySteps(["/sign/get_document/5/abc", "/sign/get_document/5/abc"]);
-        testUtils.mock.unpatch(DocumentBackend);
+        testUtils.mock.unpatch(DocumentAction);
         testUtils.mock.unpatch(framework);
     });
 
@@ -145,7 +149,7 @@ QUnit.module('document_backend_tests', {
             {id: 17, display_name: "Template 17"},
         ]);
 
-        var form = await createView({
+        const form = await createView({
             View: FormView,
             model: 'partner',
             data: this.data,
@@ -165,6 +169,4 @@ QUnit.module('document_backend_tests', {
 
         form.destroy();
     });
-});
-
 });

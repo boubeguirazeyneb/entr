@@ -1,16 +1,14 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-from odoo.addons.sale.controllers.portal import CustomerPortal
 
-from odoo import http
+from odoo.http import route
+from odoo.addons.sale.controllers.portal import CustomerPortal
 
 
 class CustomerPortalAvatax(CustomerPortal):
-    @http.route([
-        '/my/orders/<int:order_id>',
-    ], type='http', auth='public', website=True)
-    def portal_order_page(self, order_id=None, **post):
-        response = super(CustomerPortalAvatax, self).portal_order_page(order_id=order_id, **post)
+
+    @route()
+    def portal_order_page(self, *args, **kwargs):
+        response = super().portal_order_page(*args, **kwargs)
         if 'sale_order' not in response.qcontext:
             return response
 

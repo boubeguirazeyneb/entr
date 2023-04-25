@@ -8,7 +8,6 @@
         <field name="arch" type="xml">
             <tree string="Deferred Revenues" decoration-info="(state == 'draft')" decoration-muted="(state == 'close')" sample="1">
                 <field name="name" string="Revenue Name"/>
-                <field name="first_depreciation_date"/>
                 <field name="book_value"/>
                 <field name="value_residual" widget="monetary"/>
                 <field name="currency_id" groups="base.group_multi_currency"/>
@@ -24,10 +23,11 @@
         <field name="arch" type="xml">
             <tree string="Deferred Revenues Models">
                 <field name="name" string="Revenue Name"/>
-                <field name="account_depreciation_id" string="Revenue Account"/>
-                <field name="account_depreciation_expense_id" string="Deferred Revenue Account"/>
+                <field name="account_depreciation_id" string="Deferred Revenue Account"/>
+                <field name="account_depreciation_expense_id" string="Revenue Account"/>
                 <field name="method_number" string="Number of Recognitions"/>
                 <field name="method_period" string="Period length"/>
+                <field name="company_id" invisible="1"/>
                 <field name="state" invisible="1"/>
             </tree>
         </field>
@@ -42,8 +42,8 @@
                 <field name="name"/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group expand="0" string="Group By...">
-                        <filter string="Revenue Account" name="account_depreciation_id" domain="[]" context="{'group_by':'account_depreciation_id'}"/>
-                        <filter string="Deferred Revenue Account" name="account_depreciation_expense_id" domain="[]" context="{'group_by':'account_depreciation_expense_id'}"/>
+                        <filter string="Deferred Revenue Account" name="account_depreciation_id" domain="[]" context="{'group_by':'account_depreciation_id'}"/>
+                        <filter string="Revenue Account" name="account_depreciation_expense_id" domain="[]" context="{'group_by':'account_depreciation_expense_id'}"/>
                         <filter string="Journal" name="journal_id" domain="[]" context="{'group_by':'journal_id'}"/>
                 </group>
             </search>
@@ -58,6 +58,9 @@
         <field name="arch" type="xml">
             <xpath expr="/form" position="attributes">
                 <attribute name="string">Revenue Recognition</attribute>
+            </xpath>
+            <xpath expr="//page[@name='main_page']" position="attributes">
+                <attribute name="string">Revenue</attribute>
             </xpath>
             <xpath expr="//button[@name='compute_depreciation_board']" position="attributes">
                 <attribute name="string">Compute Revenue</attribute>
@@ -74,20 +77,39 @@
             <xpath expr="//label[@name='model_name_label']" position="attributes">
                 <attribute name="string">Deferred Revenue Model name</attribute>
             </xpath>
+            <xpath expr="//group[@name='asset_values']" position="attributes">
+                <attribute name="string">Recognition Values</attribute>
+            </xpath>
+            <xpath expr="//group[@name='current_values']" position="attributes">
+                <attribute name="string">Residual Amount to Recognize</attribute>
+            </xpath>
             <field name="name" position="attributes">
                 <attribute name="placeholder">e.g. Annual Subscription</attribute>
             </field>
-            <field name="first_depreciation_date" position="attributes">
-                <attribute name="string">First Recognition Date</attribute>
-            </field>
-            <field name="account_depreciation_id" position="attributes">
+            <xpath expr="//sheet/group/group/field[@name='account_depreciation_expense_id']" position="attributes">
                 <attribute name="string">Revenue Account</attribute>
                 <attribute name="help">Account used to recognize the revenue</attribute>
-            </field>
-            <field name="account_depreciation_expense_id" position="attributes">
+                <attribute name="domain">[('account_type', 'in', ('income', 'income_other'))]</attribute>
+                <attribute name="context">{'default_account_type': 'income', 'account_type_domain': [('account_type', 'in', ('income', 'income_other'))]}</attribute>
+            </xpath>
+            <xpath expr="//sheet/group/group/field[@name='account_depreciation_id']" position="attributes">
                 <attribute name="string">Deferred Revenue Account</attribute>
                 <attribute name="help">Account used to record the deferred income</attribute>
-            </field>
+                <attribute name="domain">[('account_type', '=', 'liability_current')]</attribute>
+                <attribute name="context">{'default_account_type': 'liability_current', 'account_type_domain': [('account_type', '=', 'liability_current')]}</attribute>
+            </xpath>
+            <xpath expr="//notebook/page/group/group//field[@name='account_depreciation_expense_id']" position="attributes">
+                <attribute name="string">Revenue Account</attribute>
+                <attribute name="help">Account used to recognize the revenue</attribute>
+                <attribute name="domain">[('account_type', 'in', ('income', 'income_other'))]</attribute>
+                <attribute name="context">{'default_account_type': 'income', 'account_type_domain': [('account_type', 'in', ('income', 'income_other'))]}</attribute>
+            </xpath>
+            <xpath expr="//notebook/page/group/group//field[@name='account_depreciation_id']" position="attributes">
+                <attribute name="string">Deferred Revenue Account</attribute>
+                <attribute name="help">Account used to record the deferred income</attribute>
+                <attribute name="domain">[('account_type', '=', 'liability_current')]</attribute>
+                <attribute name="context">{'default_account_type': 'liability_current', 'account_type_domain': [('account_type', '=', 'liability_current')]}</attribute>
+            </xpath>
             <field name="method_number" position="attributes">
                 <attribute name="string">Number of Recognitions</attribute>
             </field>
@@ -101,8 +123,8 @@
                 <attribute name="string">Residual Amount to Recognize</attribute>
             </field>
             <field name="model_id" position="attributes">
-                <attribute name="domain">[('state', '=', 'model'), ('account_asset_id.user_type_id', '=?', user_type_id), ('asset_type', '=', 'sale')]</attribute>
-                <attribute name="context">{'default_asset_type': 'sale'}</attribute>
+                <attribute name="string">Deferred Revenue Model</attribute>
+                <attribute name="domain">[('state', '=', 'model'), ('account_asset_id.account_type', '=?', account_type), ('asset_type', '=', 'sale')]</attribute>
             </field>
             <xpath expr="//page[@name='depreciation_board']" position="attributes">
                 <attribute name="string">Revenue Board</attribute>
@@ -116,14 +138,19 @@
             <xpath expr="//field[@name='depreciation_move_ids']//field[@name='asset_depreciated_value']" position="attributes">
                 <attribute name="string">Cumulative Revenue</attribute>
             </xpath>
-            <xpath expr="//field[@name='depreciation_move_ids']//field[@name='amount_total']" position="attributes">
+            <xpath expr="//field[@name='depreciation_move_ids']//field[@name='depreciation_value']" position="attributes">
                 <attribute name="string">Revenue</attribute>
             </xpath>
             <xpath expr="//field[@name='depreciation_move_ids']//field[@name='asset_remaining_value']" position="attributes">
                 <attribute name="string">Next Period Revenue</attribute>
             </xpath>
             <field name="original_move_line_ids" position="attributes">
-                <attribute name="domain">[('debit', '=', '0'), ('move_id.state', '=', 'posted')]</attribute>
+                <attribute name="domain">[
+                    ('parent_state', '=', 'posted'),
+                    ('debit', '=', '0'),
+                    ('company_id', '=', company_id),
+                    ('account_id.account_type', '=', 'liability_current')
+                ]</attribute>
             </field>
         </field>
     </record>

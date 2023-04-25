@@ -24,8 +24,7 @@ class Slot(models.Model):
             return
 
         min_date = min(assigned_slots.mapped('start_datetime'))
-        include_past = self.env.context.get('include_past', False)
-        date_from = min_date if (include_past or min_date > fields.Datetime.today()) else fields.Datetime.today()
+        date_from = min_date if min_date > fields.Datetime.today() else fields.Datetime.today()
         leaves = self.env['hr.leave']._get_leave_interval(
             date_from=date_from,
             date_to=max(assigned_slots.mapped('end_datetime')),
@@ -50,12 +49,16 @@ class Slot(models.Model):
         if operator not in ['=', '!='] or not isinstance(value, bool):
             raise NotImplementedError(_('Operation not supported'))
 
-        slots = self.search([('employee_id', '!=', False)])
+        today = fields.Datetime.today()
+        slots = self.search([
+            ('employee_id', '!=', False),
+            ('end_datetime', '>', today),  # only fetch the slots containing today in their period or shifts in the future
+        ])
         if not slots:
             return []
 
         min_date = min(slots.mapped('start_datetime'))
-        date_from = min_date if min_date > fields.Datetime.today() else fields.Datetime.today()
+        date_from = max(min_date, today)
         mapped_leaves = self.env['hr.leave']._get_leave_interval(
             date_from=date_from,
             date_to=max(slots.mapped('end_datetime')),

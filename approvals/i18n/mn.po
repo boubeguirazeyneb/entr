@@ -3,26 +3,27 @@
 # 	* approvals
 # 
 # Translators:
-# Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2021
-# zolzaya <zolzaya.erdenebaatar@gmail.com>, 2021
-# Bayarkhuu Bataa, 2021
-# Martin Trigaux, 2021
-# Khishigbat Ganbold <khishigbat@asterisk-tech.mn>, 2021
-# Батмөнх Ганбат <batmunkh2522@gmail.com>, 2021
-# Onii Onii <onii0223@yahoo.com>, 2021
-# Батболд <batbold.ts@gmail.com>, 2021
-# Munkhbaatar g <muuguu17@gmail.com>, 2021
-# Otgonchimeg Davaanyam <laotgoo1212@gmail.com>, 2021
-# tumenjargal hadbaatar <tumenjargal7903@gmail.com>, 2021
+# hish, 2022
+# Munkhbaatar g <muuguu17@gmail.com>, 2022
+# Bayarkhuu Bataa, 2022
+# Otgonchimeg Davaanyam <laotgoo1212@gmail.com>, 2022
+# Munkhbilguun Altankhuyag <munkhbilguunaltankhuyag@gmail.com>, 2022
+# zolzaya <zolzaya.erdenebaatar@gmail.com>, 2022
+# Onii Onii <onii0223@yahoo.com>, 2022
+# Батмөнх Ганбат <batmunkh2522@gmail.com>, 2022
+# tumenjargal hadbaatar <tumenjargal7903@gmail.com>, 2022
+# Батболд <batbold.ts@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:59+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: tumenjargal hadbaatar <tumenjargal7903@gmail.com>, 2021\n"
-"Language-Team: Mongolian (https://www.transifex.com/odoo/teams/41243/mn/)\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Baskhuu Lodoikhuu <baskhuujacara@gmail.com>, 2022\n"
+"Language-Team: Mongolian (https://app.transifex.com/odoo/teams/41243/mn/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -52,7 +53,7 @@ msgstr "Үйлдэл шаардсан"
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__active
 msgid "Active"
-msgstr "Идэвхитэй"
+msgstr "Идэвхтэй"
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_request__activity_ids
@@ -117,6 +118,7 @@ msgid "An additional reference that should be specified on the request."
 msgstr "Хүсэлтэнд нэмэлт лавлагаа нь байх хэрэгтэй."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #, python-format
 msgid "An user may not be in the approver list multiple times."
@@ -184,7 +186,7 @@ msgid "Approvals to review"
 msgstr "Хянах зөвшөөрлүүд"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/components/approval/approval.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
@@ -203,10 +205,17 @@ msgstr "Зөвшөөрсөн"
 
 #. module: approvals
 #: model:ir.model,name:approvals.model_approval_approver
-#: model:res.groups,name:approvals.group_approval_user
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_form
 msgid "Approver"
 msgstr "Зөвшөөрөгч"
+
+#. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_category.py:0
+#, python-format
+msgid ""
+"Approver Sequence can only be activated with at least 1 minimum approver."
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__user_ids
@@ -224,6 +233,12 @@ msgstr "Зөвшөөрөгч(ид)"
 #: model_terms:ir.ui.view,arch_db:approvals.approval_category_view_form
 msgid "Approvers"
 msgstr "Зөвшөөрөгчид"
+
+#. module: approvals
+#: model:ir.model.fields,field_description:approvals.field_approval_category__approver_sequence
+#: model:ir.model.fields,field_description:approvals.field_approval_request__approver_sequence
+msgid "Approvers Sequence?"
+msgstr ""
 
 #. module: approvals
 #: model_terms:ir.ui.view,arch_db:approvals.approval_category_view_form
@@ -263,6 +278,11 @@ msgid "Business Trip"
 msgstr "Бизнес аялал"
 
 #. module: approvals
+#: model:ir.model.fields,field_description:approvals.field_approval_request__change_request_owner
+msgid "Can Change Request Owner"
+msgstr ""
+
+#. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_approver__can_edit
 msgid "Can Edit"
 msgstr "Засах"
@@ -285,6 +305,11 @@ msgstr "Автомашин түрээсийн модуль"
 #: model:ir.model.fields,field_description:approvals.field_approval_request__category_id
 msgid "Category"
 msgstr "Ангилал"
+
+#. module: approvals
+#: model:ir.model.fields,field_description:approvals.field_approval_approver__category_approver
+msgid "Category Approver"
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__sequence_code
@@ -371,7 +396,7 @@ msgid "Date start"
 msgstr "Эхлэх огноо"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #, python-format
@@ -499,7 +524,7 @@ msgstr "Байршил-тай"
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_request__has_message
 msgid "Has Message"
-msgstr ""
+msgstr "Мессежтэй"
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_category__has_payment_method
@@ -563,7 +588,6 @@ msgstr "Ажилбар дээр сануулга гарсныг илэрхийл
 
 #. module: approvals
 #: model:ir.model.fields,help:approvals.field_approval_request__message_needaction
-#: model:ir.model.fields,help:approvals.field_approval_request__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Хэрэв сонгогдсон бол, шинэ зурвасууд таны анхаарлыг шаардана."
 
@@ -578,6 +602,13 @@ msgstr "Үүнийг сонговол алдаа үүсэх үед зурвас�
 msgid ""
 "If checked, the Approval Requests will have an automated generated name "
 "based on the given code."
+msgstr ""
+
+#. module: approvals
+#: model:ir.model.fields,help:approvals.field_approval_category__approver_sequence
+#: model:ir.model.fields,help:approvals.field_approval_request__approver_sequence
+msgid ""
+"If checked, the approvers have to approve in sequence (one after the other)."
 msgstr ""
 
 #. module: approvals
@@ -656,7 +687,7 @@ msgid "Location"
 msgstr "Байрлал"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #, python-format
@@ -676,7 +707,7 @@ msgstr "Удирдлага"
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_request__message_has_error
 msgid "Message Delivery error"
-msgstr "Алдаа үүссэн талаарх зурвас"
+msgstr "Зурвас илгээх алдаа"
 
 #. module: approvals
 #: model:ir.model.fields,field_description:approvals.field_approval_request__message_ids
@@ -690,6 +721,7 @@ msgid "Minimum Approval"
 msgstr "Хамгийн бага зөвшөөрөл"
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #, python-format
 msgid ""
@@ -728,8 +760,11 @@ msgid "Name"
 msgstr "Нэр"
 
 #. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_category.py:0
 #: model:ir.model.fields.selection,name:approvals.selection__approval_approver__status__new
 #: model:ir.model.fields.selection,name:approvals.selection__approval_request__user_status__new
+#, python-format
 msgid "New"
 msgstr "Шинэ"
 
@@ -819,9 +854,9 @@ msgid "Number of requests to validate"
 msgstr "Батлах хүсэлтийн тоо"
 
 #. module: approvals
-#: model:ir.model.fields,help:approvals.field_approval_request__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Уншаагүй зурвасын тоо"
+#: model:res.groups,name:approvals.group_approval_user
+msgid "Officer : Approve all requests"
+msgstr ""
 
 #. module: approvals
 #: model:ir.model.fields.selection,name:approvals.selection__approval_category__has_amount__optional
@@ -885,6 +920,7 @@ msgstr "Барааны хувилбар"
 #: model:ir.ui.menu,name:approvals.approvals_menu_product_template
 #: model_terms:ir.ui.view,arch_db:approvals.approval_product_line_view_form
 #: model_terms:ir.ui.view,arch_db:approvals.approval_product_line_view_tree
+#: model_terms:ir.ui.view,arch_db:approvals.approval_product_line_view_tree_independent
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_form
 msgid "Products"
 msgstr "Бараа"
@@ -908,7 +944,7 @@ msgid "Reference Sequence"
 msgstr "Дугаарын дараалал"
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/components/approval/approval.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
@@ -968,9 +1004,12 @@ msgid "Responsible User"
 msgstr "Эд хариуцагч"
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #: code:addons/approvals/models/approval_category.py:0
+#: model:ir.model.fields,field_description:approvals.field_approval_approver__sequence
 #: model:ir.model.fields,field_description:approvals.field_approval_category__sequence
+#: model:ir.model.fields,field_description:approvals.field_approval_category_approver__sequence
 #, python-format
 msgid "Sequence"
 msgstr "Дугаарлалт"
@@ -1005,8 +1044,8 @@ msgstr "Илгээгдсэн"
 
 #. module: approvals
 #: model:res.groups,comment:approvals.group_approval_user
-msgid "The user will be able to see approvals created by himself."
-msgstr "Хэрэглэгч өөрйн үүсгэсэн зөвшөөрлүүдийг л харна"
+msgid "The user will be able to access all requests and approve/refuse them."
+msgstr ""
 
 #. module: approvals
 #: model:res.groups,comment:approvals.group_approval_manager
@@ -1014,6 +1053,7 @@ msgid "The user will have access to the approvals configuration."
 msgstr "Хэрэглэгч зөвшөөрлийн тохиргоо хийх эрх бүхий байх хэрэгтэй."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid ""
@@ -1022,6 +1062,7 @@ msgid ""
 msgstr ""
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid ""
@@ -1030,6 +1071,7 @@ msgid ""
 msgstr ""
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid ""
@@ -1038,7 +1080,7 @@ msgid ""
 msgstr ""
 
 #. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/components/approval/approval.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: model:ir.model.fields.selection,name:approvals.selection__approval_approver__status__pending
@@ -1068,17 +1110,7 @@ msgid "Unit of Measure"
 msgstr "Хэмжих нэгж"
 
 #. module: approvals
-#: model:ir.model.fields,field_description:approvals.field_approval_request__message_unread
-msgid "Unread Messages"
-msgstr "Уншаагүй зурвас"
-
-#. module: approvals
-#: model:ir.model.fields,field_description:approvals.field_approval_request__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Уншаагүй зурвасын тоолуур"
-
-#. module: approvals
-#. openerp-web
+#. odoo-javascript
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: code:addons/approvals/static/src/xml/web_kanban_activity.xml:0
 #: model:ir.model.fields,field_description:approvals.field_approval_approver__user_id
@@ -1093,24 +1125,48 @@ msgid "User Status"
 msgstr "Хэрэглэгчийн төлөв"
 
 #. module: approvals
+#: model:ir.model.fields.selection,name:approvals.selection__approval_approver__status__waiting
+#: model:ir.model.fields.selection,name:approvals.selection__approval_request__user_status__waiting
+msgid "Waiting"
+msgstr "Хүлээгдэж буй"
+
+#. module: approvals
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_form
 #: model_terms:ir.ui.view,arch_db:approvals.approval_request_view_kanban
 msgid "Withdraw"
 msgstr "Эргэн татах"
 
 #. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_request.py:0
+#, python-format
+msgid "You cannot approve before the previous approver."
+msgstr ""
+
+#. module: approvals
+#. odoo-python
+#: code:addons/approvals/models/approval_request.py:0
+#, python-format
+msgid ""
+"You cannot assign the same approver multiple times on the same request."
+msgstr ""
+
+#. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid "You have to add at least %s approvers to confirm your request."
 msgstr "Та хүсэлтээ батлахын тулд дор хаяж %s зөвшөөрөгч нэмэх байх хэрэгтэй."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_request.py:0
 #, python-format
 msgid "You have to attach at lease one document."
 msgstr "Та дор хаяж нэг баримт хавсаргах хэрэгтэй."
 
 #. module: approvals
+#. odoo-python
 #: code:addons/approvals/models/approval_category.py:0
 #, python-format
 msgid "Your minimum approval exceeds the total of default approvers."

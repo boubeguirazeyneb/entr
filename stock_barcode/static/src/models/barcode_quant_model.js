@@ -8,7 +8,6 @@ export default class BarcodeQuantModel extends BarcodeModel {
     constructor(params) {
         super(...arguments);
         this.lineModel = params.model;
-        this.lineFormViewReference = 'stock_barcode.stock_quant_barcode';
         this.validateMessage = _t("The inventory adjustment has been validated");
         this.validateMethod = 'action_validate';
     }
@@ -32,13 +31,8 @@ export default class BarcodeQuantModel extends BarcodeModel {
             if (res && res.special) { // Do nothing if come from a discarded wizard.
                 return this.trigger('refresh');
             }
-            if (this.pages.length > 1) { // Stay in inventory if there is multiple pages.
-                this.notification.add(_t("Inventory adjustment was saved"), { type: 'success' });
-                this.trigger('refresh');
-            } else { // Go back to the menu if it's only one page.
-                this.notification.add(_t("The inventory adjustment has been validated"), { type: 'success' });
-                this.trigger('history-back');
-            }
+            this.notification.add(_t("The inventory adjustment has been validated"), { type: 'success' });
+            this.trigger('history-back');
         };
         if (action && action.res_model) {
             const options = { on_close: notifyAndGoAhead };
@@ -49,6 +43,73 @@ export default class BarcodeQuantModel extends BarcodeModel {
 
     get applyOn() {
         return this.pageLines.filter(line => line.inventory_quantity_set).length;
+    }
+
+    get barcodeInfo() {
+        // Takes the parent line if the current line is part of a group.
+        let line = this._getParentLine(this.selectedLine) || this.selectedLine;
+        if (!line && this.lastScanned.packageId) {
+            const lines = this._moveEntirePackage() ? this.packageLines : this.pageLines;
+            line = lines.find(l => l.package_id && l.package_id.id === this.lastScanned.packageId);
+        }
+
+        if (line) { // Message depends of the selected line's state.
+            const { tracking } = line.product_id;
+            const trackingNumber = (line.lot_id && line.lot_id.name) || line.lot_name;
+            if (this._lineIsNotComplete(line)) {
+                if (tracking === 'none') {
+                    this.messageType = 'scan_product';
+                } else {
+                    this.messageType = tracking === 'lot' ? 'scan_lot' : 'scan_serial';
+                }
+            } else if (tracking !== 'none' && !trackingNumber) {
+                // Line's quantity is fulfilled but still waiting a tracking number.
+                this.messageType = tracking === 'lot' ? 'scan_lot' : 'scan_serial';
+            } else { // Line's quantity is fulfilled.
+                this.messageType = this.groups.group_stock_multi_locations && line.location_id.id === this.location.id ?
+                    "scan_product_or_src" :
+                    "scan_product";
+            }
+        } else { // Message depends if multilocation is enabled.
+            this.messageType = this.groups.group_stock_multi_locations && !this.lastScanned.sourceLocation ?
+                'scan_src' :
+                'scan_product';
+        }
+
+        const barcodeInformations = { class: this.messageType, warning: false, icon: 'barcode' };
+        switch (this.messageType) {
+            case 'scan_product':
+                barcodeInformations.message = this.groups.group_stock_multi_locations ?
+                    sprintf(_t("Scan a product in %s or scan another location"), this.location.display_name) :
+                    _t("Scan a product");
+                break;
+            case 'scan_src':
+                barcodeInformations.message = _t("Scan a location");
+                barcodeInformations.icon = 'sign-out';
+                break;
+            case 'scan_product_or_src':
+                barcodeInformations.message = sprintf(
+                    _t("Scan more products in %s or scan another location"),
+                    this.location.display_name);
+                break;
+            case 'scan_product_or_dest':
+                barcodeInformations.message = _t("Scan more products, or scan the destination location");
+                barcodeInformations.icon = 'sign-in';
+                break;
+            case 'scan_lot':
+                barcodeInformations.message = sprintf(
+                    _t("Scan lot numbers for product %s to change their quantity"),
+                    line.product_id.display_name
+                );
+                break;
+            case 'scan_serial':
+                barcodeInformations.message = sprintf(
+                    _t("Scan serial numbers for product %s to change their quantity"),
+                    line.product_id.display_name
+                );
+                break;
+        }
+        return barcodeInformations;
     }
 
     get displayByUnitButton () {
@@ -64,10 +125,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
         super.setData(...arguments);
         const companies = data.data.records['res.company'];
         this.companyIds = companies.map(company => company.id);
-        // Lists all locations to be able to change it easily.
-        const locations = data.data.records['stock.location'];
-        this.locationList = locations ?
-            locations.map(loc => this.cache.getRecord('stock.location', loc.id)) : [];
+        this.lineFormViewId = data.data.line_view_id;
     }
 
     get displayApplyButton() {
@@ -101,7 +159,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
     }
 
     get highlightValidateButton() {
-        return this.applyOn === this.pageLines.length;
+        return this.applyOn > 0 && this.applyOn === this.pageLines.length;
     }
 
     get incrementButtonsDisplayStyle() {
@@ -180,7 +238,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
     _getNewLineDefaultContext() {
         return {
             default_company_id: this.companyIds[0],
-            default_location_id: this.location.id,
+            default_location_id: this._defaultLocation().id,
             default_inventory_quantity: 1,
             default_user_id: this.userId,
             inventory_mode: true,
@@ -225,6 +283,8 @@ export default class BarcodeQuantModel extends BarcodeModel {
         if (product.tracking !== 'none') {
             if (params.fieldsParams.lot_name) { // Search for a quant with the exact same lot.
                 domain.push(['lot_id.name', '=', params.fieldsParams.lot_name]);
+            } else if (params.fieldsParams.lot_id) { // Search for a quant with the exact same lot.
+                domain.push(['lot_id', '=', params.fieldsParams.lot_id.id]);
             } else { // Search for a quant with no lot.
                 domain.push(['lot_id', '=', false]);
             }
@@ -239,7 +299,8 @@ export default class BarcodeQuantModel extends BarcodeModel {
             { limit: 1 }
         );
         if (quant.length) {
-            Object.assign(params.fieldsParams, quant[0], { inventory_quantity: 1 });
+            const inventory_quantity = params.fieldsParams.inventory_quantity || 1;
+            Object.assign(params.fieldsParams, quant[0], { inventory_quantity });
         }
         const newLine = await super._createNewLine(params);
         if (quant.length) {
@@ -252,7 +313,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
 
     _convertDataToFieldsParams(args) {
         const params = {
-            inventory_quantity: args.qty,
+            inventory_quantity: args.quantity,
             lot_id: args.lot,
             lot_name: args.lotName,
             owner_id: args.owner,
@@ -318,7 +379,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
     async _processPackage(barcodeData) {
         const { packageType, packageName } = barcodeData;
         let recPackage = barcodeData.package;
-        this.lastScannedPackage = false;
+        this.lastScanned.packageId = false;
         if (!recPackage && !packageType && !packageName) {
             return; // No Package data to process.
         }
@@ -369,7 +430,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
             }
         }
         if (!recPackage || (
-            recPackage.location_id && recPackage.location_id != this.currentLocationId
+            recPackage.location_id && recPackage.location_id != this.location.id
         )) {
             return;
         }
@@ -390,7 +451,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
                 await this.updateLine(currentLine, fieldsParams);
                 barcodeData.stopped = true;
                 this.selectedLineVirtualId = false;
-                this.lastScannedPackage = recPackage.id;
+                this.lastScanned.packageId = recPackage.id;
                 this.trigger('update');
             }
             return;
@@ -399,7 +460,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
 
         // Checks if the package is already scanned.
         let alreadyExisting = 0;
-        for (const line of this.pages[this.pageIndex].lines) {
+        for (const line of this.pageLines) {
             if (line.package_id && line.package_id.id === recPackage.id &&
                 this.getQtyDone(line) > 0) {
                 alreadyExisting++;
@@ -416,7 +477,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
             const currentLine = this._findLine(searchLineParams);
             if (currentLine) { // Updates an existing line.
                 const fieldsParams = this._convertDataToFieldsParams({
-                    qty: quant.quantity,
+                    quantity: quant.quantity,
                     lotName: barcodeData.lotName,
                     lot: barcodeData.lot,
                     package: recPackage,
@@ -426,7 +487,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
             } else { // Creates a new line.
                 const fieldsParams = this._convertDataToFieldsParams({
                     product,
-                    qty: quant.quantity,
+                    quantity: quant.quantity,
                     lot: quant.lot_id,
                     package: quant.package_id,
                     resultPackage: quant.package_id,
@@ -438,7 +499,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
         }
         barcodeData.stopped = true;
         this.selectedLineVirtualId = false;
-        this.lastScannedPackage = recPackage.id;
+        this.lastScanned.packageId = recPackage.id;
         this.trigger('update');
     }
 
@@ -479,7 +540,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
         line.lot_name = lotName;
         // Checks if a quant exists for this line and updates the line in this case.
         const domain = [
-            ['location_id', '=', line.location_id],
+            ['location_id', '=', line.location_id.id],
             ['product_id', '=', line.product_id.id],
             ['lot_id.name', '=', lotName],
             ['owner_id', '=', line.owner_id && line.owner_id.id],
@@ -494,7 +555,7 @@ export default class BarcodeQuantModel extends BarcodeModel {
         if (existingQuant.length) {
             Object.assign(line, existingQuant[0]);
             if (line.lot_id) {
-                line.lot_id = await this.cache.getRecordByBarcode(lotName, 'stock.production.lot');
+                line.lot_id = await this.cache.getRecordByBarcode(lotName, 'stock.lot');
             }
         }
     }
@@ -512,9 +573,11 @@ export default class BarcodeQuantModel extends BarcodeModel {
             // its `virtual_id` (and so, avoid to set a new `virtual_id`).
             const prevLine = this.currentState && this.currentState.lines.find(l => l.id === id);
             const previousVirtualId = prevLine && prevLine.virtual_id;
+            quant.dummy_id = quant.dummy_id && Number(quant.dummy_id);
             quant.virtual_id = quant.dummy_id || previousVirtualId || this._uniqueVirtualId;
             quant.product_id = this.cache.getRecord('product.product', quant.product_id);
-            quant.lot_id = quant.lot_id && this.cache.getRecord('stock.production.lot', quant.lot_id);
+            quant.location_id = this.cache.getRecord('stock.location', quant.location_id);
+            quant.lot_id = quant.lot_id && this.cache.getRecord('stock.lot', quant.lot_id);
             quant.package_id = quant.package_id && this.cache.getRecord('stock.quant.package', quant.package_id);
             quant.owner_id = quant.owner_id && this.cache.getRecord('res.partner', quant.owner_id);
             lines.push(Object.assign({}, quant));
@@ -524,14 +587,6 @@ export default class BarcodeQuantModel extends BarcodeModel {
 
     _getName() {
         return _t("Inventory Adjustment");
-    }
-
-    _defaultLocationId() {
-        return Number(Object.keys(this.cache.dbIdCache['stock.location'])[0]);
-    }
-
-    _defaultDestLocationId() {
-        return undefined;
     }
 
     _getPrintOptions() {

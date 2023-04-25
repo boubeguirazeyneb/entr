@@ -3,6 +3,9 @@ odoo.define('planning.calendar_frontend', function (require) {
 "use strict";
 
 const publicWidget = require('web.public.widget');
+const time = require('web.time');
+const translation = require('web.translation');
+const _t = translation._t;
 
 publicWidget.registry.PlanningView = publicWidget.Widget.extend({
     selector: '#calendar_employee',
@@ -67,12 +70,13 @@ publicWidget.registry.PlanningView = publicWidget.Widget.extend({
                 locale: locale,
                 defaultView: defaultView,
                 navLinks: true, // can click day/week names to navigate views
-                eventLimit: 2, // allow "more" link when more than two events
+                eventLimit: 3, // allow "more" link when too many events
                 titleFormat: titleFormat,
                 defaultDate: defaultStart,
                 timeFormat: 'LT',
                 displayEventEnd: true,
                 height: 'auto',
+                eventRender: this.eventRenderFunction,
                 eventTextColor: 'white',
                 eventOverlap: true,
                 eventTimeFormat: {
@@ -87,28 +91,48 @@ publicWidget.registry.PlanningView = publicWidget.Widget.extend({
                 // Data
                 events: employeeSlotsFcData,
                 // Event Function is called when clicking on the event
-                eventClick: this.eventFunction,
+                eventClick: this.eventFunction.bind(this),
+                buttonText: { today: "Today",  dayGridMonth: "Month", timeGridWeek: "Week", listMonth: 'List'},
+                noEventsMessage: '',
                 });
                 this.calendar.setOption('locale', locale);
                 this.calendar.render();
            }
+    },
+    eventRenderFunction: function (calRender) {
+        const eventContent = calRender.el.querySelectorAll('.fc-time, .fc-title');
+        if (calRender.view.type != 'listMonth') {
+            calRender.el.classList.add('px-2', 'py-1');
+        }
+        if (calRender.view.type === 'dayGridMonth') {
+            for (let i = 0; i < eventContent.length; i++) {
+                eventContent[i].classList.add('d-block', 'text-truncate');
+            }
+        }
+        calRender.el.classList.add('cursor-pointer');
+        calRender.el.childNodes[0].classList.add('fw-bold');
+    },
+    formatDateAsBackend: function (date) {
+        const weekday = moment(date).format('ddd.');
+        const timeFormat = _t.database.parameters.time_format.replace(':%S', '');
+        const dateTimeFormat = `${_t.database.parameters.date_format} ${timeFormat}`;
+        const dateTime = moment(date).format(time.strftime_to_moment_format(dateTimeFormat));
+        return `${weekday} ${dateTime}`;
     },
     eventFunction: function (calEvent) {
         const planningToken = $('.planning_token').attr('value');
         const employeeToken = $('.employee_token').attr('value');
         $(".modal-title").text(calEvent.event.title);
         $(".modal-header").css("background-color", calEvent.event.backgroundColor);
-        $("#start").text(moment(calEvent.event.start).format("YYYY-MM-DD hh:mm A"));
-        $("#stop").text(moment(calEvent.event.end).format("YYYY-MM-DD hh:mm A"));
-        $("#alloc_hours").text(calEvent.event.extendedProps.alloc_hours);
-        $("#role").text(calEvent.event.extendedProps.role);
-        if (calEvent.event.extendedProps.alloc_perc !== 100) {
-            $("#alloc_perc_value").text(calEvent.event.extendedProps.alloc_perc);
-            $("#alloc_perc").css("display", "");
-        } else {
-            $("#alloc_perc").css("display", "none");
+        $('.o_start_date').text(this.formatDateAsBackend(calEvent.event.start));
+        let textValue = this.formatDateAsBackend(calEvent.event.end);
+        if (calEvent.event.extendedProps.alloc_hours) {
+            textValue += ` (${calEvent.event.extendedProps.alloc_hours})`;
         }
-
+        if (parseFloat(calEvent.event.extendedProps.alloc_perc) < 100) {
+            textValue += ` (${calEvent.event.extendedProps.alloc_perc}%)`;
+        }
+        $('.o_end_date').text(textValue);
         if (calEvent.event.extendedProps.role) {
             $("#role").prev().css("display", "");
             $("#role").text(calEvent.event.extendedProps.role);

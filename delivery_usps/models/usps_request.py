@@ -35,10 +35,14 @@ class USPSRequest():
 
     def check_required_value(self, recipient, delivery_nature, shipper, order=False, picking=False):
         recipient_required_field = ['city', 'zip', 'country_id']
-        if not recipient.street and not recipient.street2:
+        # The street isn't required if we compute the rate with a partial delivery address in the
+        # express checkout flow.
+        if not recipient.street and not recipient.street2 and not recipient._context.get(
+            'express_checkout_partial_delivery_address', False
+        ):
             recipient_required_field.append('street')
         shipper_required_field = ['city', 'zip', 'phone', 'state_id', 'country_id']
-        if not recipient.street and not recipient.street2:
+        if not shipper.street and not shipper.street2:
             shipper_required_field.append('street')
 
         res = [field for field in shipper_required_field if not shipper[field]]
@@ -70,9 +74,9 @@ class USPSRequest():
             weight_in_pounds = weight_uom_id._compute_quantity(tot_weight, order.env.ref('uom.product_uom_lb'))
             if weight_in_pounds > 4 and order.carrier_id.usps_service == 'First Class':     # max weight of FirstClass Service
                 return _("Please choose another service (maximum weight of this service is 4 pounds)")
-        if picking and picking.move_lines:
+        if picking and picking.move_ids:
             # https://www.usps.com/business/web-tools-apis/evs-international-label-api.htm
-            if max(picking.move_lines.mapped('product_uom_qty')) > 999:
+            if max(picking.move_ids.mapped('product_uom_qty')) > 999:
                 return _("Quantity for each move line should be less than 1000.")
         return False
 
@@ -122,7 +126,7 @@ class USPSRequest():
 
     def usps_rate_request(self, order, carrier):
         request_detail = self._usps_request_data(carrier, order)
-        request_text = carrier.env['ir.qweb']._render('delivery_usps.usps_price_request', request_detail)
+        request_text = carrier.env['ir.qweb']._render('delivery_usps.usps_price_request', request_detail, inherit_branding=False)
         dict_response = {'price': 0.0, 'currency_code': "USD"}
         api = 'RateV4' if carrier.usps_delivery_nature == 'domestic' else 'IntlRateV2'
 
@@ -179,7 +183,7 @@ class USPSRequest():
 
         api = self._api_url(carrier.usps_delivery_nature, carrier.usps_service)
 
-        for line in picking.move_lines:
+        for line in picking.move_ids:
             USD = carrier.env['res.currency'].search([('name', '=', 'USD')], limit=1)
             order = picking.sale_id
             company = order.company_id or picking.company_id or self.env.company

@@ -10,7 +10,7 @@ class HrContract(models.Model):
 
     @api.model
     def _get_available_vehicles_domain(self, driver_id=None, vehicle_type='car'):
-        return expression.AND([
+        domain = expression.AND([
             expression.OR([
                 [('company_id', '=', False)],
                 [('company_id', '=', self.company_id.id)]
@@ -28,17 +28,21 @@ class HrContract(models.Model):
                     [('driver_id', '=', driver_id.id if driver_id else False)],
                     [('plan_to_change_car', '=', True)] if vehicle_type == 'car' else [('plan_to_change_bike', '=', True)]
                 ])
-            ])
+            ]),
+            [('write_off_date', '=', False)],
         ])
+        waiting_stage = self.env.ref('fleet.fleet_vehicle_state_waiting_list', raise_if_not_found=False)
+        if waiting_stage:
+            domain = expression.AND([[('state_id', '!=', waiting_stage.id)], domain])
+        return domain
 
     def _get_possible_model_domain(self, vehicle_type='car'):
         return [('can_be_requested', '=', True), ('vehicle_type', '=', vehicle_type)]
 
     car_id = fields.Many2one(
-        'fleet.vehicle', string='Catalog Company Car',
+        'fleet.vehicle', string='Company Car',
         tracking=True, compute="_compute_car_id", store=True, readonly=False,
         domain="['|', ('company_id', '=', False), ('company_id', '=', company_id), ('vehicle_type', '=', 'car')]",
-        help="Employee's company car.",
         groups='fleet.fleet_group_manager')
     car_atn = fields.Float(compute='_compute_car_atn_and_costs', string='Car BIK', help='Benefit in Kind (Company Car)', store=True, compute_sudo=True)
     wishlist_car_total_depreciated_cost = fields.Float(compute='_compute_car_atn_and_costs', store=True, compute_sudo=True)
@@ -50,7 +54,7 @@ class HrContract(models.Model):
         'fleet.vehicle.model', string="New Company Car", domain=lambda self: self._get_possible_model_domain(),
         compute='_compute_new_car_model_id', store=True, readonly=False)
     # Useful on sign to use only one box to sign the contract instead of 2
-    car_model_name = fields.Char(compute='_compute_car_model_name')
+    car_model_name = fields.Char(compute='_compute_car_model_name', compute_sudo=True)
     max_unused_cars = fields.Integer(compute='_compute_max_unused_cars')
     acquisition_date = fields.Date(related='car_id.acquisition_date', readonly=False, groups="fleet.fleet_group_manager")
     car_value = fields.Float(related="car_id.car_value", readonly=False, groups="fleet.fleet_group_manager")
@@ -64,11 +68,10 @@ class HrContract(models.Model):
         inverse="_inverse_recurring_cost_amount_depreciated")
     transport_mode_bike = fields.Boolean('Uses Bike')
     bike_id = fields.Many2one(
-        'fleet.vehicle', string="Catalog Company Bike",
+        'fleet.vehicle', string="Company Bike",
         tracking=True,
         compute='_compute_bike_id', store=True, readonly=False,
         domain="['|', ('company_id', '=', False), ('company_id', '=', company_id), ('vehicle_type', '=', 'bike')]",
-        help="Employee's company bike.",
         groups='fleet.fleet_group_manager')
     company_bike_depreciated_cost = fields.Float(compute='_compute_company_bike_depreciated_cost', store=True, compute_sudo=True)
     new_bike = fields.Boolean(

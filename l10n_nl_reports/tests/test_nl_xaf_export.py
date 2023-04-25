@@ -38,13 +38,10 @@ class TestNlXafExport(TestAccountReportsCommon):
 
     @freeze_time('2019-12-31')
     def test_xaf_export(self):
-        # Only run the test if the new (v2) template has been installed
-        if not self.env.ref('l10n_nl_reports.xaf_audit_file_v2', raise_if_not_found=False):
-            return True
-        report = self.env['account.general.ledger']
-        options = self._init_options(report, fields.Date.from_string('2019-01-01'), fields.Date.from_string('2019-12-31'))
+        report = self.env.ref('account_reports.general_ledger_report')
+        options = self._generate_options(report, fields.Date.from_string('2019-01-01'), fields.Date.from_string('2019-12-31'))
 
-        generated_xaf = self.get_xml_tree_from_string(report.get_xaf(options))
+        generated_xaf = self.get_xml_tree_from_string(self.env[report.custom_handler_model_name].with_context(skip_xsd=True).l10n_nl_get_xaf(options).get('file_content'))
         expected_xaf = self.get_xml_tree_from_string('''
             <auditfile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.auditfiles.nl/XAF/3.2">
                 <header>
@@ -90,45 +87,9 @@ class TestNlXafExport(TestAccountReportsCommon):
                     </customersSuppliers>
                     <generalLedger>
                         <ledgerAccount>
-                            <accID>150000</accID>
-                            <accDesc>Af te dragen BTW hoog tarief</accDesc>
-                            <accTp>M</accTp>
-                            <changeInfo>
-                                <userID>___ignore___</userID>
-                                <changeDateTime>___ignore___</changeDateTime>
-                                <changeDescription>___ignore___</changeDescription>
-                            </changeInfo>
-                        </ledgerAccount><ledgerAccount>
                             <accID>110000</accID>
                             <accDesc>Debiteuren</accDesc>
-                            <accTp>M</accTp>
-                            <changeInfo>
-                                <userID>___ignore___</userID>
-                                <changeDateTime>___ignore___</changeDateTime>
-                                <changeDescription>___ignore___</changeDescription>
-                            </changeInfo>
-                        </ledgerAccount><ledgerAccount>
-                            <accID>800100</accID>
-                            <accDesc>Omzet NL handelsgoederen 1</accDesc>
-                            <accTp>M</accTp>
-                            <changeInfo>
-                                <userID>___ignore___</userID>
-                                <changeDateTime>___ignore___</changeDateTime>
-                                <changeDescription>___ignore___</changeDescription>
-                            </changeInfo>
-                        </ledgerAccount><ledgerAccount>
-                            <accID>800100 (1)</accID>
-                            <accDesc>Omzet NL handelsgoederen 1</accDesc>
-                            <accTp>M</accTp>
-                            <changeInfo>
-                                <userID>___ignore___</userID>
-                                <changeDateTime>___ignore___</changeDateTime>
-                                <changeDescription>___ignore___</changeDescription>
-                            </changeInfo>
-                        </ledgerAccount><ledgerAccount>
-                            <accID>152000</accID>
-                            <accDesc>Voorbelasting hoog</accDesc>
-                            <accTp>M</accTp>
+                            <accTp>B</accTp>
                             <changeInfo>
                                 <userID>___ignore___</userID>
                                 <changeDateTime>___ignore___</changeDateTime>
@@ -137,16 +98,52 @@ class TestNlXafExport(TestAccountReportsCommon):
                         </ledgerAccount><ledgerAccount>
                             <accID>130010</accID>
                             <accDesc>Crediteuren (copy)</accDesc>
-                            <accTp>M</accTp>
+                            <accTp>B</accTp>
                             <changeInfo>
                                 <userID>___ignore___</userID>
                                 <changeDateTime>___ignore___</changeDateTime>
                                 <changeDescription>___ignore___</changeDescription>
                             </changeInfo>
                         </ledgerAccount><ledgerAccount>
-                            <accID>400100 (1)</accID>
+                            <accID>150000</accID>
+                            <accDesc>Af te dragen BTW hoog tarief</accDesc>
+                            <accTp>B</accTp>
+                            <changeInfo>
+                                <userID>___ignore___</userID>
+                                <changeDateTime>___ignore___</changeDateTime>
+                                <changeDescription>___ignore___</changeDescription>
+                            </changeInfo>
+                        </ledgerAccount><ledgerAccount>
+                            <accID>152000</accID>
+                            <accDesc>Voorbelasting hoog</accDesc>
+                            <accTp>B</accTp>
+                            <changeInfo>
+                                <userID>___ignore___</userID>
+                                <changeDateTime>___ignore___</changeDateTime>
+                                <changeDescription>___ignore___</changeDescription>
+                            </changeInfo>
+                        </ledgerAccount><ledgerAccount>
+                            <accID>400100.1</accID>
                             <accDesc>Bruto lonen</accDesc>
-                            <accTp>M</accTp>
+                            <accTp>P</accTp>
+                            <changeInfo>
+                                <userID>___ignore___</userID>
+                                <changeDateTime>___ignore___</changeDateTime>
+                                <changeDescription>___ignore___</changeDescription>
+                            </changeInfo>
+                        </ledgerAccount><ledgerAccount>
+                            <accID>800100</accID>
+                            <accDesc>Omzet NL handelsgoederen 1</accDesc>
+                            <accTp>P</accTp>
+                            <changeInfo>
+                                <userID>___ignore___</userID>
+                                <changeDateTime>___ignore___</changeDateTime>
+                                <changeDescription>___ignore___</changeDescription>
+                            </changeInfo>
+                        </ledgerAccount><ledgerAccount>
+                            <accID>800100.1</accID>
+                            <accDesc>Omzet NL handelsgoederen 1</accDesc>
+                            <accTp>P</accTp>
                             <changeInfo>
                                 <userID>___ignore___</userID>
                                 <changeDateTime>___ignore___</changeDateTime>
@@ -262,6 +259,34 @@ class TestNlXafExport(TestAccountReportsCommon):
                                 <amnt>1494.0</amnt>
                                 <trLine>
                                     <nr>___ignore___</nr>
+                                    <accID>800100</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_a</desc>
+                                    <amnt>1000.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-1000.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>800100.1</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_b</desc>
+                                    <amnt>200.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-200.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
                                     <accID>150000</accID>
                                     <docRef>/</docRef>
                                     <effDate>2019-01-01</effDate>
@@ -273,6 +298,20 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     <currency>
                                         <curCode>EUR</curCode>
                                         <curAmnt>-252.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>150000</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>Verkopen/omzet hoog (Copy)</desc>
+                                    <amnt>42.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-42.0</curAmnt>
                                     </currency>
                                 </trLine><trLine>
                                     <nr>___ignore___</nr>
@@ -288,48 +327,6 @@ class TestNlXafExport(TestAccountReportsCommon):
                                         <curCode>EUR</curCode>
                                         <curAmnt>1494.0</curAmnt>
                                     </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>800100</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_a</desc>
-                                    <amnt>1000.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-1000.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>800100 (1)</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_b</desc>
-                                    <amnt>200.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-200.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>150000</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>Verkopen/omzet hoog (Copy)</desc>
-                                    <amnt>42.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-42.0</curAmnt>
-                                    </currency>
                                 </trLine>
                             </transaction><transaction>
                                 <nr>___ignore___</nr>
@@ -338,6 +335,34 @@ class TestNlXafExport(TestAccountReportsCommon):
                                 <trDt>2019-01-01</trDt>
                                 <amnt>1494.0</amnt>
                                 <trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>800100</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_a</desc>
+                                    <amnt>1000.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00002</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-1000.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>800100.1</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_b</desc>
+                                    <amnt>200.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00002</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-200.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
                                     <nr>___ignore___</nr>
                                     <accID>150000</accID>
                                     <docRef>/</docRef>
@@ -350,6 +375,20 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     <currency>
                                         <curCode>EUR</curCode>
                                         <curAmnt>-252.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>150000</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>Verkopen/omzet hoog (Copy)</desc>
+                                    <amnt>42.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00002</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-42.0</curAmnt>
                                     </currency>
                                 </trLine><trLine>
                                     <nr>___ignore___</nr>
@@ -365,48 +404,6 @@ class TestNlXafExport(TestAccountReportsCommon):
                                         <curCode>EUR</curCode>
                                         <curAmnt>1494.0</curAmnt>
                                     </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>800100</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_a</desc>
-                                    <amnt>1000.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00002</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-1000.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>800100 (1)</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_b</desc>
-                                    <amnt>200.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00002</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-200.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>150000</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>Verkopen/omzet hoog (Copy)</desc>
-                                    <amnt>42.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00002</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-42.0</curAmnt>
-                                    </currency>
                                 </trLine>
                             </transaction><transaction>
                                 <nr>___ignore___</nr>
@@ -415,6 +412,34 @@ class TestNlXafExport(TestAccountReportsCommon):
                                 <trDt>2019-01-01</trDt>
                                 <amnt>1494.0</amnt>
                                 <trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>800100</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_a</desc>
+                                    <amnt>1000.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00003</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-1000.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>800100.1</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_b</desc>
+                                    <amnt>200.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00003</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-200.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
                                     <nr>___ignore___</nr>
                                     <accID>150000</accID>
                                     <docRef>/</docRef>
@@ -430,48 +455,6 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     </currency>
                                 </trLine><trLine>
                                     <nr>___ignore___</nr>
-                                    <accID>110000</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>INV/2019/00003</desc>
-                                    <amnt>1494.0</amnt>
-                                    <amntTp>D</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00003</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>1494.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>800100</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_a</desc>
-                                    <amnt>1000.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00003</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-1000.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>800100 (1)</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_b</desc>
-                                    <amnt>200.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>INV/2019/00003</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-200.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
                                     <accID>150000</accID>
                                     <docRef>/</docRef>
                                     <effDate>2019-01-01</effDate>
@@ -484,6 +467,20 @@ class TestNlXafExport(TestAccountReportsCommon):
                                         <curCode>EUR</curCode>
                                         <curAmnt>-42.0</curAmnt>
                                     </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>110000</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>INV/2019/00003</desc>
+                                    <amnt>1494.0</amnt>
+                                    <amntTp>D</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>INV/2019/00003</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>1494.0</curAmnt>
+                                    </currency>
                                 </trLine>
                             </transaction><transaction>
                                 <nr>___ignore___</nr>
@@ -492,34 +489,6 @@ class TestNlXafExport(TestAccountReportsCommon):
                                 <trDt>2019-01-01</trDt>
                                 <amnt>1494.0</amnt>
                                 <trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>150000</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>Verkopen/omzet hoog</desc>
-                                    <amnt>252.0</amnt>
-                                    <amntTp>D</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>RINV/2019/00001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>252.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>110000</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc></desc>
-                                    <amnt>1494.0</amnt>
-                                    <amntTp>C</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>RINV/2019/00001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>-1494.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
                                     <nr>___ignore___</nr>
                                     <accID>800100</accID>
                                     <docRef>/</docRef>
@@ -535,7 +504,7 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     </currency>
                                 </trLine><trLine>
                                     <nr>___ignore___</nr>
-                                    <accID>800100 (1)</accID>
+                                    <accID>800100.1</accID>
                                     <docRef>/</docRef>
                                     <effDate>2019-01-01</effDate>
                                     <desc>product_b</desc>
@@ -552,6 +521,20 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     <accID>150000</accID>
                                     <docRef>/</docRef>
                                     <effDate>2019-01-01</effDate>
+                                    <desc>Verkopen/omzet hoog</desc>
+                                    <amnt>252.0</amnt>
+                                    <amntTp>D</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>RINV/2019/00001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>252.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>150000</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
                                     <desc>Verkopen/omzet hoog (Copy)</desc>
                                     <amnt>42.0</amnt>
                                     <amntTp>D</amntTp>
@@ -560,6 +543,20 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     <currency>
                                         <curCode>EUR</curCode>
                                         <curAmnt>42.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>110000</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc></desc>
+                                    <amnt>1494.0</amnt>
+                                    <amntTp>C</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>RINV/2019/00001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>-1494.0</curAmnt>
                                     </currency>
                                 </trLine>
                             </transaction>
@@ -574,6 +571,34 @@ class TestNlXafExport(TestAccountReportsCommon):
                                 <trDt>2019-01-01</trDt>
                                 <amnt>1161.6</amnt>
                                 <trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>400100.1</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_a</desc>
+                                    <amnt>800.0</amnt>
+                                    <amntTp>D</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>BILL/2019/01/0001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>800.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
+                                    <nr>___ignore___</nr>
+                                    <accID>400100.1</accID>
+                                    <docRef>/</docRef>
+                                    <effDate>2019-01-01</effDate>
+                                    <desc>product_b</desc>
+                                    <amnt>160.0</amnt>
+                                    <amntTp>D</amntTp>
+                                    <custSupID>___ignore___</custSupID>
+                                    <invRef>BILL/2019/01/0001</invRef>
+                                    <currency>
+                                        <curCode>EUR</curCode>
+                                        <curAmnt>160.0</curAmnt>
+                                    </currency>
+                                </trLine><trLine>
                                     <nr>___ignore___</nr>
                                     <accID>152000</accID>
                                     <docRef>/</docRef>
@@ -614,34 +639,6 @@ class TestNlXafExport(TestAccountReportsCommon):
                                     <currency>
                                         <curCode>EUR</curCode>
                                         <curAmnt>-813.12</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>400100 (1)</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_a</desc>
-                                    <amnt>800.0</amnt>
-                                    <amntTp>D</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>BILL/2019/01/0001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>800.0</curAmnt>
-                                    </currency>
-                                </trLine><trLine>
-                                    <nr>___ignore___</nr>
-                                    <accID>400100 (1)</accID>
-                                    <docRef>/</docRef>
-                                    <effDate>2019-01-01</effDate>
-                                    <desc>product_b</desc>
-                                    <amnt>160.0</amnt>
-                                    <amntTp>D</amntTp>
-                                    <custSupID>___ignore___</custSupID>
-                                    <invRef>BILL/2019/01/0001</invRef>
-                                    <currency>
-                                        <curCode>EUR</curCode>
-                                        <curAmnt>160.0</curAmnt>
                                     </currency>
                                 </trLine>
                             </transaction>

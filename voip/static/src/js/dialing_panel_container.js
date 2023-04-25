@@ -2,8 +2,9 @@
 
 import DialingPanel from "voip.DialingPanel";
 import { DialingPanelAdapter } from "./legacy_compatibility";
+import { useModels } from '@mail/component_hooks/use_models';
 
-const { Component, tags } = owl;
+const { Component, xml } = owl;
 
 /**
  * Main component to wrap the DialingPanel. Ideally, it should conditionally
@@ -14,11 +15,18 @@ const { Component, tags } = owl;
  */
 export class DialingPanelContainer extends Component {
     setup() {
+        useModels();
         this.DialingPanel = DialingPanel;
     }
+
+    get messaging() {
+        return this.env.services.messaging.modelManager.messaging;
+    }
 }
-DialingPanelContainer.template = tags.xml`
+DialingPanelContainer.template = xml`
     <div class="o_voip_dialing_panel_container">
-        <DialingPanelAdapter Component="DialingPanel" bus="props.bus" />
+        <t t-if="messaging and messaging.isInitialized">
+            <DialingPanelAdapter Component="DialingPanel" bus="props.bus" />
+        </t>
     </div>`;
 DialingPanelContainer.components = { DialingPanelAdapter };

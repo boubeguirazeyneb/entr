@@ -7,6 +7,7 @@ var session = require('web.session');
 var Widget = require('web.Widget');
 const pyUtils = require('web.py_utils');
 let pyUtilsContext = null;
+const fieldUtils = require('web.field_utils');
 
 var QWeb = core.qweb;
 var _t = core._t;
@@ -35,7 +36,6 @@ var GanttRow = Widget.extend({
      * @param {Object} options
      * @param {boolean} options.canCreate
      * @param {boolean} options.canEdit
-     * @param {boolean} options.disableResize Disable resize for pills
      * @param {boolean} options.disableDragdrop Disable drag and drop for pills
      * @param {boolean} options.hideSidebar Hide sidebar
      * @param {boolean} options.isGroup If is group, It will display all its
@@ -51,6 +51,7 @@ var GanttRow = Widget.extend({
         this.groupedByField = pillsInfo.groupedByField;
         this.pills = _.map(pillsInfo.pills, _.clone);
         this.resId = pillsInfo.resId;
+        this.progressBar = pillsInfo.progressBar;
 
         this.viewInfo = viewInfo;
         this.fieldsInfo = viewInfo.fieldsInfo;
@@ -63,6 +64,8 @@ var GanttRow = Widget.extend({
         this.isOpen = options.isOpen;
         this.rowId = options.rowId;
         this.fromServer = options.fromServer;
+        this.pillLabel = options.pillLabel;
+        this.isMobile = config.device.isMobile;
         this.unavailabilities = (options.unavailabilities || []).map(u => {
             return {
                 startDate: self._convertToUserTime(u.start),
@@ -72,6 +75,8 @@ var GanttRow = Widget.extend({
 
         this.consolidate = options.consolidate;
         this.consolidationParams = viewInfo.consolidationParams;
+
+        this.dependencyEnabled = parent.dependencyEnabled;
 
         if(options.thumbnail){
             this.thumbnailUrl = session.url('/web/image', {
@@ -95,9 +100,13 @@ var GanttRow = Widget.extend({
         }
         this._calculateMarginAndWidth();
 
+        if (this.pillLabel) {
+            this._generatePillLabels(this.state.scale);
+        }
         // Add the 16px odoo window default padding.
         this.leftPadding = (this.groupLevel + 1) * this.LEVEL_LEFT_OFFSET;
-        this.cellHeight = this.level * (this.LEVEL_TOP_OFFSET + 3) + (this.level > 0 ? this.level : 0);
+        const standardHeight = (this.isMobile ? (this.level > 0 ? this.level : 1) : this.level) * (this.LEVEL_TOP_OFFSET + 3) + (this.level > 0 ? this.level : 0);
+        this.cellHeight = this.isMobile && this.level <= 1 ? standardHeight * 2 : standardHeight;
 
         this.MIN_WIDTHS = { full: 100, half: 50, quarter: 25 };
         this.PARTS = { full: 1, half: 2, quarter: 4 };
@@ -128,11 +137,14 @@ var GanttRow = Widget.extend({
      */
     destroy: function () {
         if (this.$el) {
-            this.$('.o_gantt_pill').popover('dispose');
+            const popover = Popover.getInstance(this.$('.o_gantt_pill')[0]);
+            if (popover) {
+                popover.dispose();
+            }
         }
         this._super();
     },
- 
+
     //--------------------------------------------------------------------------
     // Public
     //--------------------------------------------------------------------------
@@ -150,6 +162,7 @@ var GanttRow = Widget.extend({
         var self = this;
         const resizeSnappingWidth = this._getResizeSnappingWidth(firstCell);
         this.$el.droppable({
+            accept: ".o_gantt_pill",
             drop: function (event, ui) {
                 var diff = self._getDiff(resizeSnappingWidth, ui.position.left);
                 var $pill = ui.draggable;
@@ -274,6 +287,26 @@ var GanttRow = Widget.extend({
         });
     },
     /**
+     * Get the pill count in order to perform totals.
+     * This function is meant to be overriden.
+     * @private
+     */
+    _getPillCount(pillsInThisInterval, intervalStart, intervalStop) {
+        return pillsInThisInterval.length;
+    },
+    /**
+     * Returns whether the pill is part of the interval.
+     *
+     * @param pill The pill
+     * @param intervalStart The start date and time of the interval.
+     * @param intervalStop The stop date and time of the interval.
+     * @return {boolean}
+     * @private
+     */
+    _isPillsInInterval(pill, intervalStart, intervalStop) {
+        return pill.startDate < intervalStop && pill.stopDate > intervalStart;
+    },
+    /**
      * Aggregate overlapping pills in group rows
      *
      * @private
@@ -297,9 +330,7 @@ var GanttRow = Widget.extend({
 
         this.pills = _.reduce(intervals, function (pills, intervalStart) {
             var intervalStop = intervalStart.clone().add(cellTime, timeToken);
-            var pillsInThisInterval = _.filter(self.pills, function (pill) {
-                return pill.startDate < intervalStop && pill.stopDate > intervalStart;
-            });
+            var pillsInThisInterval = _.filter(self.pills, pill => self._isPillsInInterval(pill, intervalStart, intervalStop));
             if (pillsInThisInterval.length) {
                 var previousPill = pills[pills.length - 1];
                 var isContinuous = previousPill &&
@@ -309,10 +340,12 @@ var GanttRow = Widget.extend({
                     // Enlarge previous pill so that it spans the current slot
                     previousPill.stopDate = intervalStop;
                     previousPill.aggregatedPills = previousPill.aggregatedPills.concat(pillsInThisInterval);
+                    previousPill.intervals.push([intervalStart, intervalStop]);
                 } else {
                     var newPill = {
                         id: 0,
-                        count: pillsInThisInterval.length,
+                        intervals: [[intervalStart, intervalStop]],
+                        count: self._getPillCount(pillsInThisInterval, intervalStart, intervalStop),
                         aggregatedPills: pillsInThisInterval,
                         startDate: moment.max(_.min(pillsInThisInterval, 'startDate').startDate, intervalStart),
                         stopDate: moment.min(_.max(pillsInThisInterval, 'stopDate').stopDate, intervalStop),
@@ -352,9 +385,85 @@ var GanttRow = Widget.extend({
             } else {
                 var color = minColor - ((pill.count - 1) / maxCount) * (minColor - maxColor);
                 pill.style = _.str.sprintf("background-color: rgba(%s, %s, %s, 0.6)", color, color, color);
-                pill.display_name = pill.count;
+                pill.display_name = self._getAggregateGroupedPillsDisplayName(pill);
             }
         });
+    },
+    /**
+     * This function will add a 'label' property to each
+     * non-consolidated pill included in the pills list.
+     * This new property is a string meant to replace
+     * the text displayed on a pill.
+     *
+     * @private
+     * @param {Object} pills
+     * @param {string} scale
+     */
+    _generatePillLabels(scale) {
+       // as localized yearless date formats do not exists yet in momentjs,
+        // this is an awful surgery adapted from SO: https://stackoverflow.com/a/29641375
+        // The following regex chain will:
+        //  - remove all 'Y'(ignoring case),
+        //  - then remove duplicate consecutives separators,
+        //  - and finally remove trailing orphaned separators left
+        const self = this;
+        this.pills.forEach((pill) => {
+            const dateFormat = moment.localeData().longDateFormat('l');
+            const yearlessDateFormat = dateFormat.replace(/Y/gi, '').replace(/(\W)\1+/g, '$1').replace(/^\W|\W$/, '');
+
+            const localStartDateTime = (pill[self.state.dateStartField] || pill.startDate).clone().local();
+            const localEndDateTime = (pill[self.state.dateStopField] || pill.stopDate).clone().local();
+
+            const spanAccrossDays = localStartDateTime.clone().startOf('day')
+                .diff(localEndDateTime.clone().startOf('day'), 'days') != 0;
+
+            const spanAccrossWeeks = localStartDateTime.clone().startOf('week')
+                .diff(localEndDateTime.clone().startOf('week'), 'weeks') != 0;
+
+            const spanAccrossMonths = localStartDateTime.clone().startOf('month')
+                .diff(localEndDateTime.clone().startOf('month'), 'months') != 0;
+
+            const labelElements = [];
+
+            // Start & End Dates
+            if (scale === 'year' && !spanAccrossDays) {
+                labelElements.push(localStartDateTime.format(yearlessDateFormat));
+            } else if (
+                (scale === 'day' && spanAccrossDays) ||
+                (scale === 'week' && spanAccrossWeeks) ||
+                (scale === 'month' && spanAccrossMonths) ||
+                (scale === 'year' && spanAccrossDays)
+            ) {
+                labelElements.push(localStartDateTime.format(yearlessDateFormat));
+                labelElements.push(localEndDateTime.format(yearlessDateFormat));
+            }
+
+            // Start & End Times
+            if (pill.allocated_hours && !spanAccrossDays && ['week', 'month'].includes(scale)) {
+                labelElements.push(
+                    localStartDateTime.format('LT'),
+                    localEndDateTime.format('LT') + ' (' + fieldUtils.format.float_time(pill.allocated_hours, {}, {noLeadingZeroHour: true}).replace(/(:00|:)/g, 'h') + ')'
+                );
+            }
+
+            // Original Display Name
+            if (scale !== 'month' || spanAccrossDays) {
+                labelElements.push(pill.display_name);
+            }
+
+            pill.label = labelElements.filter(el => !!el).join(' - ');
+        });
+    },
+
+    /**
+     * Returns the count of pill
+     *
+     * @private
+     * @param {Object} pill
+     * @returns {integer}
+     */
+    _getAggregateGroupedPillsDisplayName(pill) {
+        return pill.count;
     },
     /**
      * Calculate left margin and width for pills
@@ -415,12 +524,14 @@ var GanttRow = Widget.extend({
                         var widthMonthStop = (diffMonthStop / pill.stopDate.daysInMonth());
 
                         var width = Math.max((widthMonthStart + widthMonthStop), (2 / 30)) * 100;
-                        if (monthsDiff > 2) { // start and end months are already covered
+                        if (monthsDiff > 1) { // start and end months are already covered
                             // If the pill spans more than 2 months, we know
                             // that the middle months are fully covered
-                            width += (monthsDiff - 2) * 100;
+                            monthsDiff = Math.floor(monthsDiff)
+                            width += (monthsDiff - 1) * 100;
                         }
-                        pill.width = `calc(${width}% - ${margin}px)`;
+                        // Added months difference in calculation in px as its width reduces inversely as we increases the width of pill
+                        pill.width = `calc(${width}% + ${monthsDiff}px - ${margin}px)`;
                     }
                     break;
                 default:
@@ -605,9 +716,9 @@ var GanttRow = Widget.extend({
         function getSlotStyle(cellPart, subSlotUnavailabilities, isToday) {
             function color(d) {
                 if (isToday) {
-                    return d ? '#e9ecef' : '#fffaeb';
+                    return d ? 'var(--Gant__DayOff-background-color)' : 'var(--Gant__DayOffToday-background-color)';
                 }
-                return d ? '#e9ecef' : '#ffffff';
+                return d ?  'var(--Gant__DayOff-background-color)' :  'var(--Gant__Day-background-color)';
             }
             const sum = subSlotUnavailabilities.reduce((acc, d) => acc + d);
             if (!sum) {
@@ -781,7 +892,7 @@ var GanttRow = Widget.extend({
                 },
                 helper: 'clone',
             });
-        } else {
+        } else if (!$pill.hasClass("o_gantt_consolidated_pill")) {
             if ($pill.draggable( "instance")) {
                 return;
             }
@@ -843,7 +954,7 @@ var GanttRow = Widget.extend({
         if (!pill.disableStopResize) {
             handles.push('e');
         }
-        if (handles.length && !self.options.disableResize && !self.isGroup && self.options.canEdit) {
+        if (handles.length && !self.isGroup && self.options.canEdit) {
             $pill.resizable({
                 handles: handles.join(', '),
                 odoo_isRTL: this.isRTL,
@@ -867,11 +978,21 @@ var GanttRow = Widget.extend({
                     // we have to delay a bit the moment where we mark the pill as no longer being
                     // updated, to prevent the dialog from opening when the user ends its resize
                     setTimeout(() => {
-                        self.trigger_up('updating_pill_stopped');
-                        self.$el.removeClass('o_gantt_dragging');
-                        self.$('.o_gantt_pill').popover('enable').popover('dispose');
+                        if (!self.isDestroyed()) {
+                            self.trigger_up('updating_pill_stopped');
+                            self.$el.removeClass('o_gantt_dragging');
+                            self.$('.o_gantt_pill').popover('enable').popover('dispose');
+                        }
                     });
                     var diff = Math.round((ui.size.width - ui.originalSize.width) / resizeSnappingWidth * self.viewInfo.activeScaleInfo.interval);
+                    // Sometimes the difference (diff) can be falsely rounded (see planning/work entries), 
+                    // leading to changes in the start/end_dates. With the code below the difference 
+                    // will always be one of the cell precisions or 0 making the computation more robust. 
+                    var precisions = self.SCALES[self.state.scale].cellPrecisions;
+                    var smallest_precision = Math.min(...Object.entries(precisions).map(([key, value]) => value));
+                    if (diff % smallest_precision != 0) {
+                        diff = Math.floor(diff/smallest_precision) * smallest_precision;
+                    }
                     var direction = ui.position.left ? 'left' : 'right';
                     if (diff) { // do not perform write if nothing change
                         self._saveResizeChanges(pill.id, diff, direction);

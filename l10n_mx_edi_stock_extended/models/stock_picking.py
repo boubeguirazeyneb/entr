@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import api, models, fields, tools, _
+from odoo import models, fields, _
 from odoo.exceptions import UserError
 
 class Picking(models.Model):

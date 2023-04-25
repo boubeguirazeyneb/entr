@@ -7,7 +7,7 @@ from odoo.exceptions import ValidationError
 
 class MergeTimesheets(models.TransientModel):
     _name = 'hr_timesheet.merge.wizard'
-    _description = 'Merge Timesheet Entries'
+    _description = 'Merge Timesheets'
 
     name = fields.Char('Description', compute='_compute_name', readonly=False, store=True)
     timesheet_ids = fields.Many2many('account.analytic.line', string='Timesheets', domain="[('is_timesheet', '=', True), ('validated', '=', False)]")
@@ -24,7 +24,7 @@ class MergeTimesheets(models.TransientModel):
     def _check_timesheet_ids(self):
         for wizard in self:
             if len(set(wizard.timesheet_ids.mapped('encoding_uom_id'))) > 1:
-                raise ValidationError('The timesheets must have the same encoding unit')
+                raise ValidationError(_('The timesheets must have the same encoding unit'))
 
     @api.model
     def default_get(self, fields_list):
@@ -81,7 +81,7 @@ class MergeTimesheets(models.TransientModel):
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
                 'params': {
-                    'message': _("The timesheet entries have successfully been merged."),
+                    'message': _("The timesheets have successfully been merged."),
                     'type': 'success',
                     'sticky': False,
                     'next': {'type': 'ir.actions.act_window_close'},

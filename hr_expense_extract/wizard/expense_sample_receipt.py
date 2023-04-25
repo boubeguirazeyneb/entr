@@ -6,7 +6,6 @@ import datetime
 
 from odoo import fields, models, _
 from odoo.modules import get_module_resource
-from odoo.tools import image_process
 
 
 class ExpenseSampleReceipt(models.Model):
@@ -18,7 +17,7 @@ class ExpenseSampleReceipt(models.Model):
             'name': _('Sample Employee'),
             'company_id': self.env.company.id,
         })
-        product = self.env.ref('hr_expense.product_product_fixed_cost')
+        product = self.env.ref('hr_expense.product_product_no_cost')
 
         # 3/ Compute the line values
         expense_line_values = {
@@ -33,12 +32,13 @@ class ExpenseSampleReceipt(models.Model):
         }
 
         # 4/ Ensure we have a jounal
-        journal_id = self.env['hr.expense.sheet']._default_journal_id() or self.env['account.journal'].create({
-            'type': 'purchase',
-            'company_id': self.env.company.id,
-            'name': 'Sample Journal',
-            'code': 'SAMPLE_P',
-        }).id
+        if not self.env['hr.expense.sheet']._default_journal_id():
+            self.env['account.journal'].create({
+                'type': 'purchase',
+                'company_id': self.env.company.id,
+                'name': 'Sample Journal',
+                'code': 'SAMPLE_P',
+            }).id
 
         # 5/ Create the expense
         expense = self.env['hr.expense'].create(expense_line_values)

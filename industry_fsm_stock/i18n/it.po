@@ -3,24 +3,22 @@
 # 	* industry_fsm_stock
 # 
 # Translators:
-# Sergio Zanchetta <primes2h@gmail.com>, 2021
-# Alessandro Fiorino <alessandro.fiorino@digitaldomus.it>, 2021
-# Friederike Fasterling-Nesselbosch, 2022
 # Martin Trigaux, 2022
+# Sergio Zanchetta <primes2h@gmail.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 09:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: Martin Trigaux, 2022\n"
-"Language-Team: Italian (https://www.transifex.com/odoo/teams/41243/it/)\n"
+"POT-Creation-Date: 2022-09-23 08:24+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Sergio Zanchetta <primes2h@gmail.com>, 2023\n"
+"Language-Team: Italian (https://app.transifex.com/odoo/teams/41243/it/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: it\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: industry_fsm_stock
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_view_form
@@ -104,7 +102,7 @@ msgstr "Ultimo aggiornamento il"
 #. module: industry_fsm_stock
 #: model:ir.model,name:industry_fsm_stock.model_fsm_stock_tracking_line
 msgid "Lines for FSM Stock Tracking"
-msgstr ""
+msgstr "Righe per monitoraggio giacenza da FSM"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__lot_id
@@ -112,11 +110,25 @@ msgid "Lot/Serial Number"
 msgstr "Numero di lotto/serie"
 
 #. module: industry_fsm_stock
-#: model:ir.model,name:industry_fsm_stock.model_product_product
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "Lot/Serial number"
+msgstr "Numero di lotto/serie"
+
+#. module: industry_fsm_stock
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "On hand:"
+msgstr "A disposizione:"
+
+#. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__product_id
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__product_id
 msgid "Product"
 msgstr "Prodotto"
+
+#. module: industry_fsm_stock
+#: model:ir.model,name:industry_fsm_stock.model_product_product
+msgid "Product Variant"
+msgstr "Variante prodotto"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__quantity
@@ -126,7 +138,7 @@ msgstr "Quantità"
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_product_product__quantity_decreasable
 msgid "Quantity Decreasable"
-msgstr ""
+msgstr "Quantità riducibile"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__sale_order_line_id
@@ -137,11 +149,6 @@ msgstr "Riga ordine di vendita"
 #: model:ir.model,name:industry_fsm_stock.model_sale_order_line
 msgid "Sales Order Line"
 msgstr "Riga ordine di vendita"
-
-#. module: industry_fsm_stock
-#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
-msgid "Serial"
-msgstr "Seriale"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_product_product__serial_missing
@@ -165,6 +172,14 @@ msgid "Task Done"
 msgstr "Lavoro completato"
 
 #. module: industry_fsm_stock
+#: code:addons/industry_fsm_stock/models/product.py:0
+#, python-format
+msgid ""
+"The ordered quantity cannot be decreased below the amount already delivered."
+" Instead, create a return in your inventory."
+msgstr ""
+
+#. module: industry_fsm_stock
 #: model:ir.model,name:industry_fsm_stock.model_fsm_stock_tracking
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_line_view_form
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_view_form
@@ -185,12 +200,12 @@ msgstr "Riga di tracciabilità"
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__tracking_validated_line_ids
 msgid "Tracking Validated Line"
-msgstr ""
+msgstr "Monitoraggio riga convalidata"
 
 #. module: industry_fsm_stock
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_view_form
 msgid "Validate"
-msgstr "Valida"
+msgstr "Convalida"
 
 #. module: industry_fsm_stock
 #: code:addons/industry_fsm_stock/models/product.py:0
@@ -201,15 +216,9 @@ msgstr "Convalida Numero Seriale/Lotto"
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__wizard_tracking_line_valided
 msgid "Validated Tracking Line"
-msgstr ""
+msgstr "Riga monitoraggio convalidata"
 
 #. module: industry_fsm_stock
-#: code:addons/industry_fsm_stock/models/product.py:0
-#, python-format
-msgid ""
-"You can no longer decrease the delivered quantity of a product once the task"
-" is marked as done. Please, create a return in your Inventory instead."
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "View Availability"
 msgstr ""
-"Non puoi più diminuire la quantità consegnata di un prodotto una volta che "
-"l'ordine è segnato come fatto. Per favore, crea invece un reso nel tuo "
-"inventario."

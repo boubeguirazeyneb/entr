@@ -3,22 +3,23 @@
 # 	* crm_helpdesk
 # 
 # Translators:
-# Ediz Duman <neps1192@gmail.com>, 2021
-# Levent Karakaş <levent@mektup.at>, 2021
-# Murat Kaplan <muratk@projetgrup.com>, 2021
-# Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2021
-# Gökhan Erdoğdu <gokhan.erdogdu@mechsoft.com.tr>, 2021
-# Tugay Hatıl <tugayh@projetgrup.com>, 2021
-# abc Def <hdogan1974@gmail.com>, 2021
+# abc Def <hdogan1974@gmail.com>, 2022
+# Ediz Duman <neps1192@gmail.com>, 2022
+# Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2022
+# Levent Karakaş <levent@mektup.at>, 2022
+# Martin Trigaux, 2022
+# Gökhan Erdoğdu <gokhan.erdogdu@mechsoft.com.tr>, 2022
+# Murat Kaplan <muratk@projetgrup.com>, 2022
+# Halil, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4+e\n"
+"Project-Id-Version: Odoo Server 15.5alpha1+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:56+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: abc Def <hdogan1974@gmail.com>, 2021\n"
-"Language-Team: Turkish (https://www.transifex.com/odoo/teams/41243/tr/)\n"
+"POT-Creation-Date: 2022-09-20 09:47+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Halil, 2023\n"
+"Language-Team: Turkish (https://app.transifex.com/odoo/teams/41243/tr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -37,28 +38,27 @@ msgid "Convert"
 msgstr "Dönüştür"
 
 #. module: crm_helpdesk
-#: model:ir.actions.act_window,name:crm_helpdesk.helpdesk_ticket_to_lead_action
 #: model:ir.model,name:crm_helpdesk.model_helpdesk_ticket_to_lead
 #: model_terms:ir.ui.view,arch_db:crm_helpdesk.helpdesk_ticket_to_lead_view_form
 msgid "Convert Ticket to Lead"
-msgstr "Bileti Müşteri Adayına Dönüştür"
+msgstr "Talebi Adaya Dönüştür"
 
 #. module: crm_helpdesk
-#: model_terms:ir.ui.view,arch_db:crm_helpdesk.helpdesk_ticket_view_form
+#: model:ir.actions.act_window,name:crm_helpdesk.helpdesk_ticket_to_lead_action
 msgid "Convert to Lead"
-msgstr "Müşteri Adayına Dönüştür"
+msgstr "Adaya Dönüştür"
 
 #. module: crm_helpdesk
 #: model:ir.actions.act_window,name:crm_helpdesk.crm_lead_convert2ticket_action
 #: model_terms:ir.ui.view,arch_db:crm_helpdesk.crm_lead_convert2ticket_view_form
 #: model_terms:ir.ui.view,arch_db:crm_helpdesk.crm_lead_view_form
 msgid "Convert to Ticket"
-msgstr "Tickete Dönüştür"
+msgstr "Talebe Dönüştür"
 
 #. module: crm_helpdesk
 #: model_terms:ir.ui.view,arch_db:crm_helpdesk.crm_lead_convert2ticket_view_form
 msgid "Create Ticket"
-msgstr "Ticket Oluştur"
+msgstr "Talep Oluştur"
 
 #. module: crm_helpdesk
 #: model:ir.model.fields.selection,name:crm_helpdesk.selection__helpdesk_ticket_to_lead__action__create
@@ -133,12 +133,18 @@ msgstr "Aday"
 #: code:addons/crm_helpdesk/wizard/crm_lead_convert2ticket.py:0
 #, python-format
 msgid "Lead Converted"
-msgstr "Müşteri Adayına Dönüştürüldü"
+msgstr "Adaya Dönüştürüldü"
 
 #. module: crm_helpdesk
 #: model:ir.model,name:crm_helpdesk.model_crm_lead_convert2ticket
 msgid "Lead convert to Ticket"
-msgstr "Adayı tickete dönüştür."
+msgstr "Adayı talebe dönüştür."
+
+#. module: crm_helpdesk
+#: code:addons/crm_helpdesk/wizard/helpdesk_ticket_to_lead.py:0
+#, python-format
+msgid "Lead created"
+msgstr "Aday oluşturuldu"
 
 #. module: crm_helpdesk
 #: model:ir.model.fields.selection,name:crm_helpdesk.selection__helpdesk_ticket_to_lead__action__exist
@@ -167,20 +173,32 @@ msgid "Team"
 msgstr "Ekip"
 
 #. module: crm_helpdesk
+#: code:addons/crm_helpdesk/wizard/helpdesk_ticket_to_lead.py:0
+#, python-format
+msgid "The archived ticket can not converted as lead."
+msgstr "Arşivlenen talep aday olarak dönüştürülemez."
+
+#. module: crm_helpdesk
+#: code:addons/crm_helpdesk/wizard/helpdesk_ticket_to_lead.py:0
+#, python-format
+msgid "This lead has been created from ticket: %s"
+msgstr "Bu aday, talepten oluşturuldu: %s"
+
+#. module: crm_helpdesk
 #: model:ir.model.fields,field_description:crm_helpdesk.field_helpdesk_ticket_to_lead__ticket_id
 msgid "Ticket"
-msgstr "Talep"
+msgstr "Bilet"
 
 #. module: crm_helpdesk
 #: code:addons/crm_helpdesk/wizard/helpdesk_ticket_to_lead.py:0
 #, python-format
 msgid "Ticket Converted"
-msgstr "Bilet Dönüştürüldü"
+msgstr "Talep Dönüştürüldü"
 
 #. module: crm_helpdesk
 #: model:ir.model.fields,field_description:crm_helpdesk.field_crm_lead_convert2ticket__ticket_type_id
 msgid "Ticket Type"
-msgstr "Talep Tipi"
+msgstr "Talep Türü"
 
 #. module: crm_helpdesk
 #: code:addons/crm_helpdesk/wizard/crm_lead_convert2ticket.py:0

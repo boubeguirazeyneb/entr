@@ -3,7 +3,7 @@
 
 {
     'name': 'Appointments',
-    'version': '1.0',
+    'version': '1.3',
     'category': 'Marketing/Online Appointment',
     'sequence': 215,
     'summary': 'Allow people to book meetings in your agenda',
@@ -11,30 +11,35 @@
     'description': """
         Allow clients to Schedule Appointments through the Portal
     """,
-    'depends': ['calendar_sms', 'hr', 'portal'],
+    'depends': ['calendar', 'onboarding', 'portal'],
     'data': [
+        'data/onboarding_data.xml',
         'data/calendar_data.xml',
-        'data/mail_data.xml',
+        'data/mail_message_subtype_data.xml',
         'data/mail_template_data.xml',
+        'views/calendar_views.xml',
+        'views/calendar_alarm_views.xml',
         'views/calendar_event_views.xml',
-        'views/calendar_appointment_question_views.xml',
-        'views/calendar_appointment_type_views.xml',
-        'views/calendar_appointment_slot_views.xml',
+        'views/appointment_answer_input_views.xml',
+        'views/appointment_invite_views.xml',
+        'views/appointment_question_views.xml',
+        'views/appointment_type_views.xml',
+        'views/appointment_slot_views.xml',
         'views/calendar_menus.xml',
-        'views/calendar_templates_appointments.xml',
-        'views/calendar_templates_registration.xml',
-        'views/calendar_templates_validation.xml',
+        'views/appointment_templates_appointments.xml',
+        'views/appointment_templates_registration.xml',
+        'views/appointment_templates_validation.xml',
         'views/portal_templates.xml',
-        'wizard/calendar_appointment_share_views.xml',
+        'wizard/appointment_onboarding_link.xml',
         'security/calendar_security.xml',
         'security/ir.model.access.csv',
     ],
     'demo': [
-        'data/calendar_appointment_demo.xml'
+        'data/res_partner_demo.xml',
+        'data/appointment_demo.xml',
     ],
     'installable': True,
     'application': True,
-    'auto_install': False,
     'license': 'OEEL-1',
     'assets': {
         'web_editor.assets_wysiwyg': [
@@ -44,17 +49,21 @@
             'appointment/static/src/scss/appointment.scss',
             'appointment/static/src/js/appointment_select_appointment_type.js',
             'appointment/static/src/js/appointment_select_appointment_slot.js',
+            'appointment/static/src/xml/appointment_svg.xml',
             'appointment/static/src/js/appointment_form.js',
+            'appointment/static/src/xml/appointment_slots.xml',
+            'appointment/static/src/xml/appointment_svg.xml',
+            'appointment/static/src/xml/appointment_no_slot.xml',
         ],
         'web.assets_backend': [
-            'appointment/static/src/scss/calendar_appointment_type_views.scss',
+            'appointment/static/src/scss/appointment_type_views.scss',
             'appointment/static/src/scss/web_calendar.scss',
-            'appointment/static/src/js/calendar_controller.js',
-            'appointment/static/src/js/calendar_model.js',
-            'appointment/static/src/js/calendar_renderer.js',
+            'appointment/static/src/js/appointment_invite_form_renderer.js',
+            'appointment/static/src/js/appointment_invite_form_views.js',
+            'appointment/static/src/views/**/*',
         ],
-        'web.assets_qweb': [
-            'appointment/static/src/xml/**/*',
+        'web_studio.studio_assets': [
+            'appointment/static/src/scss/legacy_appointment_type_views.scss',
         ],
         'web.qunit_suite_tests': [
             'appointment/static/tests/*',

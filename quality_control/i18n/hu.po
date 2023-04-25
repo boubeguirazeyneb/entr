@@ -3,22 +3,23 @@
 # 	* quality_control
 # 
 # Translators:
-# Martin Trigaux, 2021
-# krnkris, 2021
-# Csaba Tóth <i3rendszerhaz@gmail.com>, 2021
-# gezza <geza.nagy@oregional.hu>, 2021
-# Ákos Nagy <akos.nagy@oregional.hu>, 2021
-# Istvan <leki69@gmail.com>, 2021
-# Tamás Németh <ntomasz81@gmail.com>, 2021
+# Krisztián Juhász <juhasz.krisztian@josafar.hu>, 2022
+# Istvan <leki69@gmail.com>, 2022
+# gezza <geza.nagy@oregional.hu>, 2022
+# Martin Trigaux, 2022
+# Tamás Dombos, 2022
+# Ákos Nagy <akos.nagy@oregional.hu>, 2022
+# krnkris, 2022
+# Tamás Németh <ntomasz81@gmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:42+0000\n"
-"Last-Translator: Tamás Németh <ntomasz81@gmail.com>, 2021\n"
-"Language-Team: Hungarian (https://www.transifex.com/odoo/teams/41243/hu/)\n"
+"POT-Creation-Date: 2022-12-15 13:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Tamás Németh <ntomasz81@gmail.com>, 2022\n"
+"Language-Team: Hungarian (https://app.transifex.com/odoo/teams/41243/hu/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -227,7 +228,7 @@ msgstr "Átlagos"
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.view_quality_check_wizard
 msgid "Cancel"
-msgstr "Mégsem"
+msgstr "Mégse"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__check_ids
@@ -361,15 +362,6 @@ msgid ""
 msgstr ""
 
 #. module: quality_control
-#: model:ir.model.fields,help:quality_control.field_quality_check__measure_on
-#: model:ir.model.fields,help:quality_control.field_quality_check_wizard__measure_on
-#: model:ir.model.fields,help:quality_control.field_quality_point__measure_on
-msgid ""
-"Defines if the Quality Check is done at the Operation level or at a more "
-"granular Lot/SN level"
-msgstr ""
-
-#. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__testing_percentage_within_lot
 #: model:ir.model.fields,help:quality_control.field_quality_check_wizard__testing_percentage_within_lot
 #: model:ir.model.fields,help:quality_control.field_quality_point__testing_percentage_within_lot
@@ -406,7 +398,7 @@ msgstr ""
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__display_name
 msgid "Display Name"
-msgstr "Név megjelenítése"
+msgstr "Megjelenített név"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_alert_team_view_form
@@ -472,7 +464,7 @@ msgstr "Folyamatban"
 #. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__move_line_id
 msgid ""
-"In case of Quality Check by Lot/SN, Move Line on which the Quality Check "
+"In case of Quality Check by Quantity, Move Line on which the Quality Check "
 "applies"
 msgstr ""
 
@@ -489,7 +481,7 @@ msgstr ""
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard____last_update
 msgid "Last Modified on"
-msgstr "Legutóbb módosítva"
+msgstr "Legutóbb frissítve"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__write_uid
@@ -499,7 +491,7 @@ msgstr "Frissítette"
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__write_date
 msgid "Last Updated on"
-msgstr "Frissítve "
+msgstr "Frissítve ekkor"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__lot_line_id
@@ -520,7 +512,7 @@ msgid "Lot/SN"
 msgstr ""
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_stock_production_lot
+#: model:ir.model,name:quality_control.model_stock_lot
 msgid "Lot/Serial"
 msgstr "Lot/szériaszám"
 
@@ -585,6 +577,7 @@ msgid "Nb Checks"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "New"
@@ -665,6 +658,16 @@ msgid "Operation"
 msgstr "Művelet"
 
 #. module: quality_control
+#: model:ir.model.fields,help:quality_control.field_quality_check__measure_on
+#: model:ir.model.fields,help:quality_control.field_quality_check_wizard__measure_on
+#: model:ir.model.fields,help:quality_control.field_quality_point__measure_on
+msgid ""
+"Operation = One quality check is requested at the operation level.\n"
+"                  Product = A quality check is requested per product.\n"
+"                 Quantity = A quality check is requested for each new product quantity registered, with partial quantity checks also possible."
+msgstr ""
+
+#. module: quality_control
 #: model:ir.ui.menu,name:quality_control.menu_quality_dashboard
 msgid "Overview"
 msgstr "Áttekintés"
@@ -713,6 +716,7 @@ msgid "Picture"
 msgstr "Kép"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "Picture Uploaded"
@@ -734,7 +738,7 @@ msgid "Previous"
 msgstr "Előző"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_product_product
+#: model:ir.model,name:quality_control.model_product_template
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__product_id
 #: model:ir.model.fields.selection,name:quality_control.selection__quality_check__measure_on__product
 #: model:ir.model.fields.selection,name:quality_control.selection__quality_point__measure_on__product
@@ -748,15 +752,15 @@ msgid "Product Moves (Stock Move Line)"
 msgstr "Termékmozgások (Készletmozgás sor)"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_product_template
-msgid "Product Template"
-msgstr "Terméksablon"
-
-#. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__uom_id
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__uom_id
 msgid "Product Unit of Measure"
 msgstr "Termék mértékegység"
+
+#. module: quality_control
+#: model:ir.model,name:quality_control.model_product_product
+msgid "Product Variant"
+msgstr "Termékváltozat"
 
 #. module: quality_control
 #: model:ir.ui.menu,name:quality_control.quality_control_menu_product_variant
@@ -772,9 +776,10 @@ msgstr "Termékek"
 #. module: quality_control
 #: model:ir.ui.menu,name:quality_control.menu_quality_root
 msgid "Quality"
-msgstr "Minőségirányítás"
+msgstr "Minőség"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.model,name:quality_control.model_quality_alert
@@ -820,9 +825,11 @@ msgid "Quality Alerts"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.actions.act_window,name:quality_control.action_quality_check_wizard
 #: model:ir.model,name:quality_control.model_quality_check
+#: model_terms:ir.ui.view,arch_db:quality_control.view_stock_move_line_detailed_operation_tree_inherit_quality
 #, python-format
 msgid "Quality Check"
 msgstr "Minőség-ellenőrzés"
@@ -839,6 +846,7 @@ msgid "Quality Check Fail"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/wizard/quality_check_wizard.py:0
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_wizard_form_failure
 #, python-format
@@ -851,7 +859,7 @@ msgid "Quality Check Picture"
 msgstr ""
 
 #. module: quality_control
-#: model:ir.model.fields,field_description:quality_control.field_stock_production_lot__quality_check_qty
+#: model:ir.model.fields,field_description:quality_control.field_stock_lot__quality_check_qty
 msgid "Quality Check Qty"
 msgstr ""
 
@@ -861,6 +869,7 @@ msgid "Quality Check:"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.actions.act_window,name:quality_control.quality_check_action_main
 #: model:ir.actions.act_window,name:quality_control.quality_check_action_picking
@@ -890,7 +899,7 @@ msgstr "Minőségellenőrzés"
 #. module: quality_control
 #: model:ir.model,name:quality_control.model_quality_point
 msgid "Quality Control Point"
-msgstr "Minőségellenőrzési pont"
+msgstr "Minőség-ellenőrzési pont"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_product_product__quality_control_point_qty
@@ -965,6 +974,8 @@ msgstr ""
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__qty_line
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__qty_line
+#: model:ir.model.fields.selection,name:quality_control.selection__quality_check__measure_on__move_line
+#: model:ir.model.fields.selection,name:quality_control.selection__quality_point__measure_on__move_line
 msgid "Quantity"
 msgstr "Mennyiség"
 
@@ -1102,7 +1113,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:quality_control.field_quality_alert__title
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__title
 msgid "Title"
-msgstr "Megszólítás"
+msgstr "Név"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_point_view_form_inherit_quality_control
@@ -1164,12 +1175,21 @@ msgid "Worksheet Report - Internal (PDF)"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "You measured %.2f %s and it should be between %.2f and %.2f %s."
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
+#: code:addons/quality_control/wizard/quality_check_wizard.py:0
+#, python-format
+msgid "You must provide a picture before validating"
+msgstr ""
+
+#. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/stock_picking.py:0
 #, python-format
 msgid "You still need to do the quality checks!"

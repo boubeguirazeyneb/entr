@@ -99,7 +99,6 @@ For Development information go to http://www.afip.gob.ar/fe/documentos/WSBFEv1%2
         'demo/res_config_settings_demo_view.xml',
     ],
     'installable': True,
-    'auto_install': False,
-    'application': False,
+    'auto_install': ['l10n_ar'],
     'license': 'OEEL-1',
 }

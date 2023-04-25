@@ -7,6 +7,8 @@ import { HomeMenuCustomizer } from "./home_menu_customizer/home_menu_customizer"
 import { EditMenuItem } from "../../legacy/edit_menu_adapter";
 import { NewModelItem } from "@web_studio/legacy/new_model_adapter";
 
+import { onMounted } from "@odoo/owl";
+
 export class StudioNavbar extends EnterpriseNavBar {
     setup() {
         super.setup();
@@ -15,7 +17,7 @@ export class StudioNavbar extends EnterpriseNavBar {
         this.user = useService("user");
         this.dialogManager = useService("dialog");
         this.notification = useService("notification");
-        owl.hooks.onMounted(() => {
+        onMounted(() => {
             this.env.bus.off("HOME-MENU:TOGGLED", this);
             this._updateMenuAppsIcon();
         });
@@ -26,10 +28,10 @@ export class StudioNavbar extends EnterpriseNavBar {
     closeStudio() {
         this.studio.leave();
     }
-    async onNavBarDropdownItemSelection(ev) {
-        if (ev.detail.payload.actionID) {
+    async onNavBarDropdownItemSelection(menu) {
+        if (menu.actionID) {
             try {
-                await this.studio.open(this.studio.MODES.EDITOR, ev.detail.payload.actionID);
+                await this.studio.open(this.studio.MODES.EDITOR, menu.actionID);
             } catch (e) {
                 if (e instanceof NotEditableActionError) {
                     const options = { type: "danger" };

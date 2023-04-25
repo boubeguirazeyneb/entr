@@ -6,7 +6,7 @@
 
     #hr_cs_form {
 
-        font-family: "Roboto", Arial, sans-serif;
+        font-family: $o-font-family-sans-serif;
         font-size: 13px;
 
         section {
@@ -32,22 +32,16 @@
         input:focus::-moz-placeholder { color:transparent; } /* FF 19+ */
         input:focus:-ms-input-placeholder { color:transparent; } /* IE 10+ */
 
-        .form-group {
-            margin-bottom: 0;
-            border-top: 1px solid gray('200');
-        }
-
         .form-text {
             display: inline-block;
-            margin: 0;
+            margin: 0.25rem 0;
             font-weight: 400;
         }
 
         #hr_cs_configurator,
         #hr_cs_sidebar {
-            .form-group {
+            .row {
                 .col-form-label {
-                    color: $o-brand-odoo;
                     font-weight: 500;
                 }
             }
@@ -67,44 +61,26 @@
                 cursor: default;
                 text-align: right;
             }
-            .input-group .form-control[disabled] + .input-group-append {
-                .input-group-text {
-                    border: none;
-                    background-color: transparent;
-                }
+            .input-group .form-control[disabled] + .input-group-text {
+                border: none;
+                background-color: transparent;
             }
-        }
 
-        #hr_cs_configurator {
-            .form-group {
-                padding: 20px 0;
-                .col-form-label {
-                    padding-left: 55px;
-                    .fa {
-                        @include o-position-absolute($top: -20px, $left: 15px);
-                        @include size(30px, 45px);
-                        line-height: 58px;
-                        background-color: $o-brand-odoo;
-                        color: #fff;
-                        &.fa-lg {
-                            font-size: 1.5em;
-                            line-height: 55px;
-                        }
-                    }
-                }
+            .folded_content > span:empty {
+                display: none;
             }
         }
 
         #hr_cs_sidebar {
             align-self: flex-start;
             @include o-position-sticky($top: 60px);
-            .form-group {
+            .row {
                 padding: 5px 0;
                 &:last-child {
-                    border-bottom: 1px solid gray('200');
+                    border-bottom: 1px solid map-get($grays, '200');
                 }
                 .form-control[disabled].o_outdated {
-                    color: theme-color('danger');
+                    color: map-get($theme-colors, 'danger');
                     text-decoration: line-through;
                 }
                 .col-form-label {
@@ -117,39 +93,35 @@
         }
 
         #hr_cs_personal_information {
-            background-color: gray('200');
+            background-color: map-get($grays, '200');
             h2 {
                 padding-bottom: 10px;
-                border-bottom: 1px solid lighten(gray('600'), 40%);
-                color: $o-brand-odoo;
+                border-bottom: 1px solid lighten(map-get($grays, '600'), 40%);
             }
-            .form-group {
-                border: 0;
-                margin-bottom: 15px;
-                .form-control {
-                    &:hover,
-                    &:focus {
-                        border-color: $o-brand-primary;
-                        box-shadow: none;
-                    }
+
+            .form-control {
+                &:hover,
+                &:focus {
+                    border-color: $o-brand-primary;
+                    box-shadow: none;
                 }
-                .col-form-label {
-                    color: #000;
-                }
-                input.bg-danger {
-                    background-color: white !important;
-                    border-color: red !important;
-                    color: #495057 !important;
-                }
-                a.select2-choice.bg-danger {
-                    background-color: white !important;
-                    border-color: red !important;
-                    color: #495057 !important;
-                }
-                .o_contract_radio.invalid_radio {
-                    border: 1px solid red;
-                    border-radius: $border-radius;
-                }
+            }
+            .col-form-label {
+                color: #000;
+            }
+            input.bg-danger {
+                background-color: white !important;
+                border-color: red !important;
+                color: #495057 !important;
+            }
+            a.select2-choice.bg-danger {
+                background-color: white !important;
+                border-color: red !important;
+                color: #495057 !important;
+            }
+            .o_contract_radio.invalid_radio {
+                border: 1px solid red;
+                border-radius: $border-radius;
             }
         }
 
@@ -158,8 +130,6 @@
             width: 100%;
             margin-top: 30px;
             margin-bottom: 30px;
-            background-color: $o-brand-primary;
-            color: #fff;
 
             a {
                 color: #fff;
@@ -168,16 +138,7 @@
 
         #hr_cs_modal {
             .modal-body :first-child {
-                border-top: 0;
-            }
-            .form-group {
-                padding: 6px 0 4px 0;
-                .fa-plus {
-                    color: theme-color('success');
-                }
-                .fa-minus {
-                    color: theme-color('danger');
-                }
+                border-top: 0 !important;
             }
             .col-form-label {
                 margin-bottom: 0;
@@ -206,14 +167,19 @@
                 z-index: -1;
                 opacity: 0;
             }
+            &:focus-within {
+                .hr_cs_control_indicator {
+                    border: 1px solid $o-brand-primary;
+                }
+            }
         }
 
         .hr_cs_control_indicator {
             @include o-position-absolute($top: 0, $left: 0);
             width: 20px;
             height: 20px;
-            background-color: gray('200');
-            border: 1px solid lighten(gray('600'), 20%);
+            background-color: map-get($grays, '200');
+            border: 1px solid lighten(map-get($grays, '600'), 20%);
             &.hr_cs_control_indicator_white {
                 background-color: #fff;
             }
@@ -221,8 +187,8 @@
 
         /* Hover and focus states */
         .hr_cs_control:hover input ~ .hr_cs_control_indicator {
-            background-color: lighten(gray('600'), 20%);
-            border-color: lighten(gray('600'), 20%);
+            background-color: lighten(map-get($grays, '600'), 20%);
+            border-color: lighten(map-get($grays, '600'), 20%);
             &:after {
                 display: block;
             }
@@ -254,7 +220,8 @@
         .hr_cs_control_checkbox .hr_cs_control_indicator:after {
             top: 2px;
             left: 6px;
-            @include size(6px, 12px);
+            width: 6px;
+            height: 12px;
             transform: rotate(45deg);
             border: solid #fff;
             border-width: 0 2px 2px 0;
@@ -280,7 +247,7 @@
 
         @mixin track {
             height: 5px;
-            background-color: gray('200');
+            background-color: map-get($grays, '200');
             cursor: pointer;
         }
 
@@ -385,7 +352,7 @@
     }
 
     .select2-results .select2-highlighted {
-        background-color: gray('200');
+        background-color: map-get($grays, '200');
         color: $body-color;
     }
 }

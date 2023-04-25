@@ -28,6 +28,7 @@
                 <field name="media_id" />
                 <field name="name" />
                 <field name="stream_type_id" />
+                <field name="create_uid" widget="many2one_avatar_user"/>
                 <field name="company_id" groups="base.group_multi_company"/>
             </tree>
         </field>
@@ -59,6 +60,20 @@
                     </group>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <record id="social_stream_view_form_wizard" model="ir.ui.view">
+        <field name="name">social.stream.view.form.wizard</field>
+        <field name="model">social.stream</field>
+        <field name="mode">primary</field>
+        <field name="priority">24</field>
+        <field name="inherit_id" ref="social_stream_view_form"/>
+        <field name="arch" type="xml">
+            <!--Remove the radio widget as the account on which user want to add the stream has already been selected -->
+            <xpath expr="//field[@name='account_id']" position="attributes">
+                <attribute name="widget"></attribute>
+            </xpath>
         </field>
     </record>
 

@@ -1,8 +1,8 @@
 /** @odoo-module **/
 
-import { formatFloat, formatPercentage } from "@web/fields/formatters";
+import { formatFloat, formatPercentage } from "@web/views/fields/formatters";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 export class CohortRenderer extends Component {
     setup() {
@@ -20,7 +20,11 @@ export class CohortRenderer extends Component {
     formatPercentage(value) {
         return formatPercentage(value, { digits: [false, 1] });
     }
+
+    getCellTitle(period, measure, count) {
+        return `${this.env._t("Period")}: ${period}\n${measure}: ${count}`;
+    }
 }
 
 CohortRenderer.template = "web_cohort.CohortRenderer";
-CohortRenderer.props = ["model", "onRowClicked"];
+CohortRenderer.props = ["class", "model", "onRowClicked"];

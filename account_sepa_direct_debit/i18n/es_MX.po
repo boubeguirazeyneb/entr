@@ -3,24 +3,23 @@
 # 	* account_sepa_direct_debit
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Patricia Gutiérrez Capetillo <pagc@odoo.com>, 2021
-# Braulio D. López Vázquez <bdl@odoo.com>, 2021
-# Lucia Pacheco <lpo@odoo.com>, 2021
+# Lucia Pacheco <lpo@odoo.com>, 2022
+# Martin Trigaux, 2022
+# Braulio D. López Vázquez <bdl@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:57+0000\n"
-"PO-Revision-Date: 2021-09-14 12:37+0000\n"
-"Last-Translator: Lucia Pacheco <lpo@odoo.com>, 2021\n"
-"Language-Team: Spanish (Mexico) (https://www.transifex.com/odoo/teams/41243/es_MX/)\n"
+"POT-Creation-Date: 2023-04-14 06:17+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Braulio D. López Vázquez <bdl@odoo.com>, 2023\n"
+"Language-Team: Spanish (Mexico) (https://app.transifex.com/odoo/teams/41243/es_MX/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: es_MX\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: account_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.sdd_mandate_form
@@ -126,6 +125,7 @@ msgid "<strong>Zip: </strong>"
 msgstr "<strong>C.P.: </strong>"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "A debtor account is required to validate a SEPA Direct Debit mandate."
@@ -179,6 +179,7 @@ msgid "Activity Type Icon"
 msgstr "Icono de tipo de actividad"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
@@ -209,7 +210,7 @@ msgstr "Contabilización por lotes"
 #. module: account_sepa_direct_debit
 #: model:ir.model,name:account_sepa_direct_debit.model_account_batch_payment
 msgid "Batch Payment"
-msgstr "Pago por lotes"
+msgstr "Pagos por lotes"
 
 #. module: account_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.sdd_mandate_form
@@ -237,6 +238,11 @@ msgstr "Cerrar"
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sdd_mandate_search_view
 msgid "Closed"
 msgstr "Cerrado"
+
+#. module: account_sepa_direct_debit
+#: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sepa_direct_debit_mandate_form
+msgid "Collections"
+msgstr "Cobranza"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model,name:account_sepa_direct_debit.model_res_company
@@ -316,7 +322,7 @@ msgstr "Mandato de cliente"
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__partner_id
 msgid "Customer whose payments are to be managed by this mandate."
-msgstr "Cliente cuyos pagos son manejados por este mandato."
+msgstr "Cliente cuyos pagos los gestiona este mandato."
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__start_date
@@ -358,7 +364,7 @@ msgstr "Mandatos de domiciliación bancaria"
 #. module: account_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.sdd_account_journal_dashboard_kanban_view
 msgid "Direct Debit Payment to Collect"
-msgstr "Pagos por cobrar por domiciliación bancaria"
+msgstr "Pago por cobrar por domiciliación bancaria"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__payments_to_collect_nber
@@ -406,7 +412,7 @@ msgstr "Seguidores"
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__message_partner_ids
 msgid "Followers (Partners)"
-msgstr "Seguidores (Partners)"
+msgstr "Seguidores (partners)"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__activity_type_icon
@@ -460,7 +466,6 @@ msgstr "Identificador"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__message_needaction
-#: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__message_unread
 msgid "If checked, new messages require your attention."
 msgstr ""
 "Si se encuentra seleccionado, hay nuevos mensajes que requieren su atención."
@@ -472,6 +477,7 @@ msgid "If checked, some messages have a delivery error."
 msgstr "Si se encuentra seleccionado, algunos mensajes tienen error de envío."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_company.py:0
 #, python-format
 msgid "Invalid creditor identifier. Make sure you made no typo."
@@ -479,6 +485,7 @@ msgstr ""
 "Identificador de acreedor inválido. Compruebe que no hay ningún error."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_company.py:0
 #, python-format
 msgid "Invalid creditor identifier. Wrong format."
@@ -525,20 +532,20 @@ msgstr "Diario"
 #. module: account_sepa_direct_debit
 #: model:ir.model,name:account_sepa_direct_debit.model_account_move
 msgid "Journal Entry"
-msgstr "Asiento de diario"
+msgstr "Asiento contable"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model,name:account_sepa_direct_debit.model_account_move_line
 msgid "Journal Item"
-msgstr "Apunte de diario"
+msgstr "Apunte contable"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__payment_journal_id
 msgid ""
 "Journal to use to receive SEPA Direct Debit payments from this mandate."
 msgstr ""
-"Diario utilizado para recibir pagos de domiciliación bancaria SEPA de este "
-"mandato."
+"Diario que se utiliza para recibir pagos de domiciliación bancaria SEPA de "
+"este mandato."
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate____last_update
@@ -548,17 +555,17 @@ msgstr "Última modificación el"
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__write_uid
 msgid "Last Updated by"
-msgstr "Ultima actualizacion por"
+msgstr "Última actualización por"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__write_date
 msgid "Last Updated on"
-msgstr "Ultima actualización el"
+msgstr "Última actualización el"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__message_main_attachment_id
 msgid "Main Attachment"
-msgstr "Archivos adjuntos principales"
+msgstr "Archivo adjunto principal"
 
 #. module: account_sepa_direct_debit
 #: model:ir.actions.report,name:account_sepa_direct_debit.sdd_mandate_form_report_main
@@ -573,7 +580,6 @@ msgstr "¡El identificador del mandato debe ser único! Por favor, elija otro."
 #. module: account_sepa_direct_debit
 #: model:ir.actions.server,name:account_sepa_direct_debit.sdd_mandate_state_cron_ir_actions_server
 #: model:ir.cron,cron_name:account_sepa_direct_debit.sdd_mandate_state_cron
-#: model:ir.cron,name:account_sepa_direct_debit.sdd_mandate_state_cron
 msgid "Mandate state updater"
 msgstr "Actualizador de estado de mandato"
 
@@ -642,7 +648,7 @@ msgstr "Número de errores"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__paid_invoices_nber
-msgid "Number of invoices paid with thid mandate."
+msgid "Number of invoices paid with this mandate."
 msgstr "Número de facturas pagadas con este mandato."
 
 #. module: account_sepa_direct_debit
@@ -656,24 +662,19 @@ msgid "Number of messages with delivery error"
 msgstr "Número de mensajes con error de envío"
 
 #. module: account_sepa_direct_debit
-#: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Número de mensajes sin leer"
-
-#. module: account_sepa_direct_debit
 #: model_terms:ir.actions.act_window,help:account_sepa_direct_debit.account_sepa_direct_debit_mandate_tree_act
 msgid ""
 "Once an invoice is made\n"
-"                    in Odoo for a customer having an mandate active on the invoice date,\n"
+"                    in Odoo for a customer having a mandate active on the invoice date,\n"
 "                    its validation will trigger its automatic payment, and you will\n"
 "                    then only have to generate a SEPA Direct Debit (SDD) XML file containing this operation\n"
 "                    and send it to your bank to effectively get paid."
 msgstr ""
-"Una vez que se ha creado una factura\n"
-"                    en Odoo para un cliente que tiene un mandato activo en la fecha de facturación,\n"
-"                    su validación activará el pago automático, y solo\n"
-"                    tendrá que generar un archivo XML de domiciliación bancaria SEPA (SDD) que contenga esta operación\n"
-"                    y enviarlo a su banco para poder recibir el pago."
+"Una vez que se realiza una factura\n"
+"                    en Odoo para un cliente que tiene un mandato activo en la fecha de factura,\n"
+"                    su validación activará su pago automático, y solo tendrá\n"
+"                    que generar un archivo XML de domiciliación bancaria SEPA (SDD) que contenga esta operación\n"
+"                    y enviarla a su banco para recibir su pago."
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_account_bank_statement_line__sdd_mandate_id
@@ -692,6 +693,7 @@ msgid "One-off Mandate"
 msgstr "Mandato único"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -699,9 +701,10 @@ msgid ""
 "select a journal associated to one."
 msgstr ""
 "Solo los números de cuenta IBAN pueden recibir pagos por domiciliación "
-"bancaria SEPA. Por favor, seleccione un diario asociado a uno."
+"bancaria SEPA. Por favor, seleccione un diario vinculado a uno."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -727,6 +730,7 @@ msgid "Originating SEPA mandate"
 msgstr "Originando el mandato SEPA"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "Paid Invoices"
@@ -764,8 +768,8 @@ msgid "Payments generated thanks to this mandate."
 msgstr "Pagos generados gracias a este mandato."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
-#: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sepa_direct_debit_mandate_form
 #, python-format
 msgid "Payments to Collect"
 msgstr "Pagos por cobrar"
@@ -838,11 +842,6 @@ msgid "SDD Mandate"
 msgstr "Mandato SDD"
 
 #. module: account_sepa_direct_debit
-#: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.sdd_view_account_payment_search
-msgid "SDD Payments to Collect"
-msgstr "Pagos SDD por cobrar"
-
-#. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_account_bank_statement_line__sdd_mandate_scheme
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_account_batch_payment__sdd_scheme
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_account_move__sdd_mandate_scheme
@@ -863,6 +862,7 @@ msgid "SDD creditor identifier"
 msgstr "Identificador de acreedor SDD"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid "SDD scheme is set on the customer mandate."
@@ -887,6 +887,7 @@ msgstr ""
 "proporcionado por el banco."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -924,6 +925,7 @@ msgid "Signature"
 msgstr "Firma"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""
@@ -952,23 +954,14 @@ msgid ""
 "Planned: Future activities."
 msgstr ""
 "Estado basado en actividades\n"
-"Vencida: la fecha límite ya ha pasado\n"
-"Hoy: La fecha límite es hoy\n"
+"Vencida: la fecha límite ya pasó\n"
+"Hoy: la fecha límite es hoy\n"
 "Planeada: futuras actividades."
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__suitable_journal_ids
 msgid "Suitable Journal"
 msgstr "Diario adecuado"
-
-#. module: account_sepa_direct_debit
-#: model:ir.model.fields,help:account_sepa_direct_debit.field_account_payment__sdd_mandate_usable
-msgid ""
-"Technical field used to inform the end user there is a SDD mandate that "
-"could be used to register that payment"
-msgstr ""
-"Campo técnico utilizado para informar al usuario final que hay un mandato "
-"SDD que puede ser utilizado para registrar ese pago"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_account_bank_statement_line__sdd_mandate_scheme
@@ -982,10 +975,11 @@ msgid ""
 "Some banks/businesses might not accept B2B SDD."
 msgstr ""
 "El esquema B2B es un esquema opcional\n"
-"ofrecido exclusivamente a empresarios.\n"
+"que se ofrece exclusivamente a empresarios.\n"
 "Algunos bancos y negocios tal vez no acepten SDD B2B."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -996,6 +990,7 @@ msgstr ""
 "y ya no puede usarse."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_company.py:0
 #, python-format
 msgid "The creditor identifier exceeds the maximum length of 35 characters."
@@ -1003,6 +998,7 @@ msgstr ""
 "El identificador de acreedor supera la longitud máxima de 35 caracteres."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -1013,6 +1009,7 @@ msgstr ""
 "impuesto por las regulaciones SEPA"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -1033,6 +1030,7 @@ msgstr ""
 "                deberá contactarnos para detener su uso."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -1051,9 +1049,9 @@ msgid ""
 "- 'closed' designates a mandate that has been marked as not to use anymore without invalidating the previous transactions done with it.- 'revoked' means the mandate has been signaled as fraudulent by the customer. It cannot be used anymore, and should not ever have been. You will probably need to refund the related invoices, if any.\n"
 msgstr ""
 "El estado en el que se encuentra este mandato. \n"
-"- \"borrador\" signficia que el mandato aún necesitar ser confirmado antes de poder ser utilizado. \n"
-"- \"activo\" significa que este mandato puede ser utilizado para pagar facturas. \n"
-"- \"cerrado\" designa un mandato que ha sido marcado para ya no ser utilizado ya que invalida las transacciones previas hechas con él.- \"revocado\" significa que el cliente ha señalado el mandato como fraudulento. Ya no puede ser utilizado, y no debe serlo nunca. Probablemente necesitará reembolsar las facturas relacionadas, si las hay.\n"
+"- \"borrador\" significa que el mandato aún necesitar confirmarse antes de poder utilizarse. \n"
+"- \"activo\" significa que este mandato puede utilizarse para pagar facturas. \n"
+"- \"cerrado\" designa un mandato que ha sido marcado para ya no ser utilizado porque invalida las transacciones previas hechas con él.- \"revocado\" significa que el cliente ha señalado el mandato como fraudulento. Ya no puede utilizarse, y no debe usarse nunca. Probablemente deberá reembolsar las facturas relacionadas, si las hay.\n"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__name
@@ -1066,10 +1064,11 @@ msgid ""
 "This invoice will be paid using direct debit and is only\n"
 "                        sent for informative purposes."
 msgstr ""
-"Esta factura será pagada utilizando domiciliación bancaria y solamente\n"
+"Esta factura se pagará utilizando domiciliación bancaria y solamente\n"
 "                        se envía con fines informativos."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""
@@ -1086,11 +1085,12 @@ msgid ""
 "will automatically go from 'active' to 'closed' after its first use in "
 "payment if this option is set.\n"
 msgstr ""
-"Verdadero si y solo si se puede utilizar este mandado para solo una "
-"transacción. Pasará de \"activo\" a \"cerrado\" de forma automática después "
-"de su primer uso en el pago si esta opción está establecida.\n"
+"True si y solo si se puede utilizar este mandado para solo una transacción. "
+"Pasará de \"activo\" a \"cerrado\" de forma automática después de su primer "
+"uso en el pago si esta opción está establecida.\n"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -1101,6 +1101,7 @@ msgstr ""
 "contiene pagos de una empresa diferente a la del acreedor del archivo."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -1112,6 +1113,7 @@ msgstr ""
 "SEPA."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
@@ -1127,6 +1129,7 @@ msgid "Type of the exception activity on record."
 msgstr "Tipo de actividad de excepción registrada."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_invoice.py:0
 #, python-format
 msgid ""
@@ -1139,19 +1142,9 @@ msgstr ""
 "cree uno antes de codificar una domiciliación bancaria SEPA."
 
 #. module: account_sepa_direct_debit
-#: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__message_unread
-msgid "Unread Messages"
-msgstr "Mensajes sin leer"
-
-#. module: account_sepa_direct_debit
-#: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Número de mensajes sin leer"
-
-#. module: account_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sepa_direct_debit_mandate_form
 msgid "Validate"
-msgstr "Validar "
+msgstr "Validar"
 
 #. module: account_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.sdd_mandate_form
@@ -1169,6 +1162,7 @@ msgid "Website communication history"
 msgstr "Historial de comunicaciones del sitio web"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_partner_bank.py:0
 #, python-format
 msgid ""
@@ -1179,6 +1173,7 @@ msgstr ""
 "domiciliación bancaria SEPA activo."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""
@@ -1189,6 +1184,7 @@ msgstr ""
 "cobro en el pasado."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""

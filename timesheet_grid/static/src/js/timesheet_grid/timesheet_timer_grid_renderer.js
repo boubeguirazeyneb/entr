@@ -2,19 +2,23 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
     "use strict";
 
     const utils = require('web.utils');
-    const GridRenderer = require('web_grid.GridRenderer');
+    const CommonTimesheetGridRenderer = require('timesheet_grid.CommonTimesheetGridRenderer');
     const TimerHeaderComponent = require('timesheet_grid.TimerHeaderComponent');
     const TimerStartComponent = require('timesheet_grid.TimerStartComponent');
-    const { useState, useExternalListener, useRef } = owl.hooks;
+    const { useListener } = require("@web/core/utils/hooks");
 
-    class TimerGridRenderer extends GridRenderer {
-        constructor(parent, props) {
-            super(...arguments);
+    const { EventBus, onMounted, onWillUpdateProps, useState, useExternalListener } = owl;
+
+    class TimerGridRenderer extends CommonTimesheetGridRenderer {
+        setup() {
+            super.setup();
             useExternalListener(window, 'keydown', this._onKeydown);
             useExternalListener(window, 'keyup', this._onKeyup);
 
-            this.initialGridAnchor = props.context.grid_anchor;
-            this.initialGroupBy = props.groupBy;
+            this._bus = new EventBus;
+            this.initialGridAnchor = this.props.context.grid_anchor;
+            this.initialGroupBy = this.props.groupBy;
+            this.hoveredButton = false;
 
             this.stateTimer = useState({
                 taskId: undefined,
@@ -26,24 +30,26 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
                 startSeconds: 0,
                 timerRunning: false,
                 indexRunning: -1,
+                indexHovered: -1,
                 readOnly: false,
                 projectWarning: false,
             });
-            this.timerHeader = useRef('timerHeader');
             this.timesheetId = false;
             this._onChangeProjectTaskDebounce = _.debounce(this._setProjectTask.bind(this), 500);
-        }
-        mounted() {
-            super.mounted(...arguments);
-            if (this.formatType === 'float_time') {
-                this._get_running_timer();
-            }
-        }
-        async willUpdateProps(nextProps) {
-            if (nextProps.data !== this.props.data) {
-                this._match_line(nextProps.data);
-            }
-            return super.willUpdateProps(...arguments);
+            useListener('mouseover', '.o_grid_view', this._onMouseOver);
+            useListener('mouseout', '.o_grid_view', this._onMouseOut);
+
+            onMounted(() => {
+                if (this.formatType === 'float_time') {
+                    this._get_running_timer();
+                }
+            });
+
+            onWillUpdateProps(async (nextProps) => {
+                if (nextProps.data !== this.props.data) {
+                    this._match_line(nextProps.data);
+                }
+            });
         }
 
         //----------------------------------------------------------------------
@@ -115,9 +121,7 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
                 this.stateTimer.timerRunning = false;
                 this.stateTimer.description = '';
             }
-            if (this.timerHeader.comp.startButton.el) {
-                this.timerHeader.comp.startButton.el.focus();
-            }
+            this._bus.trigger("TIMESHEET_TIMER:focusStartButton");
             this._match_line();
         }
         async _onSetProject(data) {
@@ -197,9 +201,7 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
                 await this._onTimerStarted();
                 await this._onChangeProjectTaskDebounce(projectId, taskId);
             }
-            if (this.timerHeader.comp.stopButton.el) {
-                this.timerHeader.comp.stopButton.el.focus();
-            }
+            this._bus.trigger("TIMESHEET_TIMER:focusStopButton");
         }
         async _onTimerStarted() {
             this.stateTimer.timerRunning = true;
@@ -268,7 +270,7 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
                     time: toAdd
                 });
             }
-            this.timerHeader.comp.stopButton.el.focus();
+            this._bus.trigger("TIMESHEET_TIMER:focusStopButton");
         }
 
         //----------------------------------------------------------------------
@@ -320,9 +322,43 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
                 this.stateTimer.addTimeMode = false;
             }
         }
+        _onMouseOut(ev) {
+            ev.stopPropagation();
+            if (!this.hoveredButton) {
+                // If buttonHovered is not set it means that we are not in a timer button. So ignore it.
+                return;
+            }
+            let relatedTarget = ev.relatedTarget;
+            while (relatedTarget) {
+                // Go up the parent chain
+                if (relatedTarget === this.hoveredButton) {
+                    // Check that we are still inside hoveredButton.
+                    // If so it means it is a transition between child elements so ignore it.
+                    return;
+                }
+                relatedTarget = relatedTarget.parentElement;
+            }
+            this.hoveredButton = false;
+            this.stateTimer.indexHovered = -1;
+        }
+        _onMouseOver(ev) {
+            ev.stopPropagation();
+            if (this.hoveredButton) {
+                // As mouseout is call prior to mouseover, if hoveredButton is set this means
+                // that we haven't left it. So it's a mouseover inside it.
+                return;
+            }
+            let target = ev.target.closest('button.btn_timer_line');
+            if (!target) {
+                // We are not into a timer button si ignore.
+                return;
+            }
+            this.hoveredButton = target;
+            this.stateTimer.indexHovered = parseInt(target.dataset.index);
+        }
     }
 
-    TimerGridRenderer.props = Object.assign({}, GridRenderer.props, {
+    TimerGridRenderer.props = Object.assign({}, CommonTimesheetGridRenderer.props, {
         serverTime: {
             type: String,
             optional: true
@@ -339,12 +375,19 @@ odoo.define('timesheet_grid.TimerGridRenderer', function (require) {
             type: Object,
             optional: true
         },
+        timeBoundariesContext: {
+            type: Object,
+            shape: {
+                start: String,
+                end: String,
+            },
+        },
     });
 
-    TimerGridRenderer.components = {
+    Object.assign(TimerGridRenderer.components, {
         TimerHeaderComponent,
         TimerStartComponent,
-    };
+    });
 
     return TimerGridRenderer;
 });

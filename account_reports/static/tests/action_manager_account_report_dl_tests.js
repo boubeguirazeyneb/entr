@@ -2,14 +2,17 @@ odoo.define('account_reports.account_reports_tests', function (require) {
 "use strict";
 
 var testUtils = require('web.test_utils');
-const { mockDownload } = require('@web/../tests/helpers/utils');
+const { getFixture, mockDownload } = require('@web/../tests/helpers/utils');
 
 const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
-let serverData;
 
+let serverData;
+let target;
 
 QUnit.module('Account Reports', {
-
+    beforeEach: function () {
+        target = getFixture();
+    }
 }, function () {
 
     QUnit.test('can execute account report download actions', async function (assert) {
@@ -86,17 +89,28 @@ QUnit.module('Account Reports', {
                 id: 9,
                 tag: 'account_report',
                 type: 'ir.actions.client',
+                params: {
+                    options: {
+                        buttons: [],
+                        search_bar: false,
+                    }
+                }
             },
         };
-        Object.assign(serverData, { actions, models });
+        serverData = { actions, models };
         const webClient = await createWebClient({
             serverData,
             mockRPC: function (route, args) {
                 if (route === '/web/dataset/call_kw/account.report/get_report_informations') {
                     var vals = {
-                        options: {partner: true, partner_ids: [], partner_categories:[]},
-                        buttons: [],
-                        searchview_html: '<a class="dropdown-toggle" data-toggle="dropdown">' +
+                        options: {
+                            partner: true,
+                            partner_ids: [],
+                            partner_categories:[],
+                            buttons: [],
+                            search_bar: false,
+                        },
+                        searchview_html: '<a class="dropdown-toggle" data-bs-toggle="dropdown">' +
                             '<span class="fa fa-folder-open"/> Partners' +
                             '<span class="caret" />' +
                             '</a>' +
@@ -126,21 +140,21 @@ QUnit.module('Account Reports', {
         });
 
         await doAction(webClient, 9);
-        assert.containsOnce(webClient, '.o_control_panel .o_field_many2manytags[name="partner_ids"]',
+        assert.containsOnce(target, '.o_control_panel .o_field_many2manytags[name="partner_ids"]',
             "partner_ids m2m field added to filter");
 
         // search on partners m2m
-        await testUtils.dom.click($(webClient.el).find('.o_control_panel .o_search_options a.dropdown-toggle'));
+        await testUtils.dom.click($(target).find('.o_control_panel .o_search_options a.dropdown-toggle'));
         await testUtils.fields.many2one.clickOpenDropdown('partner_ids');
         await testUtils.nextTick();
         await testUtils.fields.many2one.clickItem('partner_ids', 'Genda Swami');
         await testUtils.nextTick();
 
-        assert.containsOnce(webClient, '.o_control_panel .o_field_many2manytags[name="partner_categories"]',
+        assert.containsOnce(target, '.o_control_panel .o_field_many2manytags[name="partner_categories"]',
             "partner_categories m2m field added to filter");
 
         // search on partner categories m2m
-        await testUtils.dom.click($(webClient.el).find('.o_control_panel .o_search_options a.dropdown-toggle'));
+        await testUtils.dom.click($(target).find('.o_control_panel .o_search_options a.dropdown-toggle'));
         await testUtils.nextTick();
         await testUtils.fields.many2one.clickOpenDropdown('partner_categories');
         await testUtils.nextTick();

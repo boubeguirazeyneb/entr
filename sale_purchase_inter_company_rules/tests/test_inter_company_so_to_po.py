@@ -156,7 +156,7 @@ class TestInterCompanySaleToPurchase(TestInterCompanyRulesCommonSOPO):
             'name': 'my service',
             'type': 'service',
             'service_to_purchase': True,
-            'seller_ids': [(0, 0, {'name': self.company_b.partner_id.id, 'price': 100, 'company_id': self.company_a.id})]
+            'seller_ids': [(0, 0, {'partner_id': self.company_b.partner_id.id, 'price': 100, 'company_id': self.company_a.id})]
         })
 
         self.company_b.update({

@@ -1,15 +1,13 @@
-odoo.define('documents.component.PdfGroupName', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const { useRef, useState } = owl.hooks;
+const { Component, useRef, useState } = owl;
 
-class PdfGroupName extends owl.Component {
+export class PdfGroupName extends Component {
 
     /**
      * @override
      */
-    constructor() {
-        super(...arguments);
+    setup() {
         this.state = useState({
             edit: false,
         });
@@ -25,10 +23,10 @@ class PdfGroupName extends owl.Component {
      * @private
      */
     _onBlur() {
-        this.trigger('edit-name', {
-            groupId: this.props.groupId,
-            name: this.nameInputRef.el.value,
-        });
+        this.props.onEditName(
+            this.props.groupId,
+            this.nameInputRef.el.value,
+        );
         this.state.edit = false;
     }
     /**
@@ -48,10 +46,10 @@ class PdfGroupName extends owl.Component {
             return;
         }
         ev.stopPropagation();
-        this.trigger('edit-name', {
-            groupId: this.props.groupId,
-            name: this.nameInputRef.el.value,
-        });
+        this.props.onEditName(
+            this.props.groupId,
+            this.nameInputRef.el.value,
+        );
         this.state.edit = false;
     }
 }
@@ -59,10 +57,10 @@ class PdfGroupName extends owl.Component {
 PdfGroupName.props = {
     groupId: String,
     name: String,
+    onEditName: {
+        type: Function,
+        optional: true,
+    }
 };
 
 PdfGroupName.template = 'documents.component.PdfGroupName';
-
-return PdfGroupName;
-
-});

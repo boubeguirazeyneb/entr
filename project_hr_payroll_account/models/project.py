@@ -10,7 +10,7 @@ class Project(models.Model):
 
     @api.depends('analytic_account_id')
     def _compute_contracts_count(self):
-        contracts_data = self.env['hr.contract'].read_group([
+        contracts_data = self.env['hr.contract']._read_group([
             ('analytic_account_id', '!=', False),
             ('analytic_account_id', 'in', self.analytic_account_id.ids)
         ], ['analytic_account_id'], ['analytic_account_id'])
@@ -49,6 +49,6 @@ class Project(models.Model):
                 'action_type': 'object',
                 'action': 'action_open_project_contracts',
                 'show': self.contracts_count > 0,
-                'sequence': 16,
+                'sequence': 57,
             })
         return buttons

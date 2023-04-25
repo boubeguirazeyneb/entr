@@ -3,17 +3,18 @@
 # 	* industry_fsm_stock
 # 
 # Translators:
+# Mustafa Rawi <mustafa@cubexco.com>, 2022
 # Martin Trigaux, 2022
-# Malaz Abuidris <msea@odoo.com>, 2022
+# Malaz Abuidris <msea@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 09:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2022\n"
-"Language-Team: Arabic (https://www.transifex.com/odoo/teams/41243/ar/)\n"
+"POT-Creation-Date: 2022-09-23 08:24+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2023\n"
+"Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -110,11 +111,25 @@ msgid "Lot/Serial Number"
 msgstr "رقم الدفعة/الرقم التسلسلي "
 
 #. module: industry_fsm_stock
-#: model:ir.model,name:industry_fsm_stock.model_product_product
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "Lot/Serial number"
+msgstr "رقم اللوط/الرقم المسلسل"
+
+#. module: industry_fsm_stock
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "On hand:"
+msgstr "الكمية في اليد:"
+
+#. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__product_id
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__product_id
 msgid "Product"
 msgstr "المنتج"
+
+#. module: industry_fsm_stock
+#: model:ir.model,name:industry_fsm_stock.model_product_product
+msgid "Product Variant"
+msgstr "متغير المنتج "
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__quantity
@@ -137,11 +152,6 @@ msgid "Sales Order Line"
 msgstr "بند أمر المبيعات"
 
 #. module: industry_fsm_stock
-#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
-msgid "Serial"
-msgstr "تسلسلي "
-
-#. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_product_product__serial_missing
 msgid "Serial Missing"
 msgstr "الرقم التسلسلي غير موجود "
@@ -161,6 +171,16 @@ msgstr "المهمة"
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__fsm_done
 msgid "Task Done"
 msgstr "انتهت المهمة "
+
+#. module: industry_fsm_stock
+#: code:addons/industry_fsm_stock/models/product.py:0
+#, python-format
+msgid ""
+"The ordered quantity cannot be decreased below the amount already delivered."
+" Instead, create a return in your inventory."
+msgstr ""
+"لا يمكن تقليل الكمية المطلوبة إلى أقل من الكمية التي قد تم إيصالها بالفعل. "
+"عوضاً عن ذلك، قم بإنشاء عملية إرجاع إلى مخزونك. "
 
 #. module: industry_fsm_stock
 #: model:ir.model,name:industry_fsm_stock.model_fsm_stock_tracking
@@ -202,11 +222,6 @@ msgid "Validated Tracking Line"
 msgstr "بند التتبع الذي تم تصديقه "
 
 #. module: industry_fsm_stock
-#: code:addons/industry_fsm_stock/models/product.py:0
-#, python-format
-msgid ""
-"You can no longer decrease the delivered quantity of a product once the task"
-" is marked as done. Please, create a return in your Inventory instead."
-msgstr ""
-"لن يكون بمقدورك تقليل الكميات التي تم توصيلها من منتج ما بمجرد أن يتم تعيين "
-"المهمة كمنتهية. يرجى إنشاء عملية إرجاع في مخزونك عوضاً عن ذلك. "
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "View Availability"
+msgstr "عرض التوافر "

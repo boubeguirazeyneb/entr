@@ -7,8 +7,9 @@ import re
 from PIL import Image
 from io import BytesIO
 from uuid import uuid4
+from unittest.mock import patch
 
-from odoo.tests.common import HttpCase, tagged
+from odoo.tests.common import HttpCase, tagged, get_db_name
 from odoo.tools import config, mute_logger
 
 
@@ -72,7 +73,7 @@ class MobileRoutesTest(HttpCase):
         and retrieve its details & session's id
         """
         payload = self._build_payload({
-            "db": self.env.cr.dbname,
+            "db": get_db_name(),
             "login": "demo",
             "password": "demo",
             "context": {},
@@ -130,10 +131,7 @@ class MobileRoutesTest(HttpCase):
         error = data["error"]
         self.assertEqual(error["code"], 200)
         self.assertEqual(error["message"], "Odoo Server Error")
-        self.assertEqual(error["data"]["name"], "psycopg2.OperationalError")
-        regex = re.compile("database .* does not exist")
-        self.assertTrue(regex.search(error["data"]["message"]), 
-            "Error message %r doesn't contain regex %r" % (error["data"]["message"], regex.pattern))
+        self.assertEqual(error["data"]["name"], "odoo.exceptions.AccessError")
 
     def test_avatar(self):
         """
@@ -192,3 +190,20 @@ class MobileRoutesTest(HttpCase):
         self.assertTrue(isinstance(error["data"], dict))
         self.assertIn("name", error["data"])
         self.assertIn("message", error["data"])
+
+
+@tagged("-at_install", "post_install")
+class MobileRoutesMultidbTest(MobileRoutesTest):
+
+    def run(self, result=None):
+        if not config['list_db']:
+            return
+        dblist = (get_db_name(), 'another_database')
+        assert len(dblist) >= 2, "There should be at least 2 databases"
+        with patch('odoo.http.db_list') as db_list, \
+             patch('odoo.http.db_filter') as db_filter, \
+             patch('odoo.http.Registry') as Registry:
+            db_list.return_value = dblist
+            db_filter.side_effect = lambda dbs, host=None: [db for db in dbs if db in dblist]
+            Registry.return_value = self.registry
+            return super().run(result)

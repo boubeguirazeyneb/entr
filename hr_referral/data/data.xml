@@ -97,4 +97,9 @@ Help us recruit a team of superheroes to save the day!</field>
             <field name="use_in_referral">True</field>
         </record>
     </data>
+    <data noupdate="0">
+        <function model="res.company" name="_init_default_background">
+            <value model="res.company" eval="obj().search([('hr_referral_background', '=', False)]).ids"/>
+        </function>
+    </data>
 </odoo>

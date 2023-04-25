@@ -31,21 +31,23 @@ class TestTrackPush(TestEventOnlineCommon):
 
         visitors_track_1 = self.env['website.visitor'].create([{
             'name': 'Wishlisting Visitor 1',
+            'access_token': 'f9d268880b2afc54313fa45b7871d336',
             'event_track_visitor_ids': [(0, 0, {
                 'is_wishlisted': True,
                 'track_id': track_1.id
             })],
-            'push_token': 'AAAAAA',
+            'push_subscription_ids': [(0, 0, {'push_token': 'AAAAAA'})],
             'event_registration_ids': [(0, 0, {
                 'event_id': self.event_0.id
             })]
         }, {
             'name': 'Wishlisting Visitor 2',
+            'access_token': 'f9d2d2bc34433e5477f6aa2772cca6b7',
             'event_track_visitor_ids': [(0, 0, {
                 'is_wishlisted': True,
                 'track_id': track_1.id
             })],
-            'push_token': 'BBBBBB',
+            'push_subscription_ids': [(0, 0, {'push_token': 'BBBBBB'})],
             'event_registration_ids': [(0, 0, {
                 'event_id': self.event_0.id
             })]
@@ -53,11 +55,12 @@ class TestTrackPush(TestEventOnlineCommon):
 
         self.env['website.visitor'].create({
             'name': 'Wishlisting Visitor 3',
+            'access_token': 'f9d2f351b2e4c32e9da07c8e6e2c26f3',
             'event_track_visitor_ids': [(0, 0, {
                 'is_wishlisted': True,
                 'track_id': track_2.id
             })],
-            'push_token': 'AAAAAA',
+            'push_subscription_ids': [(0, 0, {'push_token': 'CCCCCC'})],
             'event_registration_ids': [(0, 0, {
                 'event_id': self.event_0.id
             })]
@@ -67,9 +70,9 @@ class TestTrackPush(TestEventOnlineCommon):
             'push_reminder': True,
             'push_reminder_delay': 10
         })
-        track_1.flush(['push_reminder'])
+        track_1.flush_recordset(['push_reminder'])
         track_2.write({'push_reminder': True})
-        track_2.flush(['push_reminder'])
+        track_2.flush_recordset(['push_reminder'])
 
         push_reminder = self.env['social.post'].search([('event_track_id', '=', track_1.id)])
         self.assertTrue(bool(push_reminder))
@@ -89,13 +92,13 @@ class TestTrackPush(TestEventOnlineCommon):
             'push_reminder_delay': 20,
             'date': fields.Datetime.now() + relativedelta(hours=3)
         })
-        track_1.flush(['name', 'date'])
+        track_1.flush_recordset(['name', 'date'])
         push_reminder = self.env['social.post'].search([('event_track_id', '=', track_1.id)])
         self.assertEqual("Your favorite track 'New Name' will start in 20 minutes!", push_reminder.message)
         self.assertEqual(track_1.date - relativedelta(minutes=20), push_reminder.scheduled_date)
 
         track_1.write({'push_reminder': False})
-        track_1.flush(['push_reminder'])
+        track_1.flush_recordset(['push_reminder'])
         push_reminder = self.env['social.post'].search([('event_track_id', '=', track_1.id)])
         self.assertFalse(bool(push_reminder))
 
@@ -110,32 +113,35 @@ class TestTrackPush(TestEventOnlineCommon):
 
         visitors = self.env['website.visitor'].create([{
             'name': 'Regular Visitor 1',
-            'push_token': 'AAAAAA',
+            'access_token': 'f9d2ee58283634915fa60795172ffcc2',
+            'push_subscription_ids': [(0, 0, {'push_token': 'AAAAAA'})],
             'event_registration_ids': [(0, 0, {
                 'event_id': self.event_0.id
             })]
         }, {
             'name': 'Regular Visitor 2',
-            'push_token': 'BBBBBB',
+            'access_token': 'f9d2c399f328eab40f3b65cf018b2bea',
+            'push_subscription_ids': [(0, 0, {'push_token': 'BBBBBB'})],
             'event_registration_ids': [(0, 0, {
                 'event_id': self.event_0.id
             })]
         }])
 
         self.env['website.visitor'].create({
+            'access_token': 'f9d29d32bd910e02391fe16d2ac50210',
             'name': 'Visitor Blacklist',
             'event_track_visitor_ids': [(0, 0, {
                 'is_blacklisted': True,
                 'track_id': track_1.id
             })],
-            'push_token': 'AAAAAA',
+            'push_subscription_ids': [(0, 0, {'push_token': 'CCCCCC'})],
             'event_registration_ids': [(0, 0, {
                 'event_id': self.event_0.id
             })]
         })
 
         track_1.write({'push_reminder': True})
-        track_1.flush(['push_reminder'])
+        track_1.flush_recordset(['push_reminder'])
 
         push_reminder = self.env['social.post'].search([('event_track_id', '=', track_1.id)])
         self.assertTrue(bool(push_reminder))

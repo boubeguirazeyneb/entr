@@ -5,7 +5,7 @@
     'name': 'Social Push Notifications',
     'category': 'Marketing/Social Marketing',
     'summary': 'Send live notifications to your web visitors',
-    'version': '1.0',
+    'version': '1.1',
     'description': """Send live notifications to your web visitors""",
     'depends': ['social', 'website'],
     'external_dependencies': {
@@ -30,10 +30,10 @@
             'social_push_notifications/static/src/js/push_notification_request_popup.js',
             'social_push_notifications/static/src/js/push_notification_widget.js',
             'social_push_notifications/static/src/scss/social_push_notifications_frontend.scss',
+            'social_push_notifications/static/src/xml/social_push_notifications_templates.xml',
         ],
         'web.assets_backend': [
             'social_push_notifications/static/src/scss/social_push_notifications.scss',
-            'social_push_notifications/static/src/js/push_preview.js',
         ],
     },
     'license': 'OEEL-1',

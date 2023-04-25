@@ -4,9 +4,9 @@ import base64
 from lxml import etree
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+from odoo.addons.account_sepa import sanitize_communication
 from odoo.modules.module import get_module_resource
 from odoo.tests import tagged
-from odoo.tests.common import Form
 
 
 @tagged('post_install', '-at_install')
@@ -15,6 +15,11 @@ class TestSEPACreditTransfer(AccountTestInvoicingCommon):
     @classmethod
     def setUpClass(cls, chart_template_ref=None):
         super().setUpClass(chart_template_ref=chart_template_ref)
+        cls.env.ref('base.EUR').active = True
+
+        # tests doesn't go through the sanitization (_ is invalid)
+        cls.partner_a.name = sanitize_communication(cls.partner_a.name)
+        cls.partner_b.name = sanitize_communication(cls.partner_b.name)
 
         cls.company_data['company'].write({
             'country_id': cls.env.ref('base.be').id,
@@ -45,6 +50,7 @@ class TestSEPACreditTransfer(AccountTestInvoicingCommon):
             'acc_type': 'iban',
             'partner_id': cls.partner_a.id,
             'acc_number': 'BE08429863697813',
+            'allow_out_payment': True,
             'bank_id': cls.bank_bnp.id,
             'currency_id': cls.env.ref('base.USD').id,
         })
@@ -52,6 +58,7 @@ class TestSEPACreditTransfer(AccountTestInvoicingCommon):
             'acc_type': 'bank',
             'partner_id': cls.partner_b.id,
             'acc_number': '1234567890',
+            'allow_out_payment': True,
             'bank_name': 'Mock & Co',
         })
 
@@ -90,11 +97,9 @@ class TestSEPACreditTransfer(AccountTestInvoicingCommon):
             self.assertFalse(batch.sct_generic)
 
             wizard_action = batch.validate_batch()
-            self.assertTrue(wizard_action, "Validation wizard should have returned an action")
-            self.assertEqual(wizard_action.get('res_model'), 'account.batch.download.wizard', "The action returned at validation should target a download wizard")
+            self.assertFalse(wizard_action, "Validation wizard should not have returned an action")
 
-            download_wizard = self.env['account.batch.download.wizard'].browse(batch.export_batch_payment()['res_id'])
-            sct_doc = etree.fromstring(base64.b64decode(download_wizard.export_file))
+            sct_doc = etree.fromstring(base64.b64decode(batch.export_file))
             self.assertTrue(self.xmlschema.validate(sct_doc), self.xmlschema.error_log.last_error)
             self.assertTrue(payment_1.is_move_sent)
             self.assertTrue(payment_2.is_move_sent)
@@ -124,8 +129,8 @@ class TestSEPACreditTransfer(AccountTestInvoicingCommon):
             self.assertTrue(len(error_wizard.warning_line_ids) > 0, "Using generic SEPA should raise warnings")
             self.assertTrue(len(error_wizard.error_line_ids) == 0, "Error wizard should not list any error")
 
-            download_wizard = self.env['account.batch.download.wizard'].browse(error_wizard.proceed_with_validation()['res_id'])
-            sct_doc = etree.fromstring(base64.b64decode(download_wizard.export_file))
+            batch._send_after_validation()
+            sct_doc = etree.fromstring(base64.b64decode(batch.export_file))
             self.assertTrue(self.xmlschema.validate(sct_doc), self.xmlschema.error_log.last_error)
             self.assertTrue(payment_1.is_move_sent)
             self.assertTrue(payment_2.is_move_sent)
@@ -147,3 +152,35 @@ class TestSEPACreditTransfer(AccountTestInvoicingCommon):
         self.env.company.country_id = self.env.company.country_id = self.env.ref('base.se')
         self.env.company.account_fiscal_country_id = None
         self.assertEqual(self.bank_journal.sepa_pain_version, 'pain.001.001.03.se')
+
+    def test_sepa_character_conversion(self):
+        # change the partner's name and street to contain non-latin characters
+        self.partner_a.name = "ÀÎÑϐН"
+        self.partner_a.street = "íċēķθН"
+        self.partner_a.city = "City"
+        self.partner_a.country_id = self.env.ref('base.be')
+
+        payment_1 = self.createPayment(self.partner_a, 500)
+        payment_1.action_post()
+        payment_2 = self.createPayment(self.partner_a, 700)
+        payment_2.action_post()
+
+        self.bank_journal.bank_id.bic = "BBRUBEBB"
+        batch = self.env['account.batch.payment'].create({
+            'journal_id': self.bank_journal.id,
+            'payment_ids': [(4, payment.id, None) for payment in (payment_1 | payment_2)],
+            'payment_method_id': self.sepa_ct_method.id,
+            'batch_type': 'outbound',
+        })
+
+        self.assertFalse(batch.sct_generic)
+
+        wizard_action = batch.validate_batch()
+        self.assertFalse(wizard_action, "Validation wizard should not have returned an action")
+
+        ct_doc = etree.fromstring(base64.b64decode(batch.export_file))
+        namespaces = {'ns': 'urn:iso:std:iso:20022:tech:xsd:pain.001.001.03'}
+        name = ct_doc.findtext('.//ns:Cdtr/ns:Nm', namespaces=namespaces)
+        street = ct_doc.findtext('.//ns:Cdtr/ns:PstlAdr/ns:AdrLine', namespaces=namespaces)
+        self.assertEqual(name, "AIN.N")
+        self.assertEqual(street, "icekthN")

@@ -10,7 +10,7 @@ class TestDuplicateProducts(common.TransactionCase):
         super(TestDuplicateProducts, cls).setUpClass()
         cls.workcenter_1 = cls.env['mrp.workcenter'].create({
             'name': 'Nuclear Workcenter',
-            'capacity': 2,
+            'default_capacity': 2,
             'time_start': 10,
             'time_stop': 5,
             'time_efficiency': 80,
@@ -20,7 +20,7 @@ class TestDuplicateProducts(common.TransactionCase):
             'name': 'Painted boat',
             'type': 'product',
             'tracking': 'serial'})
-        cls.pb1 = cls.env['stock.production.lot'].create({
+        cls.pb1 = cls.env['stock.lot'].create({
             'company_id': cls.env.company.id,
             'product_id': cls.painted_boat.id,
             'name': 'pb1'})
@@ -28,7 +28,7 @@ class TestDuplicateProducts(common.TransactionCase):
             'name': 'Blank Boat',
             'type': 'product',
             'tracking': 'serial'})
-        cls.bb1 = cls.env['stock.production.lot'].create({
+        cls.bb1 = cls.env['stock.lot'].create({
             'company_id': cls.env.company.id,
             'product_id': cls.blank_boat.id,
             'name': 'bb1'})
@@ -36,7 +36,7 @@ class TestDuplicateProducts(common.TransactionCase):
             'name': 'Color Painting',
             'type': 'product',
             'tracking': 'lot'})
-        cls.p1 = cls.env['stock.production.lot'].create({
+        cls.p1 = cls.env['stock.lot'].create({
             'company_id': cls.env.company.id,
             'product_id': cls.painting.id,
             'name': 'p1'})
@@ -144,12 +144,14 @@ class TestDuplicateProducts(common.TransactionCase):
 
     def test_byproduct_1(self):
         """ Use the same product as component and as byproduct"""
+        # Required for `byproduct_ids` to be visible in the view
+        self.env.user.groups_id += self.env.ref('mrp.group_mrp_byproducts')
         bom_form = Form(self.bom_boat)
         with bom_form.byproduct_ids.new() as bp:
             bp.product_id = self.painting
             bp.product_qty = 1.0
         bom_form.save()
-        self.p2 = self.env['stock.production.lot'].create({
+        self.p2 = self.env['stock.lot'].create({
             'company_id': self.env.company.id,
             'product_id': self.painting.id,
             'name': 'p2'})
@@ -166,30 +168,32 @@ class TestDuplicateProducts(common.TransactionCase):
         wo_form = Form(production.workorder_ids[0], view='mrp_workorder.mrp_workorder_view_form_tablet')
         # Components
         wo_form.finished_lot_id = self.pb1
-        wo_form.lot_id = self.bb1
         wo = wo_form.save()
-        wo._next()
+        qc_form = Form(wo.current_quality_check_id, view='mrp_workorder.quality_check_view_form_tablet')
+        qc_form.lot_id = self.bb1
+        qc = qc_form.save()
+        qc._next()
         # First layer
-        wo_form = Form(production.workorder_ids[0], view='mrp_workorder.mrp_workorder_view_form_tablet')
-        wo_form.lot_id = self.p1
-        wo = wo_form.save()
-        wo._next()
+        qc_form = Form(wo.current_quality_check_id, view='mrp_workorder.quality_check_view_form_tablet')
+        qc_form.lot_id = self.p1
+        qc = qc_form.save()
+        qc._next()
         # Second layer
-        wo_form = Form(production.workorder_ids[0], view='mrp_workorder.mrp_workorder_view_form_tablet')
-        wo_form.lot_id = self.p1
-        wo = wo_form.save()
-        wo._next()
-        wo_form = Form(production.workorder_ids[0], view='mrp_workorder.mrp_workorder_view_form_tablet')
+        qc_form = Form(wo.current_quality_check_id, view='mrp_workorder.quality_check_view_form_tablet')
+        qc_form.lot_id = self.p1
+        qc = qc_form.save()
+        qc._next()
+        qc_form = Form(wo.current_quality_check_id, view='mrp_workorder.quality_check_view_form_tablet')
         # Byproduct
-        wo_form.lot_id = self.p2
-        wo = wo_form.save()
-        wo._next()
+        qc_form.lot_id = self.p2
+        qc = qc_form.save()
+        qc._next()
         wo.do_finish()
         production.button_mark_done()
 
         move_paint_raw = production.move_raw_ids.filtered(lambda move: move.product_id == self.painting)
         self.assertEqual(len(move_paint_raw), 2, 'there should be 2 moves after merge same components')
-        self.assertEqual(move_paint_raw.mapped('state'), ['done',  'done'], 'Moves should be done')
+        self.assertEqual(move_paint_raw.mapped('state'), ['done', 'done'], 'Moves should be done')
         self.assertEqual(move_paint_raw.mapped('quantity_done'), [1, 1], 'Consumed quantity should be 2')
         self.assertEqual(len(move_paint_raw.move_line_ids), 2, 'their should be 2 move lines')
         self.assertEqual(move_paint_raw.mapped('move_line_ids').mapped('lot_id'), self.p1, 'Wrong lot numbers used')

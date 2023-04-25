@@ -11,11 +11,10 @@ from odoo.tools import misc, os, relativedelta
 _logger = logging.getLogger(__name__)
 
 
-def _check_with_xsd_patch(xml_to_validate, xsd_fname, env):
+def _check_with_xsd_patch(xml_to_validate, xsd_fname, env, prefix=None):
     return True
 
 
-@tagged('post_install_l10n', 'post_install', '-at_install')
 class TestL10nClEdiCommon(AccountEdiTestCommon):
     @classmethod
     def setUpClass(cls, chart_template_ref='l10n_cl.cl_chart_template'):
@@ -34,7 +33,7 @@ class TestL10nClEdiCommon(AccountEdiTestCommon):
             'l10n_cl_dte_email': 'info@bmya.cl',
             'l10n_cl_sii_regional_office': 'ur_SaC',
             'l10n_cl_company_activity_ids': [(6, 0, [cls.env.ref('l10n_cl_edi.eco_new_acti_620200').id])],
-            'extract_show_ocr_option_selection': 'no_send',
+            'extract_in_invoice_digitalization_mode': 'no_send',
             'tax_calculation_rounding_method': 'round_globally',
         })
         cls.company_data['company'].partner_id.write({
@@ -85,7 +84,6 @@ class TestL10nClEdiCommon(AccountEdiTestCommon):
             'code': 'INV2',
             'l10n_cl_point_of_sale_type': 'online',
             'l10n_latam_use_documents': True,
-            'currency_id': cls.env.ref('base.CLP').id,
             'default_account_id': cls.env['account.account'].search([
                 ('company_id', '=', cls.company_data['company'].id), ('code', '=', '310115')]).id
         })

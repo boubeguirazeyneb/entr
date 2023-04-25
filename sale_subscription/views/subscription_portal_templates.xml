@@ -3,9 +3,9 @@
 
     <!-- ====== Specific Subscription Page ====== -->
     <template id="subscription" name="Subscription">
-        <t t-set="o_portal_fullwidth_alert" groups="sale_subscription.group_sale_subscription_view">
+        <t t-set="o_portal_fullwidth_alert" groups="sales_team.group_sale_salesman">
             <t t-call="portal.portal_back_in_edit_mode">
-                <t t-set="backend_url" t-value="'/web#model=%s&amp;id=%s&amp;action=%s&amp;view_type=form' % (account._name, account.id, action.id)" t-ignore="true"/>
+                <t t-set="backend_url" t-value="'/web#model=%s&amp;id=%s&amp;action=%s&amp;view_type=form' % (subscription._name, subscription.id, action.id)" t-ignore="true"/>
             </t>
         </t>
 
@@ -21,51 +21,66 @@
                     <t t-set="entries">
                         <ul class="list-group list-group-flush flex-wrap flex-row flex-lg-column">
                             <li class="list-group-item flex-grow-1">
-                                <div><strong>Next Invoice: <span t-field="account.recurring_next_date"/></strong></div>
-                                <div><strong>Amount: <span t-field="account.recurring_total_incl" t-options='{"widget": "monetary","display_currency": account.pricelist_id.currency_id}'/></strong></div>
-                                <a t-if="account.stage_category == 'progress' and not account.to_renew and account.template_id and display_change_plan" role="button" class="mt8 btn btn-primary" t-att-href="'/my/subscription/'+str(account.id)+'/change'+'?uuid='+str(account.uuid)">Change plan</a>
-                                <div t-if="account.payment_token_id">Payment method:
-                                    <t t-if="account.payment_token_id.name" t-esc="account.payment_token_id.name"/>
-                                    <t t-else="">Unknown token</t>
+                                <div><strong>Next Invoice: <span t-field="subscription.next_invoice_date"/></strong></div>
+                                <div><strong>Amount: <span t-field="subscription.amount_untaxed" t-options='{"widget": "monetary","display_currency": subscription.pricelist_id.currency_id}'/></strong></div>
+                                <a t-if="subscription.stage_category == 'progress' and not subscription.to_renew and subscription.sale_order_template_id and display_change_plan"
+                                    role="button" class="mt8 btn btn-primary" t-att-href="subscription.get_portal_url()">
+                                        Change plan
+                                </a>
+                                <div t-if="subscription.payment_token_id">Payment method:
+                                    <t t-esc="subscription.payment_token_id._build_display_name(max_length=14)"/>
                                 </div>
-                                <t t-if="not account.to_renew and account.stage_category == 'progress'">
+                                <t t-if="not subscription.to_renew and subscription.stage_category == 'progress'">
                                     <!-- User is logged in under the partner set on the subscription -->
-                                    <t t-if="user.partner_id == account.partner_id">
-                                        <a t-if="acquirers or tokens" role="button" class="mt8 btn btn-secondary" data-toggle="modal" data-target="#payment_managing" href="#">
-                                            <t t-if="account.payment_token_id">Manage Payment Method</t>
+                                    <t t-if="user.partner_id == subscription.partner_id">
+                                        <a t-if="providers or tokens" role="button" class="btn btn-secondary btn-block mb-2 w-100" data-bs-toggle="modal" data-bs-target="#payment_managing" href="#">
+                                            <t t-if="subscription.payment_token_id">Manage Payment Method</t>
                                             <t t-else="">Set Payment Method</t>
                                         </a>
                                     </t>
                                     <!-- User is logged in under a partner different than that set on the subscription -->
-                                    <button t-elif="not user._is_public() and user.partner_id != account.partner_id"
-                                            title="Managing payment methods requires to be logged in under the customer account."
+                                    <button t-elif="not user._is_public() and user.partner_id != subscription.partner_id"
+                                            title="Managing payment methods requires to be logged in under the customer order."
                                             href="#"
                                             disabled="true"
                                             role="button"
-                                            class="mt8 btn btn-secondary">
+                                            class="mt-2 btn btn-secondary w-100">
                                         Manage Payment Methods
                                     </button>
                                     <!-- User is logged out -->
-                                    <a t-elif="acquirers or tokens"
+                                    <a t-elif="providers or tokens"
                                        title="You must be logged in to manage your payment methods."
-                                       t-attf-href="/web/login?redirect=/my/subscription/{{account.id}}/{{account.uuid}}"
+                                       t-attf-href="/web/login?redirect={{subscription.get_portal_url()}}"
                                        role="button"
-                                       class="mt-8 btn btn-secondary">
+                                       class="mt-2 btn btn-secondary w-100">
                                         Manage Payment Methods
                                     </a>
                                 </t>
+                                <!-- Manage renewals -->
+                                <a t-if="subscription.to_renew and subscription.payment_token_id and (not subscription.end_date or subscription.next_invoice_date &lt; subscription.end_date)" role="button" class="btn btn-primary btn-block mb8" t-att-href="renew_url">
+                                    <i class="fa fa-refresh"/> Renew
+                                </a>
+                                <!-- Download -->
+                                <div class="o_download_pdf btn-toolbar flex-sm-nowrap mt-2">
+                                    <div class="btn-group flex-grow-1 me-1 mb-1">
+                                        <a class="btn btn-secondary btn-block o_download_btn" t-att-href="subscription.get_portal_url(report_type='pdf', download=True)" title="Download"><i class="fa fa-download"/> Download</a>
+                                    </div>
+                                    <div class="btn-group flex-grow-1 mb-1">
+                                        <a class="btn btn-secondary btn-block o_print_btn o_portal_invoice_print" t-att-href="subscription.get_portal_url(report_type='pdf')" id="print_invoice_report" title="Print" target="_blank"><i class="fa fa-print"/> Print</a>
+                                    </div>
+                                </div>
                             </li>
                             <li t-if="display_close" class="list-group-item flex-grow-1">
-                                <a role="button" data-toggle="modal" data-target="#wc-modal-close" href="#">Close Subscription</a>
+                                <a role="button" data-bs-toggle="modal" data-bs-target="#wc-modal-close" href="#">Close Subscription</a>
                             </li>
-                            <li t-if="account.user_id" class="list-group-item flex-grow-1">
+                            <li t-if="subscription.user_id" class="list-group-item flex-grow-1">
                                 <div class="small mb-1"><strong class="text-muted">Subscription Manager:</strong></div>
                                 <div class="row flex-nowrap">
-                                    <div class="col flex-grow-0 pr-2">
-                                        <img class="rounded-circle mr4 float-left o_portal_contact_img" t-attf-src="#{image_data_uri(account.user_id.avatar_1024)}" alt="Contact"/>
+                                    <div class="col flex-grow-0 pe-2">
+                                        <img class="rounded-circle mr4 float-start o_portal_contact_img" t-attf-src="#{image_data_uri(subscription.user_id.avatar_1024)}" alt="Contact"/>
                                     </div>
-                                    <div class="col pl-0" style="min-width: 150px">
-                                        <span t-field="account.user_id" t-options='{"widget": "contact", "fields": ["name", "phone"], "no_marker": True}'/>
+                                    <div class="col ps-0" style="min-width: 150px">
+                                        <span t-field="subscription.user_id" t-options='{"widget": "contact", "fields": ["name", "phone"], "no_marker": True}'/>
                                         <div><a t-if="is_follower" href="#discussion" class="small"><i class="fa fa-comment"></i> Send message</a></div>
                                     </div>
                                 </div>
@@ -80,12 +95,12 @@
                         <div class="card-header bg-white pb-2 pt-3">
                             <div class="row">
                                 <div class="col-12 col-lg flex-grow-1 mb-1 mb-lg-0">
-                                    <h4 class="mb-0"><small class="text-muted">Subscription -</small> <span t-field="account.display_name"/></h4>
+                                    <h4 class="mb-0"><small class="text-muted">Subscription -</small> <span t-field="subscription.display_name"/></h4>
                                 </div>
-                                <div class="col-12 col-lg flex-grow-0 text-lg-right mb-1 mb-lg-0">
-                                    <span t-if="account.stage_category == 'progress' and not account.to_renew" class="badge badge-pill badge-success"><i class="fa fa-fw fa-check"/> In Progress</span>
-                                    <span t-if="account.to_renew and account.stage_category == 'progress'" class="badge badge-pill badge-warning"><i class="fa fa-fw fa-refresh"/> To Renew</span>
-                                    <span t-if="account.stage_category == 'closed'" class="badge badge-pill badge-default"><i class="fa fa-fw fa-remove"/> Closed</span>
+                                <div class="col-12 col-lg flex-grow-0 text-lg-end mb-1 mb-lg-0">
+                                    <span t-if="subscription.stage_category == 'progress' and not subscription.to_renew" class="badge rounded-pill text-bg-success"><i class="fa fa-fw fa-check"/> In Progress</span>
+                                    <span t-if="subscription.to_renew and subscription.stage_category == 'progress'" class="badge rounded-pill text-bg-warning"><i class="fa fa-fw fa-refresh"/> To Renew</span>
+                                    <span t-if="subscription.stage_category == 'closed'" class="badge rounded-pill badge-default"><i class="fa fa-fw fa-remove"/> Closed</span>
                                 </div>
                             </div>
                         </div>
@@ -101,35 +116,29 @@
                                     <hr class="my-0"/>
                                     <table class="table table-borderless table-sm">
                                         <tbody style="white-space:nowrap">
-                                            <tr>
-                                                <th class="text-right pb-0">Current Plan:</th>
+                                            <tr t-if="template">
+                                                <th class="text-end pb-0">Current Plan:</th>
                                                 <td class="w-100 pb-0 text-wrap"><span t-field="template.name"/></td>
                                             </tr>
                                             <tr>
-                                                <th class="text-right pb-0">Reference:</th>
-                                                <td class="w-100 pb-0"><span t-field="account.code"/></td>
+                                                <th class="text-end pb-0">Frequency:</th>
+                                                <td class="w-100 pb-0 text-wrap"><span t-field="subscription.recurrence_id.name"/></td>
+                                            </tr>
+                                            <tr t-if="subscription.client_order_ref">
+                                                <th class="text-end pb-0">Reference:</th>
+                                                <td class="w-100 pb-0 text-wrap"><span t-field="subscription.client_order_ref"/></td>
+                                            </tr>
+                                            <tr t-if="subscription.end_date">
+                                                <th class="text-end pb-0">Valid Until:</th>
+                                                <td class="w-100 pb-0"><span t-field="subscription.end_date"/></td>
+                                            </tr>
+                                            <tr t-if="subscription.start_date">
+                                                <th class="text-end pb-0">Start Date:</th>
+                                                <td class="w-100 pb-0"><span t-field="subscription.start_date"/></td>
                                             </tr>
                                             <tr>
-                                                <th class="text-right pb-0">Billing:</th>
-                                                <th class="w-100 pb-0">
-                                                    Every <t t-esc="account.recurring_interval"/>
-                                                    <t t-if="account.recurring_rule_type=='daily'"> days </t>
-                                                    <t t-if="account.recurring_rule_type=='weekly'"> weeks </t>
-                                                    <t t-if="account.recurring_rule_type=='monthly'"> months </t>
-                                                    <t t-if="account.recurring_rule_type=='yearly'"> years </t>
-                                                </th>
-                                            </tr>
-                                            <tr t-if="account.date">
-                                                <th class="text-right pb-0">Valid Until:</th>
-                                                <td class="w-100 pb-0"><span t-field="account.date"/></td>
-                                            </tr>
-                                            <tr>
-                                                <th class="text-right pb-0">Start Date:</th>
-                                                <td class="w-100 pb-0"><span t-field="account.date_start"/></td>
-                                            </tr>
-                                            <tr>
-                                                <th class="text-right pb-0">Next Invoice:</th>
-                                                <td class="w-100 pb-0"><span t-field="account.recurring_next_date"/></td>
+                                                <th class="text-end pb-0">Next Invoice:</th>
+                                                <td class="w-100 pb-0"><span t-field="subscription.next_invoice_date"/></td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -139,13 +148,16 @@
                                 <div class="col-12 col-lg-5 offset-lg-1">
                                     <h5 class="mb-1">Your Details</h5>
                                     <hr class="my-0"/>
-                                    <div t-field="account.partner_id" t-options='{ "widget": "contact", "fields": [ "name", "address", "phone", "email"]}'/>
-                                    <a t-if="user.partner_id == account.partner_id" class="small" t-attf-href="/my/account?redirect=/my/subscription/#{account.id}/#{account.uuid}">(Wrong address?)</a>
+                                    <div t-field="subscription.partner_id" t-options='{ "widget": "contact", "fields": [ "name", "address", "phone", "email"]}'/>
+                                    <a t-if="user.partner_id == subscription.partner_id"
+                                        class="small" t-attf-href="/my/account?redirect={{subscription.get_portal_url()}}">
+                                            (Wrong address?)
+                                    </a>
                                 </div>
                             </div>
 
                             <!-- ====== Plan details ====== -->
-                            <t t-set="display_discount" t-value="True in [line.discount > 0 for line in account.recurring_invoice_line_ids]"/>
+                            <t t-set="display_discount" t-value="True in [line.discount > 0 for line in subscription.order_line]"/>
                             <div class="row">
                                 <div class="col-12 mt-4">
                                     <h3 class="mb-1">Plan Details</h3>
@@ -153,73 +165,107 @@
                                         <thead class="bg-100">
                                             <tr>
                                                 <th>Product</th>
-                                                <th class="text-right">Quantity</th>
-                                                <th class="text-right d-none d-sm-table-cell">Unit Price</th>
-                                                <th t-if="display_discount" class="text-right d-none d-sm-table-cell">
+                                                <th class="text-end">Quantity</th>
+                                                <th class="text-end d-none d-sm-table-cell">Unit Price</th>
+                                                <th t-if="display_discount" class="text-end d-none d-sm-table-cell">
                                                     <span>Disc.%</span>
                                                 </th>
-                                                <th class="text-right">
-                                                    <span>Total Price</span>
+                                                <th class="text-end d-none d-md-table-cell">Taxes</th>
+                                                <th class="text-end">
+                                                    <span groups="account.group_show_line_subtotals_tax_excluded">Amount</span>
+                                                    <span groups="account.group_show_line_subtotals_tax_included">Total Price</span>
                                                 </th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <tr t-foreach="account.recurring_invoice_line_ids" t-as="line">
-                                                <td class="line-description"><span t-field="line.name"/></td>
-                                                <td class="text-right"><t t-esc="line.quantity"/> <span t-field="line.uom_id" data-oe-readonly="1"/></td>
-                                                <td class="text-right d-none d-sm-table-cell" t-if="not line.discount">
-                                                    <span t-esc="line.price_unit" t-options='{"widget": "monetary", "display_currency": pricelist.currency_id}'/>
-                                                </td>
-                                                <td class="text-right d-none d-sm-table-cell" t-if="line.discount">
-                                                    <div
-                                                        t-if="line.discount &gt;= 0"
-                                                        t-field="line.price_unit"
-                                                        t-options='{"widget": "monetary", "display_currency": account.pricelist_id.currency_id}'
-                                                        t-att-style="line.discount and 'text-decoration: line-through' or None"
-                                                        t-att-class="(line.discount and 'text-danger' or '') + ' text-right'"
-                                                    />
-                                                    <div t-if="line.discount">
-                                                        <t t-esc="(1-line.discount / 100.0) * line.price_unit" t-options='{"widget": "monetary", "display_currency": account.pricelist_id.currency_id}'/>
-                                                    </div>
-                                                </td>
-                                                <td class="text-right d-none d-sm-table-cell" t-if="display_discount">
-                                                    <strong t-if="line.discount &gt; 0" class="text-info">
-                                                        <t t-esc="((line.discount % 1) and '%s' or '%d') % line.discount"/>%
-                                                    </strong>
-                                                </td>
-                                                <td class="text-right">
-                                                    <span t-field="line.price_subtotal" t-options='{"widget": "monetary", "display_currency": pricelist.currency_id}'/>
-                                                </td>
-                                            </tr>
+                                            <t t-set="current_subtotal" t-value="0"/>
+
+                                            <t t-foreach="subscription.order_line" t-as="line">
+                                                <tr t-att-class="'bg-200 fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
+
+                                                    <t t-set="current_subtotal" t-value="current_subtotal + line.price_subtotal" groups="account.group_show_line_subtotals_tax_excluded"/>
+                                                    <t t-set="current_subtotal" t-value="current_subtotal + line.price_total" groups="account.group_show_line_subtotals_tax_included"/>
+
+                                                    <t t-if="not line.display_type">
+                                                        <td class="line-description"><span t-field="line.name"/></td>
+                                                        <td class="text-end"><t t-esc="line.product_uom_qty"/> <span t-field="line.product_uom" data-oe-readonly="1"/></td>
+                                                        <td class="text-end d-none d-sm-table-cell" t-if="not line.discount">
+                                                            <span t-esc="line.price_unit" t-options='{"widget": "monetary", "display_currency": pricelist.currency_id}'/>
+                                                        </td>
+                                                        <td class="text-end d-none d-sm-table-cell" t-if="line.discount">
+                                                            <div
+                                                                t-if="line.discount &gt;= 0"
+                                                                t-field="line.price_unit"
+                                                                t-options='{"widget": "monetary", "display_currency": subscription.pricelist_id.currency_id}'
+                                                                t-att-style="line.discount and 'text-decoration: line-through' or None"
+                                                                t-att-class="(line.discount and 'text-danger' or '') + ' text-end'"
+                                                            />
+                                                            <div t-if="line.discount">
+                                                                <t t-esc="(1-line.discount / 100.0) * line.price_unit" t-options='{"widget": "monetary", "display_currency": subscription.pricelist_id.currency_id}'/>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end d-none d-sm-table-cell" t-if="display_discount">
+                                                            <strong t-if="line.discount &gt; 0" class="text-info">
+                                                                <t t-esc="((line.discount % 1) and '%s' or '%d') % line.discount"/>%
+                                                            </strong>
+                                                        </td>
+                                                        <td class="text-end d-none d-md-table-cell">
+                                                            <span t-esc="', '.join(map(lambda x: (x.description or x.name), line.tax_id))"/>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <span class="oe_order_line_price_subtotal" t-field="line.price_subtotal" groups="account.group_show_line_subtotals_tax_excluded"/>
+                                                            <span class="oe_order_line_price_total" t-field="line.price_total" groups="account.group_show_line_subtotals_tax_included"/>
+                                                        </td>
+                                                    </t>
+                                                    <t t-if="line.display_type == 'line_section'">
+                                                        <td colspan="99"><span t-field="line.name"/></td>
+                                                        <t t-set="current_section" t-value="line"/>
+                                                        <t t-set="current_subtotal" t-value="0"/>
+                                                    </t>
+                                                    <t t-if="line.display_type == 'line_note'">
+                                                        <td colspan="99"><span t-field="line.name"/></td>
+                                                    </t>
+                                                </tr>
+
+                                                <tr t-if="current_section and (line_last or subscription.order_line[line_index+1].display_type == 'line_section')"
+                                                    class="is-subtotal text-end">
+                                                    <td colspan="99">
+                                                        <strong class="mr16">Subtotal</strong>
+                                                        <span t-esc="current_subtotal"
+                                                            t-options='{"widget": "monetary", "display_currency": subscription.pricelist_id.currency_id}'
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            </t>
                                         </tbody>
                                     </table>
                                     <div id="total" class="row" name="total" style="page-break-inside: avoid;">
-                                        <div class="col-sm-7 col-md-5 ml-auto">
+                                        <div class="col-sm-7 col-md-5 ms-auto">
                                             <table class="table table-sm">
                                                 <tr class="border-black" style="border-bottom:1px solid #dddddd;">
                                                     <td><strong>Subtotal</strong></td>
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <span
-                                                            data-id="recurring_total"
-                                                            t-field="account.recurring_total"
-                                                            t-options='{"widget": "monetary","display_currency": account.pricelist_id.currency_id}'
+                                                            data-id="amount_untaxed"
+                                                            t-field="subscription.amount_untaxed"
+                                                            t-options='{"widget": "monetary","display_currency": subscription.pricelist_id.currency_id}'
                                                         />
                                                     </td>
                                                 </tr>
                                                 <tr class="border-black" style="border-bottom:1px solid #dddddd;">
                                                     <td>Taxes</td>
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <span
-                                                            data-id="recurring_tax"
-                                                            t-field="account.recurring_tax"
-                                                            t-options='{"widget": "monetary","display_currency": account.pricelist_id.currency_id}'
+                                                            data-id="amount_tax"
+                                                            t-field="subscription.amount_tax"
+                                                            t-options='{"widget": "monetary","display_currency": subscription.pricelist_id.currency_id}'
                                                         />
                                                     </td>
                                                 </tr>
                                                 <tr class="border-black">
                                                     <td><strong>Next Billing Amount:</strong></td>
-                                                    <td class="text-right">
-                                                        <span data-id="recurring_total_incl" t-field="account.recurring_total_incl" t-options='{"widget": "monetary", "display_currency": account.pricelist_id.currency_id}'/>
+                                                    <td class="text-end">
+                                                        <span data-id="amount_total" t-field="subscription.amount_total" t-options='{"widget": "monetary", "display_currency": subscription.pricelist_id.currency_id}'/>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -229,39 +275,38 @@
                             </div> <!-- / Plan details ====== -->
 
                             <!-- ======  Subscription closed ====== -->
-                            <div t-if="account.to_renew or account.stage_category == 'closed'" id="payment_message">
-                                <div t-if="payment_mode!='draft_invoice'">
-                                    <p id="wc_warning_closed" t-if="not account.stage_category == 'closed'">Your subscription is closed.
+                            <div t-if="subscription.to_renew and (not subscription.end_date or subscription.next_invoice_date &lt; subscription.end_date)" id="payment_message">
+                                <div>
+                                    <p id="wc_warning_closed" t-if="subscription.stage_category == 'closed'">Your subscription is closed.
                                         <t t-if="missing_periods == 1">If you wish to reopen it, you can pay your invoice for the current invoicing period.</t>
-                                        <t t-if="missing_periods &gt; 1">If you wish to reopen it, the <t t-esc="missing_periods"/> missing payments (from <span t-field="account.recurring_next_date"/> to this day) will be automatically processed.</t>
+                                        <t t-if="missing_periods &gt; 1">If you wish to reopen it, the <t t-esc="missing_periods"/> missing payments (from <span t-field="subscription.next_invoice_date"/> to this day) will be automatically processed.</t>
                                     </p>
-                                    <div class="clearfix" t-if="(acquirers or tokens) and account.recurring_total_incl> 0">
+                                    <div class="clearfix" t-if="(providers or tokens) and subscription.amount_total> 0">
                                         <h5 class="mb-1">Pay Recurrently With</h5>
                                         <hr class="my-0"/>
                                         <t t-call="payment.checkout">
-                                            <t t-set="landing_route"
-                                               t-value="'/my/subscription/' + str(account.id) + '/' + str(account.uuid)"/>
+                                            <t t-set="landing_route" t-value="subscription.get_portal_url()"/>
                                         </t>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- ======  Change Payment Method ====== -->
-                            <div t-if="account.stage_category == 'progress' and not account.to_renew" role="dialog" class="modal fade" id="payment_managing">
+                            <div t-if="subscription.stage_category == 'progress' and not subscription.to_renew" role="dialog" class="modal fade" id="payment_managing">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
                                         <header class="modal-header">
                                             <h4 class="modal-title">Pay With</h4>
-                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">×</button>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </header>
                                         <main class="modal-body">
                                             <!-- ======  Manage Payment methods ====== -->
-                                            <div id="payment_method" class="text-left">
+                                            <div id="payment_method" class="text-start">
                                                 <t t-call="payment.manage">
                                                     <t t-set="assign_token_route"
-                                                       t-value="'/my/subscription/assign_token/' + str(account.id)"/>
+                                                       t-value="'/my/subscription/assign_token/' + str(subscription.id)"/>
                                                     <t t-set="landing_route"
-                                                       t-value="'/my/subscription/' + str(account.id) + '/' + str(account.uuid) + '?message=Your payment method has been changed for this subscription.&amp;message_class=alert-success'"/>
+                                                       t-value="subscription.get_portal_url() + '&amp;message=Your payment method has been changed for this subscription.&amp;message_class=alert-success'"/>
                                                 </t>
                                             </div>
                                         </main>
@@ -270,10 +315,10 @@
                             </div>
 
                             <!-- ======  Terms and conditions ====== -->
-                            <t t-if="not is_html_empty(account.description)">
+                            <t t-if="not is_html_empty(subscription.note)">
                                 <h4 class="mb-1">Terms and Conditions</h4>
                                 <hr class="my-0"/>
-                                <div t-field="account.description"/>
+                                <div t-field="subscription.note"/>
                             </t>
                         </div>
                     </div>
@@ -282,7 +327,6 @@
                     <div t-if="is_follower" id="discussion">
                         <h3 class="mt-4">History</h3>
                         <t t-call="portal.message_thread">
-                            <t t-set="object" t-value="account"/>
                             <t t-set="chatter_mode" t-value="'json'"/>
                         </t>
                     </div>
@@ -295,24 +339,24 @@
                             <header class="modal-header">
                                 <h4 class="modal-title">Close Subscription</h4>
                             </header>
-                            <form method="post" t-attf-action="/my/subscription/#{account.id}/close/?uuid=#{account.uuid}">
+                            <form method="post" t-attf-action="/my/subscription/#{subscription.id}/close?access_token=#{subscription.access_token}">
                                 <input class="d-none" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <main class="modal-body">
-                                    <p>If you confirm, your subscription will be closed right away. Your current invoicing period is valid until <span t-field="account.recurring_next_date"/>.</p>
+                                    <p>If you confirm, your subscription will be closed right away. Your current invoicing period is valid until <span t-field="subscription.next_invoice_date"/>.</p>
                                     <p>We always listen to our customer. Could you specify the reason for cancelling your subscription?</p>
-                                    <div class="form-group">
-                                        <select class="form-control" name="close_reason_id">
+                                    <div class="mb-3">
+                                        <select class="form-select" name="close_reason_id">
                                             <t t-foreach="close_reasons" t-as="close_reason">
                                                 <option  t-att-value="close_reason.id" t-esc="close_reason.name"/>
                                             </t>
                                         </select>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <textarea class="form-control" name="closing_text" style="width: 100%;" rows="4"></textarea>
                                     </div>
                                 </main>
                                 <footer class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                     <button class="btn btn-primary contract-submit">Confirm</button>
                                 </footer>
                             </form>
@@ -326,9 +370,13 @@
     <!-- Modify portal templates -->
     <template id="portal_my_home_menu_subscription" name="Portal layout : subscription menu entry" inherit_id="portal.portal_breadcrumbs" priority="10">
         <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
-            <li t-if="page_name == 'subscription' or account" t-attf-class="breadcrumb-item #{'active ' if not account else ''}">
-                <a t-if="account" t-attf-href="/my/subscription?{{ keep_query() }}">Subscriptions</a>
+            <li t-if="page_name == 'subscription'" t-attf-class="breadcrumb-item #{'active' if not subscription else ''}">
+                <a t-if="subscription" t-attf-href="/my/subscription?{{ keep_query() }}">Subscriptions</a>
                 <t t-else="">Subscriptions</t>
+            </li>
+            <li t-if="subscription" class="breadcrumb-item active">
+                <span t-field="subscription.type_name"/>
+                <t t-esc="subscription.name"/>
             </li>
         </xpath>
     </template>
@@ -350,38 +398,52 @@
             <t t-call="portal.portal_searchbar">
                 <t t-set="title">Subscriptions</t>
             </t>
-            <t t-if="not accounts">
+            <t t-if="not subscriptions">
                 <p>You don't have any subscriptions yet.</p>
             </t>
-            <t t-if="accounts" t-call="portal.portal_table">
+            <t t-if="subscriptions" t-call="portal.portal_table">
                 <thead>
                     <tr class="active">
                         <th class="w-75">Subscription</th>
                         <th class="text-center">Status</th>
-                        <th class="text-right">Total</th>
+                        <th class="text-end">Total</th>
                     </tr>
                 </thead>
-                <t t-foreach="accounts" t-as="account">
+                <t t-foreach="subscriptions" t-as="subscription">
                     <tr>
                         <td>
-                            <a t-att-href="'/my/subscription/'+str(account.id)+'/'+str(account.uuid)+'?'+keep_query()"><t t-esc="account.display_name"/></a>
+                            <a t-att-href="subscription.get_portal_url()"><t t-esc="subscription.display_name"/></a>
                         </td>
                         <td class="text-center" id="subscription_state">
-                            <t t-if="account.stage_category == 'progress' and not account.to_renew">
-                                <span class="badge badge-pill badge-success"><i class="fa fa-fw fa-check"/> In Progress</span>
+                            <t t-if="subscription.stage_category == 'progress' and not subscription.to_renew">
+                                <span class="badge rounded-pill text-bg-success"><i class="fa fa-fw fa-check"/> In Progress</span>
                             </t>
-                            <t t-if="account.to_renew">
-                                <span class="badge badge-pill badge-warning"><i class="fa fa-fw fa-refresh"/> To Renew</span>
+                            <t t-if="subscription.to_renew">
+                                <span class="badge rounded-pill text-bg-warning"><i class="fa fa-fw fa-refresh"/> To Renew</span>
                             </t>
-                            <t t-if="account.stage_category == 'closed'">
-                                <span class="badge badge-pill badge-danger"><i class="fa fa-fw fa-remove"/> Closed</span>
+                            <t t-if="subscription.stage_category == 'closed'">
+                                <span class="badge rounded-pill text-bg-danger"><i class="fa fa-fw fa-remove"/> Closed</span>
                             </t>
                         </td>
-                        <td class="text-right"><span t-esc="account.recurring_total_incl" t-options="{'widget': 'monetary', 'display_currency': account.currency_id}"/></td>
+                        <td class="text-end"><span t-esc="subscription.amount_total" t-options="{'widget': 'monetary', 'display_currency': subscription.currency_id}"/></td>
                     </tr>
                 </t>
             </t>
         </t>
+    </template>
+
+    <!-- Sale order (quotations): display recurrency -->
+    <template id="sale_order_portal_content_inherit" inherit_id="sale.sale_order_portal_content">
+        <xpath expr='//div[@id="informations"]' position="after">
+            <div class="row" id="recurrency">
+                    <div class="mb-3 col-6" t-if="sale_order.recurrence_id">
+                        <strong>
+                            Recurrency
+                        </strong>
+                        <span t-field="sale_order.recurrence_id"/>
+                    </div>
+            </div>
+        </xpath>
     </template>
 
 </odoo>

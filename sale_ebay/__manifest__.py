@@ -48,13 +48,8 @@ Key Features
       'data/ir_cron_data.xml',
       'data/sale_ebay_data.xml',
       'data/product_data.xml',
-      'data/mail_data.xml',
+      'data/mail_activity_type_data.xml',
   ],
-  # only loaded in demonstration mode
-  'demo': [
-  ],
-  'js': ['static/src/js/*.js'],
-  'css': ['static/src/css/*.css'],
   'license': 'OEEL-1',
   'uninstall_hook': 'uninstall_hook',
 }

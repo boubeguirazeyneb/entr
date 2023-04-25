@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+from datetime import timedelta
+
+from odoo import fields
 from odoo.addons.sale_timesheet.tests.common import TestCommonSaleTimesheet
 from odoo.tests import tagged
 
@@ -20,13 +24,9 @@ class TestInvoiceTimesheet(TestCommonSaleTimesheet):
             'pricelist_id': self.company_data['default_pricelist'].id,
         })
         so_line_product_1 = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet3.name,
             'product_id': self.product_delivery_timesheet3.id,
-            'product_uom': self.product_delivery_timesheet3.uom_id.id,
-            'price_unit': self.product_delivery_timesheet3.list_price,
             'order_id': sale_order.id,
         })
-        so_line_product_1.product_id_change()
 
         # confirm SO
         sale_order.action_confirm()
@@ -37,16 +37,13 @@ class TestInvoiceTimesheet(TestCommonSaleTimesheet):
         self.assertEqual(len(project_id), 1, "On SO confirmation, a project should have been created")
 
         so_line_product_2 = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet1.name,
             'product_id': self.product_delivery_timesheet1.id,
-            'product_uom': self.product_delivery_timesheet1.uom_id.id,
-            'price_unit': self.product_delivery_timesheet1.list_price,
             'order_id': sale_order.id,
         })
-        so_line_product_2.product_id_change()
 
         # let's log some timesheets
         timesheet_1 = self.env['account.analytic.line'].create({
+            'date': fields.Date.today() - timedelta(days=1),
             'name': 'Line 1',
             'project_id': project_id.id,
             'task_id': task_id.id,
@@ -54,6 +51,7 @@ class TestInvoiceTimesheet(TestCommonSaleTimesheet):
             'employee_id': self.employee_manager.id,
         })
         timesheet_2 = self.env['account.analytic.line'].create({
+            'date': fields.Date.today() - timedelta(days=1),
             'name': 'Line 2',
             'project_id': project_id.id,
             'task_id': task_id.id,

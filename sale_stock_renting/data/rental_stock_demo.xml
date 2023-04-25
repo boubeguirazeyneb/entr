@@ -24,51 +24,58 @@
     <field name="tracking">serial</field>
   </record>
 
-  <record id="rental_stock_pricing_1" model="rental.pricing">
-      <field name="duration" eval="1"/>
+  <record id="rental_stock_pricing_1" model="product.pricing">
+      <field name="recurrence_id" ref="sale_renting.recurrence_hourly"/>
       <field name="price" eval="5.0"/>
-      <field name="unit">hour</field>
   </record>
-  <record id="rental_stock_pricing_2" model="rental.pricing">
-      <field name="duration" eval="1"/>
+  <record id="rental_stock_pricing_2" model="product.pricing">
+      <field name="recurrence_id" ref="sale_temporal.recurrence_daily"/>
       <field name="price" eval="20.0"/>
-      <field name="unit">day</field>
   </record>
-  <record id="rental_stock_pricing_3" model="rental.pricing">
-      <field name="duration" eval="7"/>
+  <record id="rental_stock_pricing_3" model="product.pricing">
+      <field name="recurrence_id" ref="sale_temporal.recurrence_weekly"/>
       <field name="price" eval="100.0"/>
-      <field name="unit">day</field>
+  </record>
+
+  <record id="rental_stock_product_1" model="product.product"> <!-- Needed to avoid triggering the constraint -->
+    <field name="product_pricing_ids" eval="[(5,0,0)]"/>
   </record>
 
   <record id="rental_stock_product_1" model="product.product"> <!-- House -->
-    <field name="rental_pricing_ids" eval="[(6,0,[ref('rental_stock_pricing_1'), ref('rental_stock_pricing_2'), ref('rental_stock_pricing_3')])]"/>
+    <field name="product_pricing_ids" eval="[(6,0,[ref('rental_stock_pricing_1'), ref('rental_stock_pricing_2'), ref('rental_stock_pricing_3')])]"/>
   </record>
 
-  <record id="rental_stock_lot_1" model="stock.production.lot">
+  <record id="rental_stock_lot_1" model="stock.lot">
     <field name="name">PRINT001</field>
     <field name="product_id" ref="rental_stock_product_1"/>
     <field name="company_id" ref="base.main_company"/>
   </record>
 
-  <record id="rental_stock_lot_2" model="stock.production.lot">
+  <record id="rental_stock_lot_2" model="stock.lot">
     <field name="name">PRINT002</field>
     <field name="product_id" ref="rental_stock_product_1"/>
     <field name="company_id" ref="base.main_company"/>
   </record>
 
-  <record id="rental_stock_lot_3" model="stock.production.lot">
+  <record id="rental_stock_lot_3" model="stock.lot">
     <field name="name">PRINT003</field>
     <field name="product_id" ref="rental_stock_product_1"/>
     <field name="company_id" ref="base.main_company"/>
   </record>
 
-  <record id="rental_stock_lot_4" model="stock.production.lot">
+  <record id="rental_stock_lot_4" model="stock.lot">
     <field name="name">PRINT004</field>
     <field name="product_id" ref="rental_stock_product_1"/>
     <field name="company_id" ref="base.main_company"/>
   </record>
 
   <!-- Set available meeting room serial numbers -->
+  <function model="stock.quant" name="unlink">
+    <value model="stock.quant" eval="obj().search([
+            ('product_id', '=', ref('rental_stock_product_1'))
+        ]).ids"/>
+  </function>
+
   <record id="rental_stock_inventory_1" model="stock.quant">
     <field name="product_id" ref="rental_stock_product_1"/>
     <field name="location_id" model="stock.location" eval="obj().env.ref('stock.warehouse0').lot_stock_id.id"/>
@@ -113,7 +120,7 @@
       <field name="product_uom" ref="uom.product_uom_unit"/>
       <field name="name" eval="'[RENT003] Printer'"/>
       <field name="is_rental" eval="True"/>
-      <field name="pickup_date" eval="DateTime.today() + relativedelta(days=1)"/>
+      <field name="start_date" eval="DateTime.today() + relativedelta(days=1)"/>
       <field name="return_date" eval="DateTime.today() + relativedelta(days=5)"/>
       <field name="price_unit" eval="100.0"/>
   </record>
@@ -125,17 +132,13 @@
       <field name="product_uom" ref="uom.product_uom_unit"/>
       <field name="name" eval="'[RENT003] Printer'"/>
       <field name="is_rental" eval="True"/>
-      <field name="pickup_date" eval="DateTime.today() + relativedelta(days=4)"/>
+      <field name="start_date" eval="DateTime.today() + relativedelta(days=4)"/>
       <field name="return_date" eval="DateTime.today() + relativedelta(days=10)"/>
       <field name="price_unit" eval="150.0"/>
       <field name="reserved_lot_ids" eval="[(6,0,[ref('rental_stock_lot_1'), ref('rental_stock_lot_2')])]"/>
   </record>
 
-  <!-- Trigger so_line name recomputation -->
-  <function model="sale.order.line" name="product_id_change" eval="[[ref('rental_stock_order_line_1')]]"/>
-  <function model="sale.order.line" name="product_id_change" eval="[[ref('rental_stock_order_line_2')]]"/>
-
   <!-- CONFIRM Rental Sale Order -->
-  <function model="sale.order" name="action_confirm" eval="[[ref('rental_stock_order_1')]]"/>
+  <function model="sale.order" name="action_confirm" eval="[[ref('rental_stock_order_1')]]" context="{'action_no_send_mail': True}"/>
 
 </odoo>

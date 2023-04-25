@@ -1,3 +1,5 @@
+$o-barcode-completed-color: #befdcc;
+
 .o_barcode_client_action .o_barcode_lines .o_barcode_line {
     flex: 0 0 auto;
     border-width: 1px 0;
@@ -36,19 +38,23 @@
     }
 
     &.o_faulty {
-        background-color: rgba(theme-color('danger'), 0.25);
+        background-color: rgba(map-get($theme-colors, 'danger'), 0.25);
 
         &.o_selected {
-            box-shadow: inset 0px 0px 0px 3px theme-color('danger');
+            box-shadow: inset 0px 0px 0px 3px map-get($theme-colors, 'danger');
         }
     }
 
     &.o_line_completed {
-        background: #F5F5F5;
+        background: var(--barcode__line--completed, #befdcc);
+    }
+
+    &.o_line_not_completed {
+        background: var(--barcode__line--notCompleted, #fcf9f2);
     }
 
     &.o_selected {
-        box-shadow: inset 0px 0px 0px 3px $o-brand-secondary;
+        box-shadow: inset 0px 0px 0px 3px $o-enterprise-primary-color;
     }
 
     .o_barcode_scanner_qty {
@@ -62,11 +68,11 @@
 
         .qty-done, .inventory_quantity {
             min-width: 20px;
+            &.o_flash {
+                animation-name: highlighting-flash-primary;
+                animation-duration: 0.5s;
+            }
         }
-    }
-
-    .o_barcode_product_ref {
-        font-size: 1.1em;
     }
 
     .o_line_buttons {
@@ -113,5 +119,10 @@
     .o_next_expected {
         color: #00A09D;
         opacity: 1 !important;
+    }
+
+    [name=source_location].o_highlight {
+        background-color: $o-barcode-completed-color;
+        & .fa { opacity: 1; }
     }
 }

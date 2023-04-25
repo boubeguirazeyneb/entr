@@ -9,7 +9,7 @@
     'description': """
 Contains advanced features for purchase management
     """,
-    'depends': ['purchase', 'web_dashboard'],
+    'depends': ['purchase'],
     'data': [
         'report/purchase_report_views.xml',
     ],
@@ -17,7 +17,6 @@ Contains advanced features for purchase management
         'data/purchase_order_demo.xml',
     ],
     'installable': True,
-    'application': False,
     'auto_install': ['purchase'],
     'license': 'OEEL-1',
 }

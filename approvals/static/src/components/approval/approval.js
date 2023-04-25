@@ -6,46 +6,18 @@ const { Component } = owl;
 
 class Approval extends Component {
 
-    //--------------------------------------------------------------------------
-    // Public
-    //--------------------------------------------------------------------------
-
     /**
-     * @returns {approvals.approval}
+     * @returns {ApprovalView}
      */
-    get approval() {
-        return this.messaging && this.messaging.models['approvals.approval'].get(this.props.approvalLocalId);
-    }
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * @private
-     */
-    async _onClickApprove() {
-        await this.approval.approve();
-        this.trigger('o-approval-approved');
-    }
-
-    /**
-     * @private
-     */
-    async _onClickRefuse() {
-        await this.approval.refuse();
-        this.trigger('o-approval-refused');
+    get approvalView() {
+        return this.props.record;
     }
 
 }
 
 Object.assign(Approval, {
-    props: {
-        approvalLocalId: String,
-    },
+    props: { record: Object },
     template: 'approvals.Approval',
 });
 
 registerMessagingComponent(Approval);
-
-export default Approval;

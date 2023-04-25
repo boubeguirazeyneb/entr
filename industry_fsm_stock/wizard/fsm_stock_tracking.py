@@ -44,7 +44,6 @@ class FsmStockTracking(models.TransientModel):
                     'order_id': self.task_id.sale_order_id.id,
                     'product_id': self.product_id.id,
                     'product_uom_qty': qty,
-                    'product_uom': self.product_id.uom_id.id,
                     'task_id': self.task_id.id,
                     'fsm_lot_id': line.lot_id.id,
                 }
@@ -61,7 +60,7 @@ class FsmStockTrackingLine(models.TransientModel):
     _name = 'fsm.stock.tracking.line'
     _description = 'Lines for FSM Stock Tracking'
 
-    lot_id = fields.Many2one('stock.production.lot', string='Lot/Serial Number', domain="[('company_id', '=', company_id), ('product_id', '=', product_id)]")
+    lot_id = fields.Many2one('stock.lot', string='Lot/Serial Number', domain="[('company_id', '=', company_id), ('product_id', '=', product_id)]")
     quantity = fields.Float(required=True, default=1)
     product_id = fields.Many2one('product.product')
     sale_order_line_id = fields.Many2one('sale.order.line')

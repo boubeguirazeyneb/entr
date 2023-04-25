@@ -8,11 +8,13 @@ from dateutil.relativedelta import relativedelta
 @tagged('post_install', '-at_install', 'contract_schedule_change')
 class TestContractScheduleChange(TransactionCase):
 
-    def setUp(self):
-        self.employee = self.env['hr.employee'].create({
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.employee = cls.env['hr.employee'].create({
             'name': 'Richard',
         })
-        self.calendars = self.env['resource.calendar'].create([
+        cls.calendars = cls.env['resource.calendar'].create([
             {'name': 'Calendar 1', 'full_time_required_hours': 40},
             {'name': 'Calendar 2', 'full_time_required_hours': 50},
             {'name': 'Calendar 3', 'full_time_required_hours': 60},
@@ -151,9 +153,9 @@ class TestContractScheduleChange(TransactionCase):
         #The same should also happen if the contract is cancelled
         contract_2.state = 'cancel'
         self.assertFalse(contract_2.calendar_changed)
-        #Everything should be reset
-        self.assertFalse(contract_1.calendar_changed)
-        self.assertFalse(contract_3.calendar_changed)
+        #There is a change in calendar due to the gap between the contracts
+        self.assertTrue(contract_1.calendar_changed)
+        self.assertTrue(contract_3.calendar_changed)
 
     def test_four_contracts(self):
         #All four contracts will have different schedules
@@ -211,8 +213,7 @@ class TestContractScheduleChange(TransactionCase):
         #Cancel the second and have the same schedule on the first as third and fourth
         contract_2.state = 'cancel'
         contract_1.resource_calendar_id = self.calendars[3]
-        #Everything should be false now
-        self.assertFalse(contract_2.calendar_changed)
-        self.assertFalse(contract_1.calendar_changed)
-        self.assertFalse(contract_3.calendar_changed)
-        self.assertFalse(contract_4.calendar_changed)
+        self.assertFalse(contract_2.calendar_changed) # Cancelled
+        self.assertTrue(contract_1.calendar_changed) # True due to gap being big enough
+        self.assertTrue(contract_3.calendar_changed) # True due to gap
+        self.assertFalse(contract_4.calendar_changed) # Simply false

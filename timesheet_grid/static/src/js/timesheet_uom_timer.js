@@ -7,7 +7,6 @@ const TimesheetUom = require('hr_timesheet.timesheet_uom');
 const { _lt } = require('web.core');
 const { registry } = require("@web/core/registry");
 const Timer = require('timer.Timer');
-const session = require('web.session');
 
 const TimesheetUomDisplayTimer = TimesheetUom.FieldTimesheetTime.extend({
     /**
@@ -33,7 +32,7 @@ const TimesheetUomDisplayTimer = TimesheetUom.FieldTimesheetTime.extend({
         if (this.recordData.timer_start && !this.recordData.timer_pause && !this.rendererIsSample) {
             this.time = Timer.createTimer(this.recordData.unit_amount, this.recordData.timer_start, this.serverTime);
             if (this.time) {
-                this.$el.addClass('font-weight-bold text-danger');
+                this.$el.addClass('fw-bold text-danger');
                 this._refreshTime();
                 this.timer = setInterval(() => {
                     this.time = Timer.createTimer(this.recordData.unit_amount, this.recordData.timer_start, this.serverTime);
@@ -41,7 +40,7 @@ const TimesheetUomDisplayTimer = TimesheetUom.FieldTimesheetTime.extend({
                 }, 1000);
             } else {
                 clearTimeout(this.timer);
-                this.$el.removeClass('font-weight-bold text-danger');
+                this.$el.removeClass('fw-bold text-danger');
             }
         }
     },
@@ -100,8 +99,8 @@ const FieldTimesheetTimeTimer = TimesheetUomDisplayTimer.extend({
             button.html('<i/>');
             button.find('i')
                 .addClass('fa')
-                .toggleClass('fa-stop-circle o-timer-stop-button', this.isTimerRunning)
-                .toggleClass('fa-play-circle o-timer-play-button', !this.isTimerRunning)
+                .toggleClass('fa-stop-circle o-timer-stop-button text-danger', this.isTimerRunning)
+                .toggleClass('fa-play-circle o-timer-play-button text-primary', !this.isTimerRunning)
                 .attr('title', title);
             button.on('click', this._onToggleButton.bind(this));
             this.$el.prepend(button);
@@ -111,7 +110,7 @@ const FieldTimesheetTimeTimer = TimesheetUomDisplayTimer.extend({
     _onToggleButton: async function (event) {
         const context = this.record.getContext();
         event.stopPropagation();
-        const result = await this._rpc({
+        await this._rpc({
             model: this.model,
             method: this._getActionButton(),
             context: context,
@@ -237,8 +236,6 @@ const FieldTimesheetHours = TimesheetUomDisplayTimer.extend({
         this.trigger_up('reload');
     },
 });
-
-fieldRegistry.add('timesheet_uom_hours', FieldTimesheetHours);
 
 return {
     FieldTimesheetHours,

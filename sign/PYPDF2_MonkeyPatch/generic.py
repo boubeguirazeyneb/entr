@@ -10,5 +10,5 @@ def FloatObject___new__(cls, value="0", context=None):
     elif isinstance(value, str) and value[0] != '-' and '-' in value:
         value = '-' + ''.join(value.split('-', 1))
     return orig_FloatObject___new__(cls, value, context)
-    
+
 FloatObject.__new__ = FloatObject___new__

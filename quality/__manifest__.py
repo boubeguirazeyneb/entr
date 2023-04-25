@@ -21,19 +21,17 @@ Quality Base
     'data': [
         'security/quality.xml',
         'security/ir.model.access.csv',
+        'data/mail_alias_data.xml',
         'data/quality_data.xml',
         'views/quality_views.xml',
     ],
-    'demo': [],
-    'application': False,
     'license': 'OEEL-1',
     'assets': {
         'web.assets_backend': [
-            'quality/static/src/js/tablet_image_widget.js',
-            'quality/static/src/scss/tablet_view.scss',
+            'quality/static/src/**/*',
         ],
-        'web.assets_qweb': [
-            'quality/static/src/xml/**/*',
+        'web.qunit_suite_tests': [
+            'quality/static/tests/*.js',
         ],
     }
 }

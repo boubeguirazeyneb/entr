@@ -1,180 +1,103 @@
 odoo.define('web_studio.ViewEditorManager_tests', function (require) {
 "use strict";
 
-const { afterEach, beforeEach, start } = require('@mail/utils/test_utils');
+const { start, startServer } = require('@mail/../tests/helpers/test_utils');
+const { ROUTES_TO_IGNORE } = require('@mail/../tests/helpers/webclient_setup');
+const { ImageField } = require("@web/views/fields/image/image_field");
 
-var AbstractFieldOwl = require('web.AbstractFieldOwl');
 var ace = require('web_editor.ace');
 var concurrency = require('web.concurrency');
 var fieldRegistry = require('web.field_registry');
-var fieldRegistryOwl = require('web.field_registry_owl');
 var framework = require('web.framework');
-var ListRenderer = require('web.ListRenderer');
+const { ListRenderer } = require("@web/views/list/list_renderer");
 var testUtils = require('web.test_utils');
-var session = require('web.session');
+var { session } = require('@web/session');
+const { RPCError } = require("@web/core/network/rpc_service");
 
 var studioTestUtils = require('web_studio.testUtils');
 
-const { patchWithCleanup } = require("@web/../tests/helpers/utils");
+const { patchWithCleanup, nextTick, makeDeferred } = require("@web/../tests/helpers/utils");
+const { registerCleanup } = require("@web/../tests/helpers/cleanup");
 
-const { doActionAndOpenStudio, registerStudioDependencies } = require("@web_studio/../tests/helpers");
-const { legacyExtraNextTick } = require("@web/../tests/helpers/utils");
+const { openStudio, registerStudioDependencies } = require("@web_studio/../tests/helpers");
+const { getFixture, legacyExtraNextTick, click, dragAndDrop } = require("@web/../tests/helpers/utils");
+const { doAction } = require("@web/../tests/webclient/helpers");
 const { createEnterpriseWebClient } = require("@web_enterprise/../tests/helpers");
 const { MockServer } = require("@web/../tests/helpers/mock_server");
+const LegacyMockServer = require('web.MockServer');
+
+const { MapRenderer } = require("@web_map/map_view/map_renderer");
+const { KanbanRecord } = require("@web/views/kanban/kanban_record");
+const { _KanbanEditorRecord } = require("@web_studio/client_action/view_editors/kanban/kanban_editor_record")
+
+const { registry } = require("@web/core/registry");
+const { SIDEBAR_SAFE_FIELDS } = require("@web_studio/legacy/js/views/sidebar_safe_fields");
+
+function setFieldAvailableInSidebar(key) {
+    const sideBarPushedIndex = SIDEBAR_SAFE_FIELDS.push(key) - 1;
+    registerCleanup(() => {
+        SIDEBAR_SAFE_FIELDS.splice(sideBarPushedIndex, 1);
+    });
+}
+
+function getCurrentMockServer() {
+    return LegacyMockServer.currentMockServer;
+}
 
 let serverData;
-
+let target;
+let pyEnv;
 QUnit.module('web_studio', {}, function () {
 QUnit.module('ViewEditorManager', {
-    beforeEach() {
-        beforeEach(this);
-
-        Object.assign(this.data, {
-            coucou: {
-                fields: {
-                    display_name: {
-                        string: "Display Name",
-                        type: "char"
-                    },
-                    message_attachment_count: {
-                        string: 'Attachment count',
-                        type: 'integer',
-                    },
-                    char_field: {
-                        string:"A char",
-                        type: "char",
-                    },
-                    m2o: {
-                        string: "M2O",
-                        type: "many2one",
-                        relation: 'product',
-                    },
-                    product_ids: {string: "Products", type: "one2many", relation: "product"},
-                    priority: {
-                        string: "Priority",
-                        type: "selection",
-                        manual: true,
-                        selection: [['1', "Low"], ['2', "Medium"], ['3', "High"]],
-                    },
-                    start: {
-                        string: "Start Date",
-                        type: 'datetime',
-                    },
-                    stop: {
-                        string: "Stop Date",
-                        type: 'datetime',
-                    },
-                },
+    async beforeEach() {
+        pyEnv = await startServer();
+        this.data = pyEnv.getData();
+        const resPartnerId1 = pyEnv['res.partner'].create({ display_name: 'Dustin', avatar_128: 'D Artagnan' });
+        const [partnerId1, partnerId2] = pyEnv['partner'].create([
+            { display_name: 'jean' },
+            { display_name: 'jacques' },
+        ]);
+        pyEnv['product'].create([
+            {
+                display_name: 'xpad',
+                m2o: partnerId2,
+                partner_ids: [partnerId1],
             },
-            product: {
-                fields: {
-                    display_name: {string: "Display Name", type: "char"},
-                    m2o: {string: "M2O", type: "many2one", relation: 'partner'},
-                    partner_ids: {string: "Partners", type: "one2many", relation: "partner"},
-                    coucou_id: {string: "coucou", type: "many2one", relation: "coucou"},
-                    m2m: {string: "M2M", type: "many2many", relation: "product"},
-                    toughness: {
-                        manual: true,
-                        string: "toughness",
-                        type: 'selection',
-                        selection: [['0', "Hard"], ['1', "Harder"]],
-                    },
-                },
-                records: [{
-                    id: 37,
-                    display_name: 'xpad',
-                    m2o: 7,
-                    partner_ids: [4],
-                }, {
-                    id: 42,
-                    display_name: 'xpod',
-                }],
+            {
+                display_name: 'xpod',
             },
-            partner: {
-                fields: {
-                    display_name: {string: "Display Name", type: "char"},
-                    image: {string: "Image", type: "binary"},
-                    displayed_image_id: {string: "cover", type: "many2one", relation: "ir.attachment"},
-                },
-                records: [{
-                    id: 4,
-                    display_name: "jean",
-                }, {
-                    id: 7,
-                    display_name: "jacques",
-                }],
-            },
-            tasks: {
-                fields: {
-                    name: {string: 'Name', type: 'char'},
-                    partner_id: {string: 'Partner', type: 'many2one', relation: 'res.partner'},
-                    description: {string: 'Description', type: 'char'},
-                },
-                records: [
-                    {id: 1, name: 'Chhagan', partner_id: 11, description: 'shaktiman'},
-                ],
-            },
-            'res.groups': {
-                fields: {
-                    display_name: {string: "Display Name", type: "char"},
-                },
-                records: [{
-                    id: 4,
-                    display_name: "Admin",
-                }],
-            },
-            'ir.model.fields': {
-                fields: {
-                    name: {string: "Field Name", type: "char"},
-                    relation: {string: "Object Relation", type: "char"},
-                    model: {string: "Object Name", type: "char"},
-                    ttype: {
-                        string: "Field Type",
-                        type: "selection",
-                        selection: [['many2one', 'many2one'], ['char', 'char']],
-                    },
-                },
-                records: [{
-                        id: 1,
-                        name: "abc",
-                        ttype: "many2one",
-                        relation: "coucou",
-                    },
-                    {
-                        id: 2,
-                        name: "def",
-                        ttype: "many2one",
-                        relation: "coucou",
-                    },
-                    {
-                        id: 3,
-                        name: 'name',
-                        model: 'tasks',
-                        ttype: 'char',
-                    },
-                    {
-                        id: 4,
-                        name: 'description',
-                        model: 'tasks',
-                        ttype: 'char',
-                    },
-                ]
-            },
+        ]);
+        pyEnv['mail.activity'].create({
+            name: 'Chhagan',
+            request_partner_id: resPartnerId1,
+            summary: 'shaktiman',
         });
-
-        this.data['ir.attachment'].records = [
-            { id: 1, name: "1.png" },
-            { id: 2, name: "2.png" },
-        ];
-        this.data['res.partner'].records.push({
-            display_name: 'Dustin',
-            id: 11,
-            avatar_128: 'D Artagnan',
-        });
+        pyEnv['ir.model.fields'].create([
+            {
+                name: "abc",
+                ttype: "many2one",
+                relation: "coucou",
+            },
+            {
+                name: "def",
+                ttype: "many2one",
+                relation: "coucou",
+            },
+            {
+                name: 'name',
+                model: 'tasks',
+                ttype: 'char',
+            },
+            {
+                name: 'description',
+                model: 'tasks',
+                ttype: 'char',
+            },
+        ]);
+        pyEnv['ir.attachment'].create([{ name: '1.png' }, { name: '2.png' }]);
 
         registerStudioDependencies();
-        serverData = {models: this.data};
-        serverData.views = {};
+        serverData = { models: this.data, views: pyEnv.getViews() };
         serverData.actions = {};
 
         serverData.actions['studio.coucou_action'] = {
@@ -188,10 +111,18 @@ QUnit.module('ViewEditorManager', {
 
         serverData.views["coucou,false,list"] = `<tree></tree>`;
         serverData.views["coucou,false,search"] = `<search></search>`;
+
+        target = getFixture();
+
+        // unblockUI fadeout delay can lead to undesirable elements remaining in the DOM
+        // at the end of the test, let's make it synchronous so that this can never happened.
+        const originalUnblokcUI = framework.unblockUI;
+        framework.unblockUI = () => originalUnblokcUI({ fadeOut: 0 });
+        registerCleanup(() => framework.unblockUI = originalUnblokcUI);
     },
     afterEach() {
-        afterEach(this);
-    },
+        pyEnv = undefined;
+    }
 }, function () {
 
     QUnit.module('List');
@@ -200,7 +131,6 @@ QUnit.module('ViewEditorManager', {
         assert.expect(5);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree/>",
         });
@@ -218,8 +148,6 @@ QUnit.module('ViewEditorManager', {
             "the View tab should now be active");
         assert.hasClass(vem.$('.o_web_studio_sidebar').find('.o_web_studio_properties'),'disabled',
             "the Properties tab should now be disabled");
-
-        vem.destroy();
     });
 
     QUnit.test('search existing fields into sidebar', async function (assert) {
@@ -230,7 +158,6 @@ QUnit.module('ViewEditorManager', {
         odoo.debug = true;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree/>",
         });
@@ -242,14 +169,14 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('.o_web_studio_field_type_container').length, 2,
             "there should be two sections in Add (new & existing fields");
         assert.containsN(vem,
-            '.o_web_studio_field_type_container.o_web_studio_existing_fields div.o_web_studio_component', 11);
+            '.o_web_studio_field_type_container.o_web_studio_existing_fields div.o_web_studio_component', 12);
 
         const $input = vem.$('.o_web_studio_sidebar_search_input');
 
         $input.val("a");
         await testUtils.fields.triggerKeyup($input);
         assert.containsN(vem,
-            '.o_web_studio_field_type_container.o_web_studio_existing_fields div.o_web_studio_component', 7);
+            '.o_web_studio_field_type_container.o_web_studio_existing_fields div.o_web_studio_component', 8);
 
         $input.val("ar");
         await testUtils.fields.triggerKeyup($input);
@@ -267,15 +194,12 @@ QUnit.module('ViewEditorManager', {
             '.o_web_studio_field_type_container.o_web_studio_existing_fields div.o_web_studio_component');
 
         odoo.debug = odooCurrentDebugValue;
-
-        vem.destroy();
     });
 
     QUnit.test('empty list editor', async function (assert) {
         assert.expect(5);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree/>",
         });
@@ -286,40 +210,42 @@ QUnit.module('ViewEditorManager', {
             "there should be a list editor");
         assert.containsOnce(vem, '.o_web_studio_list_view_editor table thead th.o_web_studio_hook',
             "there should be one hook");
-        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be no node");
         var nbFields = _.size(this.data.coucou.fields);
         assert.strictEqual(vem.$('.o_web_studio_sidebar .o_web_studio_existing_fields').children().length, nbFields,
             "all fields should be available");
-
-        vem.destroy();
     });
 
     QUnit.test('list editor', async function (assert) {
-        assert.expect(3);
+        assert.expect(12);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/></tree>",
         });
 
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be one node");
         assert.containsN(vem, 'table thead th.o_web_studio_hook', 2,
             "there should be two hooks (before & after the field)");
         var nbFields = _.size(this.data.coucou.fields) - 1; // - display_name
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('.o_web_studio_existing_fields').children().length, nbFields,
             "fields that are not already in the view should be available");
-
-        vem.destroy();
+        assert.containsN(target, "thead th", 3);
+        assert.containsN(target, "tbody tr", 4);
+        assert.containsN(target, "tbody td", 4);
+        target.querySelectorAll("tbody tr td").forEach(el => {
+            assert.strictEqual(el.getAttribute("colspan"), "3");
+        })
+        assert.containsN(target, "tbody td", 4);
+        assert.containsN(target, "tfoot td", 3);
     });
 
     QUnit.test('disable optional field dropdown icon', async function (assert) {
-        assert.expect(2);
+        assert.expect(3);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name' optional='show'/></tree>",
         });
@@ -328,73 +254,8 @@ QUnit.module('ViewEditorManager', {
             'there should be optional field dropdown icon');
         assert.hasClass(vem.$('i.o_optional_columns_dropdown_toggle'), 'text-muted',
             'optional field dropdown icon must be muted');
-
-        vem.destroy();
-    });
-
-    QUnit.test('modification of field appearing multiple times in view', async function (assert) {
-        assert.expect(4);
-
-        // the typical case of the same field in a single view is conditional sub-views
-        // that use attrs={'invisible': [domain]}
-        // if the targeted node is after a hidden view, the hidden one should be ignored / skipped
-        var arch = '<form>' +
-                       '<group invisible="1">' +
-                           '<field name="display_name"/>' +
-                       '</group>' +
-                       '<group>' +
-                           '<field name="display_name"/>' +
-                       '</group>' +
-                       '<group>' +
-                           '<field name="char_field" />' +
-                       '</group>' +
-                   '</form>'
-
-        const vem = await studioTestUtils.createViewEditorManager({
-            arch: arch,
-            data: this.data,
-            model: 'coucou',
-            mockRPC: function (route, args) {
-                if (route === '/web_studio/edit_view') {
-                    assert.deepEqual(args.operations[0].target.xpath_info, [
-                        {
-                            tag: 'form',
-                            indice: 1,
-                        },
-                        {
-                            tag: 'group',
-                            indice: 2,
-                        },
-                        {
-                            tag: 'field',
-                            indice: 1,
-                        },
-                    ], "the target should be the field of the second group");
-                    assert.deepEqual(args.operations[0].new_attrs, {string: "Foo"},
-                        "the string attribute should be changed from default to 'Foo'");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
-                }
-                return this._super.apply(this, arguments);
-            },
-        });
-
-        var fieldsView = $.extend(true, {}, vem.fields_view);
-
-        var $visibleElement = vem.$('.o_web_studio_form_view_editor [data-node-id=7]');
-        assert.strictEqual($visibleElement.text(), "Display Name", "the name should be correctly set");
-
-        await testUtils.dom.click($visibleElement);
-        var $labelInput = vem.$('.o_web_studio_sidebar_content input[name="string"]');
-        assert.strictEqual($labelInput.val(), "Display Name", "the name in the sidebar should be set");
-        await testUtils.fields.editAndTrigger($labelInput, "Foo", ['change']);
-
-        vem.destroy();
+        await click(target.querySelector("i.o_optional_columns_dropdown_toggle"));
+        assert.containsNone(target, ".o-dropdown--menu");
     });
 
     QUnit.test('optional field in list editor', async function (assert) {
@@ -402,64 +263,46 @@ QUnit.module('ViewEditorManager', {
 
         const vem = await studioTestUtils.createViewEditorManager({
             arch: '<tree><field name="display_name"/></tree>',
-            data: this.data,
             model: 'coucou',
         });
 
-        await testUtils.dom.click(vem.$('.o_web_studio_view_renderer .ui-draggable'));
+        await testUtils.dom.click(vem.$('.o_web_studio_view_renderer [data-studio-xpath]'));
         assert.containsOnce(
             vem,
             '.o_web_studio_sidebar_optional_select',
             "there should be an optional field");
-
-        vem.destroy();
     });
 
     QUnit.test('new field should come with show as default value of optional', async function (assert) {
         assert.expect(1);
 
-        let fieldsView;
         const arch = "<tree><field name='display_name'/></tree>";
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].node.attrs.optional,
                         "show", "default value of optional should be 'show'");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = Object.assign({}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'), $('.o_web_studio_hook'));
-
-        vem.destroy();
     });
 
     QUnit.test('new field before a button_group', async function (assert) {
         assert.expect(3);
 
-        let fieldsView;
         const arch = `<tree>
             <button name="action_1" type="object"/>
             <button name="action_2" type="object"/>
             <field name='display_name'/>
         </tree>`;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch,
-            debug: 1,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].type, 'add');
@@ -480,36 +323,24 @@ QUnit.module('ViewEditorManager', {
                             }
                         ]
                     });
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = Object.assign({}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'),
             $('.o_web_studio_hook')[0]);
-
-        vem.destroy();
     });
 
     QUnit.test('new field after a button_group', async function (assert) {
         assert.expect(3);
 
-        let fieldsView;
         const arch = `<tree>
             <field name='display_name'/>
             <button name="action_1" type="object"/>
             <button name="action_2" type="object"/>
         </tree>`;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch,
             mockRPC: function (route, args) {
@@ -532,23 +363,43 @@ QUnit.module('ViewEditorManager', {
                             }
                         ]
                     });
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = Object.assign({}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'),
             $('.o_web_studio_hook')[2]);
+    });
 
-        vem.destroy();
+    QUnit.test("prevent click on button", async (assert) => {
+        serverData.models["coucou"].records = [{
+            id: 1, display_name: "some name"
+        }]
+        registry.category("services").add("action", {
+            start() {
+                return {
+                    doAction() {
+                        assert.step("doAction")
+                    },
+                    doActionButton() {
+                        assert.step("doActionButton")
+                    },
+                    loadState() {}
+                }
+            }
+        });
+        const arch = `<tree>
+            <field name='display_name'/>
+            <button name="action_1" type="object"/>
+        </tree>`;
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            serverData,
+            arch
+        });
+        await click(target.querySelector(".o_data_cell button"));
+        assert.verifySteps([]);
     });
 
     QUnit.test('invisible field in list editor', async function (assert) {
@@ -556,7 +407,6 @@ QUnit.module('ViewEditorManager', {
 
         const vem = await studioTestUtils.createViewEditorManager({
             arch: '<tree><field invisible="1" name="display_name"/></tree>',
-            data: this.data,
             model: 'coucou',
         });
 
@@ -568,8 +418,6 @@ QUnit.module('ViewEditorManager', {
         assert.containsOnce(vem, '#invisible');
 
         assert.ok(vem.$el[0].querySelector('#invisible').checked);
-
-        vem.destroy();
     });
 
     QUnit.test('invisible toggle field in list editor', async function (assert) {
@@ -600,7 +448,6 @@ QUnit.module('ViewEditorManager', {
                         "column_invisible": true
                     }
                 },
-                "children": []
             },
             "new_attrs": {
                 "invisible": "",
@@ -608,100 +455,88 @@ QUnit.module('ViewEditorManager', {
             }
         }];
 
-        let fieldsView;
         const archReturn = '<tree><field name="display_name" modifiers="{}" attrs="{}"/></tree>';
         const vem = await studioTestUtils.createViewEditorManager({
             arch: '<tree><field invisible="1" name="display_name"/></tree>',
-            data: this.data,
             model: 'coucou',
             mockRPC(route, args) {
                 if (route === "/web_studio/edit_view") {
                     assert.deepEqual(args.operations, operations);
-
-                    fieldsView.arch = archReturn;
-                    return Promise.resolve({
-                        fields_views: {list: fieldsView},
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(archReturn, "coucou");
                 }
-                return this._super(...arguments);
             }
         });
-        fieldsView = Object.assign({}, vem.fields_view);
         await testUtils.dom.click(vem.$('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('#show_invisible'));
         await testUtils.dom.click(vem.$("th[data-name='display_name'].o_web_studio_show_invisible"));
         await testUtils.dom.click(vem.$('#invisible'));
 
         assert.notOk(vem.$el[0].querySelector('#invisible').checked);
-
-        vem.destroy();
     });
 
-    QUnit.test('widgets with and without description property in sidebar in debug and non-debug mode', async function (assert) {
-        assert.expect(4);
-
+    QUnit.test("field widgets correctly displayed and whitelisted in the sidebar", async function (assert) {
         const originalOdooDebug = odoo.debug;
         odoo.debug = false;
-        const FieldChar = fieldRegistry.get('char');
-        // add widget in fieldRegistry with description and without desciption
-        fieldRegistry.add('widgetWithDescription', FieldChar.extend({
-            description: "Test Widget",
-        }));
-        fieldRegistry.add('widgetWithoutDescription', FieldChar.extend({}));
+
+        const wowlFieldRegistry = registry.category("fields");
+        const CharField = wowlFieldRegistry.get("char");
+        // Clean registry to avoid having noise from all the other widgets
+        wowlFieldRegistry.getEntries().forEach(([key]) => {
+            wowlFieldRegistry.remove(key);
+        })
+
+        class SafeWidget extends CharField {}
+        SafeWidget.displayName = "Test Widget";
+        wowlFieldRegistry.add("safeWidget", SafeWidget);
+        setFieldAvailableInSidebar("safeWidget");
+
+        class safeWidgetNoDisplayName extends CharField {}
+        safeWidgetNoDisplayName.displayName = null;
+        wowlFieldRegistry.add("safeWidgetNoDisplayName", safeWidgetNoDisplayName);
+        setFieldAvailableInSidebar("safeWidgetNoDisplayName");
+
+        class UnsafeWidget extends CharField {}
+        wowlFieldRegistry.add("unsafeWidget", UnsafeWidget);
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/></tree>",
         });
 
-        await testUtils.dom.click(vem.$('thead th[data-node-id=1]'));
-
-        assert.containsOnce(vem, '#widget option[value="widgetWithDescription"]',
-            "widget with description should be there");
-        assert.containsNone(vem, '#widget option[value="widgetWithoutDescription"]',
-            "widget without description should not there in non debug mode");
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath]')[0]);
+        assert.deepEqual(
+            Array.from(target.querySelectorAll("#widget option[value]")).map(el => [el.value, el.textContent.trim()]),
+            [["safeWidget", "Test Widget (safeWidget)"], ["safeWidgetNoDisplayName", "(safeWidgetNoDisplayName)"]]
+        );
 
         odoo.debug = true;
-        await testUtils.dom.click(vem.$('thead th[data-node-id=1]'));
-        assert.containsOnce(vem, '#widget option[value="widgetWithDescription"]',
-            "widget with description should be there");
-        assert.containsOnce(vem, '#widget option[value="widgetWithoutDescription"]',
-            "widget without description should be there in debug mode");
-
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath]')[0]);
+        assert.deepEqual(
+            Array.from(target.querySelectorAll("#widget option[value]")).map(el => [el.value, el.textContent.trim()]),
+            [["safeWidget", "Test Widget (safeWidget)"],
+             ["unsafeWidget", "Text (unsafeWidget)"],
+             ["safeWidgetNoDisplayName", "(safeWidgetNoDisplayName)"]]
+        );
         odoo.debug = originalOdooDebug;
-        delete fieldRegistry.map.widgetWithDescription;
-        delete fieldRegistry.map.widgetWithoutDescription;
-        vem.destroy();
     });
 
     QUnit.test('visible studio hooks in listview', async function (assert) {
         assert.expect(2);
 
-        let fieldsView;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: '<tree><field name="display_name"/></tree>',
             async mockRPC(route) {
                 if (route === '/web_studio/edit_view') {
-                    fieldsView.arch = `
+                    const arch = `
                         <tree editable='bottom'>
                             <field name='display_name'/>
                         </tree>`;
-                    return {
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                        fields: fieldsView.fields,
-                    };
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super(...arguments);
             },
         });
 
-        fieldsView = JSON.parse(JSON.stringify(vem.fields_view));
         assert.ok(
             vem.$('th.o_web_studio_hook')[0].offsetWidth,
             "studio hooks should be visible in non-editable listview");
@@ -712,14 +547,11 @@ QUnit.module('ViewEditorManager', {
         assert.ok(
             vem.$('th.o_web_studio_hook')[0].offsetWidth,
             "studio hooks should be visible in editable 'bottom' listview");
-
-        vem.destroy();
     });
 
     QUnit.test('sortby and orderby field in sidebar', async function (assert) {
         assert.expect(8);
 
-        let fieldsView;
         let editViewCount = 0;
 
         this.data.coucou.fields.display_name.store = true;
@@ -733,44 +565,39 @@ QUnit.module('ViewEditorManager', {
             </tree>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC(route, args) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
+                    let newArch = arch;
                     if (editViewCount === 1) {
-                        fieldsView.arch = `
+                        newArch = `
                             <tree default_order='display_name asc'>
                                 <field name='display_name'/>
                                 <field name='char_field'/>
                                 <field name="start"/>
                             </tree>`;
                     } else if (editViewCount === 2) {
-                        fieldsView.arch = `
+                        newArch = `
                             <tree default_order='display_name desc'>
                                 <field name='display_name'/>
                                 <field name='char_field'/>
                                 <field name="start"/>
                             </tree>`;
                     } else if (editViewCount === 3) {
-                        fieldsView.arch = `
+                        newArch = `
                             <tree>
                                 <field name='display_name'/>
                                 <field name='char_field'/>
                                 <field name="start"/>
                             </tree>`;
                     }
-                    return Promise.resolve({
-                        fields_views: {list: fieldsView},
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super(...arguments);
             },
         });
 
-        fieldsView = JSON.parse(JSON.stringify(vem.fields_view));
         await testUtils.dom.click(document.querySelector(".o_web_studio_sidebar .o_web_studio_view"));
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_view select#sort_field', 'Sortby select box should be exist in slidebar.');
         assert.containsN(vem, 'select#sort_field  option[value]', 2, 'Sortby select box should contains 2 fields.');
@@ -786,90 +613,49 @@ QUnit.module('ViewEditorManager', {
 
         await testUtils.fields.editSelect(vem.$('select#sort_field'), '');
         assert.hasClass(vem.$('#sort_order_div'), 'd-none', 'Orderby field must be invisible.');
-
-        vem.destroy();
     });
 
-    QUnit.test('widget dropdown in list editor sidebar', async function (assert) {
-        assert.expect(7);
-
-        const originalOdooDebug = odoo.debug;
-        odoo.debug = false;
-
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: `<tree>
-                    <field name='display_name'/>
-                    <field name='priority' widget='priority'/>
-                </tree>`,
-        });
-
-        // select first column and check widget options
-        await testUtils.dom.click(vem.$('thead th[data-node-id=1]'));
-        assert.strictEqual(
-            vem.$('#widget option:selected').text().trim(),
-            "Text",
-            "Widget name should be Text");
-
-        // select second column and check widget options
-        await testUtils.dom.click(vem.$('thead th[data-node-id=2]'));
-        assert.strictEqual(
-            vem.$('#widget option:selected').text().trim(),
-            "Priority",
-            "Widget name should be Priority");
-        assert.containsNone(
-            vem,
-            '#widget option[value="label_selection"]',
-            "label_selection widget should not be there");
-
-        // check the widgets in debug mode
-        odoo.debug = true;
-
-        await testUtils.dom.click(vem.$('thead th[data-node-id=1]'));
-        assert.strictEqual(
-            vem.$('#widget option:selected').text().trim(),
-            "Text (char)",
-            "Widget name should be Text (char)");
-
-        await testUtils.dom.click(vem.$('thead th[data-node-id=2]'));
-        assert.strictEqual(
-            vem.$('#widget option:selected').text().trim(),
-            "Priority (priority)",
-            "Widget name should be Priority (priority)");
-        assert.containsOnce(
-            vem,
-            '#widget option[value="label_selection"]',
-            "label_selection widget should be there");
-        assert.strictEqual(
-            vem.$('#widget option[value="label_selection"]').text().trim(),
-            "label_selection",
-            "Widget should have technical name i.e. label_selection as it does not have description");
-
-        odoo.debug = originalOdooDebug;
-        vem.destroy();
-    });
-
-    QUnit.test('widget without description property in sidebar should be shown a technical name of widget when selected in normal mode', async function (assert) {
+    QUnit.test('already selected unsafe widget without description property should be shown in sidebar with its technical name', async function (assert) {
         assert.expect(2);
 
-        const originalOdooDebug = odoo.debug;
-        odoo.debug = false;
-        const FieldChar = fieldRegistry.get('char');
-        // add widget in fieldRegistry without desciption
-        fieldRegistry.add('widgetWithoutDescription', FieldChar.extend({}));
+        patchWithCleanup(odoo, { debug: false });
+
+        const wowlFieldRegistry = registry.category("fields");
+        const CharField = wowlFieldRegistry.get("char");
+        class widgetWithoutDescription extends CharField {}
+        widgetWithoutDescription.displayName = null;
+        wowlFieldRegistry.add("widgetWithoutDescription", widgetWithoutDescription);
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name' widget='widgetWithoutDescription'/></tree>",
         });
 
-        await testUtils.dom.click(vem.$('thead th[data-node-id=1]'));
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath]'));
         assert.containsOnce(vem, '#widget option[value="widgetWithoutDescription"]', "widget without description should be there");
-        assert.strictEqual(vem.$('#widget option:selected').text().trim(), "widgetWithoutDescription", "Widget should have technical name i.e. widgetWithoutDescription as it does not have description");
-        delete fieldRegistry.map.widgetWithoutDescription;
-        vem.destroy();
+        assert.strictEqual(vem.$('#widget option:selected').text().trim(), "(widgetWithoutDescription)", "Widget should have technical name i.e. widgetWithoutDescription as it does not have description");
+    });
+
+    QUnit.test('already selected widget wihtout supportingTypes should be shown in sidebar with its technical name', async function (assert) {
+        assert.expect(2);
+
+        patchWithCleanup(odoo, { debug: false });
+
+        const wowlFieldRegistry = registry.category("fields");
+        const CharField = wowlFieldRegistry.get("char");
+        class widgetWithoutTypes extends CharField {}
+        widgetWithoutTypes.supportedTypes = null;
+        widgetWithoutTypes.displayName = null;
+        wowlFieldRegistry.add("widgetWithoutTypes", widgetWithoutTypes);
+
+        const vem = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: "<tree><field name='display_name' widget='widgetWithoutTypes'/></tree>",
+        });
+
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath]'));
+        assert.containsOnce(vem, '#widget option[value="widgetWithoutTypes"]', "widget without description should be there");
+        assert.strictEqual(vem.$('#widget option:selected').text().trim(), "(widgetWithoutTypes)", "Widget should have technical name i.e. widgetWithoutDescription as it does not have description");
     });
 
     QUnit.test('editing selection field of list of form view', async function(assert) {
@@ -902,17 +688,18 @@ QUnit.module('ViewEditorManager', {
             }
         };
 
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
         // open list view
-        await testUtils.dom.click($(webClient.el).find('.o_field_one2many'));
-        await testUtils.dom.click($(webClient.el).find('button.o_web_studio_editX2Many[data-type="list"]'));
+        await testUtils.dom.click($(target).find('.o_field_one2many'));
+        await testUtils.dom.click($(target).find('button.o_web_studio_editX2Many[data-type="list"]'));
         await legacyExtraNextTick();
 
         // add value to "toughness" selection field
-        await testUtils.dom.click($(webClient.el).find('th[data-node-id]'));
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_edit_selection_values'));
+        await testUtils.dom.click($(target).find('th[data-studio-xpath]'));
+        await testUtils.dom.click($(target).find('.o_web_studio_edit_selection_values'));
         $('.modal .o_web_studio_selection_new_value input').val('Hardest');
         await testUtils.dom.click($('.modal .o_web_studio_selection_new_value button.o_web_studio_add_selection_value'));
         await testUtils.dom.click($('.modal.o_web_studio_field_modal footer .btn-primary'));
@@ -924,7 +711,6 @@ QUnit.module('ViewEditorManager', {
         let editCalls = 0;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: `<form>
                 <group>
@@ -955,7 +741,6 @@ QUnit.module('ViewEditorManager', {
                 if (route === '/web_studio/edit_view') {
                     return Promise.resolve({});
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
@@ -976,20 +761,17 @@ QUnit.module('ViewEditorManager', {
             "should have right message");
 
         await testUtils.dom.click($('.modal:eq(1) button:contains(Ok)'));
-
-        vem.destroy();
     });
 
     QUnit.test('invisible list editor', async function(assert) {
         assert.expect(4);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name' invisible='1'/></tree>",
         });
 
-        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be no node");
         assert.containsOnce(vem, 'table thead th.o_web_studio_hook',
             "there should be one hook");
@@ -998,24 +780,21 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
 
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be one node (the invisible one)");
         assert.containsN(vem, 'table thead th.o_web_studio_hook', 2,
             "there should be two hooks (before & after the field)");
-
-        vem.destroy();
     });
 
     QUnit.test('list editor with header and invisible element', async function(assert){
         assert.expect(4)
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: "tasks",
+            model: "mail.activity",
             arch: "<tree string='List'>" +
             "<header><button name=\"action_do_something\" type=\"object\" string=\"The Button\"/></header>" +
             "<field name='name' class=\"my_super_name_class\" />" +
-            "<field name='description' class=\"my_super_description_class\" invisible=\"True\"/>" +
+            "<field name='summary' class=\"my_super_description_class\" invisible=\"True\"/>" +
             "</tree>",
         });
 
@@ -1028,19 +807,16 @@ QUnit.module('ViewEditorManager', {
 
         assert.isVisible(vem.$("td.my_super_name_class"), "The name field should still be visible");
         assert.isVisible(vem.$("td.my_super_description_class"), "The description field should be visible");
-
-        vem.destroy();
-    })
+    });
 
     QUnit.test('list editor with invisible element checkbox', async function(assert){
         assert.expect(2)
 
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: "tasks",
+        await studioTestUtils.createViewEditorManager({
+            model: "mail.activity",
             arch: `<tree string='List'>
                     <field name='name' class="my_super_name_class" />
-                    <field name='description' class="my_super_description_class" invisible="True"/>
+                    <field name='summary' class="my_super_description_class" invisible="True"/>
                 </tree>`
         });
 
@@ -1051,44 +827,40 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click(document.querySelector('.o_web_studio_sidebar .o_web_studio_new'));
         await testUtils.dom.click(document.querySelector('.o_web_studio_sidebar .o_web_studio_view'));
         assert.hasAttrValue(document.querySelector('input#show_invisible'), 'checked', 'checked', "show invisible checkbox should be checked");
-        vem.destroy();
     });
 
     QUnit.test('list editor with control node tag', async function(assert) {
         assert.expect(2);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><control><create string='Add a line'/></control></tree>",
         });
 
-        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be no node");
 
         // click on show invisible
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
 
-        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be no nodes (the control is filtered)");
-
-        vem.destroy();
     });
 
     QUnit.test('list editor invisible to visible on field', async function (assert) {
         assert.expect(3);
 
-        testUtils.mock.patch(session.user_context, {
-            lang: 'fr_FR',
-            tz: 'Europe/Brussels',
+        patchWithCleanup(session, {
+            user_context: {
+                lang: 'fr_FR',
+                tz: 'Europe/Brussels',
+            },
         });
 
         var archReturn = '<tree><field name="char_field" modifiers="{}" attrs="{}"/></tree>';
-        var fieldsView;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/>" +
                         "<field name='char_field' invisible='1'/>" +
@@ -1101,38 +873,26 @@ QUnit.module('ViewEditorManager', {
                         'The lang in context should be false explicitly');
                     assert.ok(!('column_invisible' in args.operations[0].new_attrs),
                             'we shouldn\'t send "column_invisible"');
-
-                    fieldsView.arch = archReturn;
-                    return Promise.resolve({
-                        fields_views: {list: fieldsView},
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(archReturn, "coucou");
                 }
-                return this._super.apply(this, arguments);
             }
         });
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
 
         // select the second column
-        await testUtils.dom.click(vem.$('thead th[data-node-id=2]'));
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath="/tree[1]/field[2]"]'));
         // disable invisible
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#invisible'));
-
-        testUtils.mock.unpatch(session.user_context);
-        vem.destroy();
     });
 
     QUnit.test('list editor invisible to visible on field readonly', async function (assert) {
         assert.expect(2);
 
         var archReturn = '<tree><field name="char_field" readonly="1" attrs="{}" invisible="1" modifiers="{&quot;column_invisible&quot;: true, &quot;readonly&quot;: true}"/></tree>';
-        var fieldsView;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/>" +
                         "<field name='char_field' readonly='1'/>" +
@@ -1143,42 +903,32 @@ QUnit.module('ViewEditorManager', {
                         'we shouldn\'t send "readonly"');
                     assert.equal(args.operations[0].new_attrs.invisible, 1,
                         'we should send "invisible"');
-
-                    fieldsView.arch = archReturn;
-                    return Promise.resolve({
-                        fields_views: {list: fieldsView},
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(archReturn, "coucou");
                 }
-                return this._super.apply(this, arguments);
             }
         });
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
 
         // select the second column
-        await testUtils.dom.click(vem.$('thead th[data-node-id=2]'));
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath="/tree[1]/field[2]"]'));
         // disable invisible
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#invisible'));
-
-        vem.destroy();
     });
 
     QUnit.test('list editor field', async function (assert) {
         assert.expect(5);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/></tree>",
         });
 
         // click on the field
-        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-studio-xpath]'));
 
-        assert.hasClass(vem.$('.o_web_studio_list_view_editor [data-node-id]'),'o_web_studio_clicked',
+        assert.hasClass(vem.$('.o_web_studio_list_view_editor [data-studio-xpath]'),'o-web-studio-editor--element-clicked',
             "the column should have the clicked style");
 
         assert.hasClass(vem.$('.o_web_studio_sidebar').find('.o_web_studio_properties'),'active',
@@ -1189,129 +939,12 @@ QUnit.module('ViewEditorManager', {
             "the label in sidebar should be Display Name");
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('select[name="widget"]').val(), "char",
             "the widget in sidebar should be set by default");
-
-        vem.destroy();
-    });
-    QUnit.test('kanban editor remove "Set Cover Image" from dropdown menu', async function (assert) {
-        assert.expect(1);
-        var arch = "<kanban>" +
-                    "<templates>" +
-                        "<t t-name='kanban-box'>" +
-                            "<div class='o_kanban_record'>" +
-                                '<div class="o_dropdown_kanban dropdown">' +
-                                    '<a>' +
-                                        '<span class="fa fa-ellipsis-v"/>' +
-                                    '</a>' +
-                                    '<div class="dropdown-menu" role="menu">' +
-                                        '<a data-type="set_cover">Set Cover Image</a>' +
-                                    "</div>" +
-                                "</div>" +
-                                "<field name='displayed_image_id' widget='attachment_image'/>" +
-                            "</div>" +
-                        "</t>" +
-                    "</templates>" +
-                "</kanban>";
-        var fieldsView;
-
-        var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'partner',
-            arch: arch,
-            mockRPC: function (route, args) {
-                if (route === '/web_studio/edit_view' && args.operations[0].type === "remove") {
-                    assert.deepEqual(args.operations[0], {
-                        target: {
-                            attrs: {name: 'displayed_image_id'},
-                            tag: "field",
-                            extra_nodes: [{
-                                tag: "a",
-                                attrs: {
-                                    type: 'set_cover',
-                                },
-                            }],
-                        },
-                        type: 'remove',
-                    }, "Proper field name and operation type should be passed");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            kanban: fieldsView,
-                        }
-                    });
-                }
-                return this._super.apply(this, arguments);
-            },
-        });
-
-        // used to generate fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
-        await testUtils.dom.click(vem.$(".o_kanban_record .o_dropdown_kanban"));
-        await testUtils.dom.click(vem.$(".o_display_div .o_web_studio_sidebar_checkbox input"));
-        vem.destroy();
-    });
-
-    QUnit.test('kanban editor add "Set Cover Image" option in dropdown menu', async function (assert) {
-        assert.expect(3);
-        var arch = "<kanban>" +
-                    "<templates>" +
-                        "<t t-name='kanban-box'>" +
-                            "<div class='o_kanban_record'>" +
-                                '<div class="o_dropdown_kanban dropdown">' +
-                                    '<a>' +
-                                        '<span class="fa fa-ellipsis-v"/>' +
-                                    '</a>' +
-                                    '<div class="dropdown-menu" role="menu">' +
-                                    "</div>" +
-                                "</div>" +
-                            "</div>" +
-                        "</t>" +
-                    "</templates>" +
-                "</kanban>";
-        var fieldsView;
-        var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'partner',
-            arch: arch,
-            mockRPC: function (route, args) {
-                if (route === '/web_studio/edit_view') {
-                    assert.deepEqual(args.operations[0], {field: 'displayed_image_id', type: 'kanban_set_cover'},
-                        "Proper field name and operation type should be passed");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            kanban: fieldsView,
-                        }
-                    });
-                }
-                return this._super.apply(this, arguments);
-            },
-        });
-
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
-
-        await testUtils.dom.click(vem.$(".o_kanban_record .o_dropdown_kanban"));
-        assert.hasAttrValue(vem.$('.o_web_studio_sidebar input[name="set_cover"]'), 'checked', undefined,
-            "Option to set cover should not be enabled");
-        await testUtils.dom.click(vem.$('.o_web_studio_sidebar input[name="set_cover"]'));
-
-        assert.strictEqual($('.modal .modal-body select option[value="displayed_image_id"]').length, 1,
-            "there should be option having compatible field (displayed_image_id) Field selection drop-down ");
-        // Select the field for cover image
-        $('.modal .modal-body select option[value="displayed_image_id"]').prop('selected', true);
-        // Click the confirm button
-        await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
-
-        vem.destroy();
     });
 
     QUnit.test('add group to field', async function (assert) {
         assert.expect(2);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/></tree>",
             mockRPC: function(route, args) {
@@ -1319,10 +952,9 @@ QUnit.module('ViewEditorManager', {
                     assert.deepEqual(args.operations[0], {
                         node: {
                             attrs: {name: 'display_name', modifiers: {}},
-                            children: [],
                             tag: 'field',
                         },
-                        new_attrs: {groups: [4]},
+                        new_attrs: {groups: pyEnv['res.groups'].search([['name', '=', 'Internal User']])},
                         position: 'attributes',
                         target: {
                             attrs: {name: 'display_name'},
@@ -1342,39 +974,26 @@ QUnit.module('ViewEditorManager', {
                     }, "the group operation should be correct");
                     // the server sends the arch in string but it's post-processed
                     // by the ViewEditorManager
-                    fieldsView.arch = "<tree>"
+                    const arch = "<tree>"
                             + "<field name='display_name' studio_groups='[{&quot;id&quot;:4, &quot;name&quot;: &quot;Admin&quot;}]'/>"
                         +"</tree>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             }
         });
 
-        var fieldsView = $.extend(true, {}, vem.fields_view);
-
         // click on the field
-        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-studio-xpath]'));
 
         await testUtils.fields.many2one.clickOpenDropdown('groups');
         await testUtils.fields.many2one.clickHighlightedItem('groups');
-
-        assert.containsN(vem, '.o_field_many2manytags[name="groups"] .badge.o_tag_color_0', 1,
-        "the groups should be present");
-
-        vem.destroy();
+        assert.containsOnce(vem, '.o_field_many2manytags[name="groups"] .badge.o_tag_color_0');
     });
 
     QUnit.test('sorting rows is disabled in Studio', async function (assert) {
         assert.expect(3);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'product',
             arch: "<tree editable='true'> "+
                 "<field name='id' widget='handle'/>" +
@@ -1387,36 +1006,41 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(vem.$('.o_data_cell').text(), "xpadxpod",
             "the records should be ordered");
 
-        // Drag and drop the second line in first position
-        await testUtils.dom.dragAndDrop(
-            vem.$('.ui-sortable-handle').eq(1),
-            vem.$('tbody tr').first(),
-            {position: 'top'}
-        );
+        await dragAndDrop("tbody tr:nth-child(2) .o_handle_cell", "tbody tr:nth-child(1)");
+
         assert.strictEqual(vem.$('.o_data_cell').text(), "xpadxpod",
             "the records should not have been moved (sortable should be disabled in Studio)");
-
-        vem.destroy();
     });
 
     QUnit.test('List grouped should not be grouped', async function (assert) {
-        assert.expect(1);
+        assert.expect(2);
 
-        this.data.coucou.fields.croissant = {string: "Croissant", type: "integer"};
-        this.data.coucou.records = [{id: 1, display_name: 'Red Right Hand', priority: '1', croissant: 3},
-                                    {id: 2, display_name: 'Hell Broke Luce', priority: '1', croissant: 5}];
+        serverData.models['coucou'].records = [
+            {id:1, display_name: 'Red Right Hand', priority: '1', croissant: 3 },
+            {id:2, display_name: 'Hell Broke Luce', priority: '1', croissant: 5 },
+        ];
 
-        var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: "<tree><field name='croissant' sum='Total Croissant'/></tree>",
-            groupBy: ['priority'],
-        });
+        serverData.views = {
+            "coucou,false,list": `<tree><field name='croissant' sum='Total Croissant'/></tree>`,
+            "coucou,false,search": `<search><filter string="Priority" name="priority" domain="[]" context="{'group_by':'priority'}"/></search>`,
+        }
+        const webClient = await createEnterpriseWebClient({ serverData })
 
-        assert.containsNone(vem, '.o_web_studio_list_view_editor .o_list_table_grouped',
+        await doAction(webClient, {
+            type: "ir.actions.act_window",
+            res_model: "coucou",
+            views: [[false, "list"]],
+            context: { search_default_priority: "1" },
+            xml_id: "somexmlid",
+        })
+
+        assert.containsOnce(target, '.o_list_view .o_list_table_grouped',
+            "The list should be grouped");
+
+        await openStudio(target);
+
+        assert.containsNone(target, '.o_web_studio_list_view_editor .o_list_table_grouped',
             "The list should not be grouped");
-
-        vem.destroy();
     });
 
     QUnit.test('move a field in list', async function (assert) {
@@ -1427,7 +1051,6 @@ QUnit.module('ViewEditorManager', {
             "<field name='m2o'/>" +
         "</tree>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -1456,88 +1079,71 @@ QUnit.module('ViewEditorManager', {
                     }, "the move operation should be correct");
                     // the server sends the arch in string but it's post-processed
                     // by the ViewEditorManager
-                    fieldsView.arch = "<tree>" +
+                    const arch = "<tree>" +
                         "<field name='m2o'/>" +
                         "<field name='display_name'/>" +
                         "<field name='char_field'/>" +
                     "</tree>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.strictEqual(vem.$('.o_web_studio_list_view_editor th').text(), "Display NameA charM2O",
             "the columns should be in the correct order");
 
         // move the m2o at index 0
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_list_view_editor th:contains(M2O)'),
-            vem.$('th.o_web_studio_hook:first'));
+        await dragAndDrop(target.querySelector('.o_web_studio_list_view_editor th[data-studio-xpath="/tree[1]/field[3]"]'),
+            target.querySelector('th.o_web_studio_hook'));
 
         assert.strictEqual(vem.$('.o_web_studio_list_view_editor th').text(), "M2ODisplay NameA char",
             "the moved field should be the first column");
-
-        vem.destroy();
     });
 
     QUnit.test('list editor field with aggregate function', async function (assert) {
         assert.expect(10);
 
-        this.data.coucou.fields.croissant = {string: "Croissant", type: "integer"};
-        this.data.coucou.records = [{id: 1, display_name: 'Red Right Hand', croissant: 3},
-                                    {id: 2, display_name: 'Hell Broke Luce', croissant: 5}];
-
+        pyEnv['coucou'].create([
+            { display_name: 'Red Right Hand', croissant: 3 },
+            { display_name: 'Hell Broke Luce', croissant: 5 },
+        ]);
         var arch = '<tree><field name="display_name"/><field name="croissant"/></tree>';
         var sumArchReturn = '<tree><field name="display_name"/><field name="croissant" sum="Sum of Croissant"/></tree>';
         var avgArchReturn = '<tree><field name="display_name"/><field name="croissant" avg="Average of Croissant"/></tree>';
-        var fieldsView;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function(route, args) {
                 if (route === '/web_studio/edit_view') {
                     var op = args.operations[args.operations.length -1];
+                    let newArch;
                     if (op.new_attrs.sum !== "") {
                         assert.strictEqual(op.new_attrs.sum, 'Sum of Croissant',
                             '"sum" aggregate should be applied');
-                        fieldsView.arch = sumArchReturn;
+                        newArch = sumArchReturn;
                     }
                     else if (op.new_attrs.avg !== "") {
                         assert.strictEqual(op.new_attrs.avg, 'Average of Croissant',
                             '"avg" aggregate should be applied');
-                        fieldsView.arch = avgArchReturn;
+                        newArch = avgArchReturn;
                     } else if (op.new_attrs.sum === "" || op.new_attrs.avg == "") {
-                        fieldsView.arch = arch;
+                        newArch = arch;
                         assert.ok('neither "sum" nor "avg" selected for aggregation');
                     }
-                    return Promise.resolve({
-                        fields_views: {list: fieldsView},
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             }
         });
 
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
-        await testUtils.dom.click(vem.$('thead th[data-node-id=1]')); // select the first column
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath]')[0]); // select the first column
 
         // selecting column other than float, integer or monetary should not show aggregate selection
         assert.containsNone(vem, '.o_web_studio_sidebar select[name="aggregate"]',
             "should not have aggregate selection for character type column");
 
-        await testUtils.dom.click(vem.$('thead th[data-node-id=2]')); // select the second column
+        await testUtils.dom.click(vem.$('thead th[data-studio-xpath="/tree[1]/field[2]"]')); // select the second column
         assert.containsOnce(vem, '.o_web_studio_sidebar select[name="aggregate"]',
             "should have aggregate selection for integer type column");
 
@@ -1545,21 +1151,19 @@ QUnit.module('ViewEditorManager', {
         await testUtils.fields.editAndTrigger(vem.$('.o_web_studio_sidebar').find('select[name="aggregate"]'), 'sum', ['change']);
         assert.strictEqual(vem.$('tfoot tr td.o_list_number').text(), "8",
             "total should be '8'");
-        assert.strictEqual(vem.$('tfoot tr td.o_list_number').attr('title'), "Sum of Croissant",
+        assert.strictEqual(vem.$('tfoot tr td.o_list_number').data('tooltip'), "Sum of Croissant",
             "title should be 'Sum of Croissant'");
 
         // select 'avg' aggregate function
         await testUtils.fields.editAndTrigger(vem.$('.o_web_studio_sidebar').find('select[name="aggregate"]'), 'avg', ['change']);
         assert.strictEqual(vem.$('tfoot tr td.o_list_number').text(), "4",
             "total should be '4'");
-        assert.strictEqual(vem.$('tfoot tr td.o_list_number').attr('title'), "Average of Croissant",
+        assert.strictEqual(vem.$('tfoot tr td.o_list_number').data('tooltip'), "Average of Croissant",
             "title should be 'Avg of Croissant'");
 
         // select '' aggregate function
         await testUtils.fields.editAndTrigger(vem.$('.o_web_studio_sidebar').find('select[name="aggregate"]'), '', ['change']);
         assert.strictEqual(vem.$('tfoot tr td.o_list_number').text(), "", "Total should be ''");
-
-        vem.destroy();
     });
 
     QUnit.module('Form');
@@ -1568,7 +1172,6 @@ QUnit.module('ViewEditorManager', {
         assert.expect(4);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form/>",
         });
@@ -1577,19 +1180,17 @@ QUnit.module('ViewEditorManager', {
             "view type should be form");
         assert.containsOnce(vem, '.o_web_studio_form_view_editor',
             "there should be a form editor");
-        assert.containsNone(vem, '.o_web_studio_form_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable',
             "there should be no node");
         assert.containsNone(vem, '.o_web_studio_form_view_editor .o_web_studio_hook',
             "there should be no hook");
 
-        vem.destroy();
     });
 
     QUnit.test('form editor', async function (assert) {
         assert.expect(6);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -1598,23 +1199,22 @@ QUnit.module('ViewEditorManager', {
                 "</form>",
         });
 
-        assert.containsOnce(vem, '.o_web_studio_form_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable',
             "there should be one node");
         assert.containsOnce(vem, '.o_web_studio_form_view_editor .o_web_studio_hook',
             "there should be one hook");
 
-        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable'));
 
         assert.hasClass(vem.$('.o_web_studio_sidebar').find('.o_web_studio_properties'),'active',
             "the Properties tab should now be active");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
             "the sidebar should now display the field properties");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor [data-node-id]'),'o_web_studio_clicked',
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable'),'o-web-studio-editor--element-clicked',
             "the column should have the clicked style");
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('select[name="widget"]').val(), "char",
             "the widget in sidebar should be set by default");
 
-        vem.destroy();
     });
 
     QUnit.test('optional field not in form editor', async function (assert) {
@@ -1626,7 +1226,6 @@ QUnit.module('ViewEditorManager', {
                         <field name="display_name"/>
                     </sheet>
                 </form>`,
-            data: this.data,
             model: 'coucou',
         });
 
@@ -1636,52 +1235,44 @@ QUnit.module('ViewEditorManager', {
             '.o_web_studio_sidebar_optional_select',
             "there shouldn't be an optional field");
 
-        vem.destroy();
     });
 
     QUnit.test('many2one field edition', async function (assert) {
         assert.expect(4);
 
-        this.data.product.records = [{
-            id: 42,
-            display_name: "A very good product",
-        }];
-        this.data.coucou.records = [{
-            id: 1,
-            display_name: "Kikou petite perruche",
-            m2o: 42,
-        }];
+        const productId1 = pyEnv['product'].create({ display_name: 'A very good product' });
+        const coucouId1 = pyEnv['coucou'].create({
+            display_name: 'Kikou petite perruche',
+            m2o: productId1,
+        });
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
                         "<field name='m2o'/>" +
                     "</sheet>" +
                 "</form>",
-            res_id: 1,
+            res_id: coucouId1,
             mockRPC: function (route, args) {
                 if (args.method === 'get_formview_action') {
                     throw new Error("The many2one form view should not be opened");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        assert.containsOnce(vem, '.o_web_studio_form_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable',
             "there should be one node");
 
         // edit the many2one
-        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable'));
 
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
             "the sidebar should now display the field properties");
-        assert.containsNone(vem, '.o_web_studio_sidebar select[name="widget"] option[value="selection"]',
-            "the widget in selection should not be supported in m2o");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor [data-node-id]'),'o_web_studio_clicked',
+        assert.containsOnce(vem, '.o_web_studio_sidebar select[name="widget"] option[value="selection"]',
+            "the widget in selection should be supported in m2o");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable'),'o-web-studio-editor--element-clicked',
             "the column should have the clicked style");
-        vem.destroy();
     });
 
     QUnit.test('image field edition (change size)', async function (assert) {
@@ -1692,50 +1283,44 @@ QUnit.module('ViewEditorManager', {
                 "<field name='image' widget='image' options='{\"size\":[0, 90],\"preview_image\":\"coucou\"}'/>" +
             "</sheet>" +
         "</form>";
-        var fieldsView;
-
-        this.data.partner.records.push({
-            id: 8,
+        const partnerId1 = pyEnv['partner'].create({
             display_name: "kamlesh",
             image: "sulochan",
         });
 
+        patchWithCleanup(ImageField.prototype, {
+            setup() {
+                this._super();
+                owl.onMounted(() => {
+                    assert.step(`image, width: ${this.props.width}, height: ${this.props.height}, previewImage: ${this.props.previewImage}`)
+                })
+            }
+        })
+
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'partner',
             arch: arch,
-            res_id: 8,
+            res_id: partnerId1,
             mockRPC: function (route, args) {
-                if (route === 'data:image/png;base64,sulochan') {
-                    assert.step('image');
-                    return Promise.resolve();
-                } else if (route === '/web_studio/edit_view') {
+                if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].new_attrs.options, "{\"size\":[0,270],\"preview_image\":\"coucou\"}",
                         "appropriate options for 'image' widget should be passed");
                     // the server sends the arch in string but it's post-processed
                     // by the ViewEditorManager
-                    fieldsView.arch = "<form>" +
+                    const arch = "<form>" +
                         "<sheet>" +
                             "<field name='image' widget='image' options='{\"size\": [0, 270]}'/>" +
                         "</sheet>" +
                     "</form>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "partner");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsOnce(vem, '.o_web_studio_form_view_editor .o_field_image',
             "there should be one image");
-        assert.verifySteps(['image'], "the image should have been fetched");
+        assert.verifySteps(["image, width: undefined, height: 90, previewImage: coucou"], "the image should have been fetched");
 
         // edit the image
         await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor .o_field_image'));
@@ -1744,23 +1329,25 @@ QUnit.module('ViewEditorManager', {
             "the sidebar should display dropdown to change image size");
         assert.strictEqual(vem.$('.o_web_studio_sidebar_content.o_display_field select#option_size option:selected').val(), "[0,90]",
             "the image size should be correctly selected");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_field_image'),'o_web_studio_clicked',
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_field_image'),'o-web-studio-editor--element-clicked',
             "image should have the clicked style");
 
         // change image size to large
         await testUtils.fields.editSelect(vem.$('.o_web_studio_sidebar_content.o_display_field select#option_size'), "[0,270]");
 
-        assert.verifySteps(['image'], "the image should have been fetched again");
+        assert.verifySteps(["image, width: undefined, height: 270, previewImage: undefined"], "the image should have been fetched again");
         assert.strictEqual(vem.$('.o_web_studio_sidebar_content.o_display_field select#option_size option:selected').val(), "[0,270]",
             "the image size should be correctly selected");
-        vem.destroy();
     });
 
     QUnit.test('signature field edition (change full_name)', async function (assert) {
         assert.expect(8);
 
-        this.data.coucou.fields.sign = {string: "Signature", type: "binary"};
-        this.data.coucou.records = [{id: 1, display_name:'Jughead', m2o: 37}];
+        const productId1 = pyEnv['product'].create({});
+        pyEnv['coucou'].create({
+            display_name:'Jughead',
+            m2o: productId1,
+        });
         var editViewCount = 0;
 
         var arch = "<form>" +
@@ -1769,40 +1356,36 @@ QUnit.module('ViewEditorManager', {
                 "<field name='m2o'/>" +
             "</group>" +
         "</form>";
-        var fieldsView;
         var newFieldName;
+        var self = this;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             res_id: 1,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
+                    let newArch;
                     if (editViewCount === 1) {
                         assert.strictEqual(args.operations[0].node.attrs.widget, "signature",
                             "'signature' widget should be there on field being dropped");
                         newFieldName = args.operations[0].node.field_description.name;
-                        // the server sends the arch in string but it's post-processed
-                        // by the ViewEditorManager
-                        fieldsView.arch = "<form>" +
+                        newArch = "<form>" +
                             "<group>" +
                                 "<field name='display_name'/>" +
                                 "<field name='m2o'/>" +
                                 "<field name='" + newFieldName + "' widget='signature'/>" +
                             "</group>" +
                         "</form>";
-                        fieldsView.fields[newFieldName] = {
+                        self.data.coucou.fields[newFieldName] = {
                             string: "Signature",
                             type: "binary"
                         };
                     } else if (editViewCount === 2) {
                         assert.strictEqual(args.operations[1].new_attrs.options, "{\"full_name\":\"display_name\"}",
                             "correct options for 'signature' widget should be passed");
-                        // the server sends the arch in string but it's post-processed
-                        // by the ViewEditorManager
-                        fieldsView.arch = "<form>" +
+                        newArch = "<form>" +
                             "<group>" +
                                 "<field name='display_name'/>" +
                                 "<field name='m2o'/>" +
@@ -1812,9 +1395,7 @@ QUnit.module('ViewEditorManager', {
                     } else if (editViewCount === 3) {
                         assert.strictEqual(args.operations[2].new_attrs.options, "{\"full_name\":\"m2o\"}",
                             "correct options for 'signature' widget should be passed");
-                        // the server sends the arch in string but it's post-processed
-                        // by the ViewEditorManager
-                        fieldsView.arch = "<form>" +
+                        newArch = "<form>" +
                             "<group>" +
                                 "<field name='display_name'/>" +
                                 "<field name='m2o'/>" +
@@ -1822,22 +1403,14 @@ QUnit.module('ViewEditorManager', {
                             "</group>" +
                         "</form>";
                     }
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         // drag and drop the new signature field
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_signature'), vem.$('.o_group .o_web_studio_hook:first'));
+        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_signature'), vem.$('.o_inner_group .o_web_studio_hook:first'));
 
         assert.containsOnce(vem, '.o_web_studio_form_view_editor .o_signature',
             "there should be one signature field");
@@ -1863,7 +1436,6 @@ QUnit.module('ViewEditorManager', {
 
         assert.strictEqual(vem.$('.o_web_studio_sidebar_content.o_display_field select#option_full_name option:selected').val(), "m2o",
             "the auto complete field should be correctly selected");
-        vem.destroy();
     });
 
     QUnit.test('change widget binary to image (check default size)', async function (assert) {
@@ -1874,89 +1446,65 @@ QUnit.module('ViewEditorManager', {
                 "<field name='image'/>" +
             "</sheet>" +
         "</form>";
-        var fieldsView;
 
-        this.data.partner.records[0].image = 'kikou';
+        const [partnerId1] = pyEnv['partner'].search([['display_name', '=', 'jean']]);
+        pyEnv['partner'].write([partnerId1], { image: 'kikou' });
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
+            serverData,
             model: 'partner',
             arch: arch,
-            res_id: 4,
+            res_id: partnerId1,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].new_attrs.options, '{"size":[0,90]}',
                         "appropriate default options for 'image' widget should be passed");
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "partner");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
-        assert.containsOnce(vem, '.o_web_studio_form_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable',
             "there should be one binary field");
 
         // edit the binary field
-        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable'));
 
         // Change widget from binary to image
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field select#widget',
             "the sidebar should display dropdown to change widget");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor [data-node-id]'),'o_web_studio_clicked',
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable'),'o-web-studio-editor--element-clicked',
             "binary field should have the clicked style");
 
         // change widget to image
         await testUtils.fields.editSelect(vem.$('.o_web_studio_sidebar_content.o_display_field select#widget'), 'image');
-        vem.destroy();
     });
 
     QUnit.test('integer field should come with 0 as default value', async function(assert) {
         assert.expect(1);
 
-        var fieldsView;
         var arch = "<tree><field name='display_name'/></tree>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].node.field_description.default_value,
                         '0', "related arg should be correct");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = $.extend(true, {}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_integer'), $('.o_web_studio_hook'));
         await testUtils.nextTick();
-        vem.destroy();
     });
 
     QUnit.test('invisible form editor', async function (assert) {
-        assert.expect(7);
+        assert.expect(6);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -1968,9 +1516,8 @@ QUnit.module('ViewEditorManager', {
                 "</form>",
         });
 
-        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o_field_widget');
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_field_widget'), 'o_invisible_modifier');
-        assert.containsOnce(vem, '.o_web_studio_form_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_form_view_editor .o_field_widget');
+        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o-web-studio-editor--element-clickable',
             "the invisible node should not be editable (only the group has a node-id set)");
         assert.containsN(vem, '.o_web_studio_form_view_editor .o_web_studio_hook', 2,
             "there should be two hooks (outside and inside the group");
@@ -1979,21 +1526,19 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
 
-        assert.containsN(vem, '.o_web_studio_form_view_editor .o_web_studio_show_invisible[data-node-id]', 2,
+        assert.containsN(vem, '.o_web_studio_form_view_editor .o_web_studio_show_invisible', 2,
             "there should be one visible nodes (the invisible ones)");
-        assert.containsNone(vem, '.o_web_studio_form_view_editor .o_invisible_modifier[data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_form_view_editor .o_invisible_modifier',
             "there should be no invisible node");
         assert.containsN(vem, '.o_web_studio_form_view_editor .o_web_studio_hook', 3,
             "there should be three hooks");
 
-        vem.destroy();
     });
 
     QUnit.test('form editor - chatter edition', async function (assert) {
         assert.expect(5);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -2005,38 +1550,32 @@ QUnit.module('ViewEditorManager', {
                 if (route === '/web_studio/get_email_alias') {
                     return Promise.resolve({email_alias: 'coucou'});
                 }
-                return this._super(route, args);
             },
         });
 
-        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o_ChatterContainer[data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_form_view_editor .o_FormRenderer_chatterContainer',
             "there should be a chatter node");
 
         // click on the chatter
-        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor .o_ChatterContainer[data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_form_view_editor .o_FormRenderer_chatterContainer .o_web_studio_overlay'));
 
         assert.hasClass(vem.$('.o_web_studio_sidebar .o_web_studio_properties'),'active',
             "the Properties tab should now be active");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_chatter',
             "the sidebar should now display the chatter properties");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_ChatterContainer[data-node-id]'),'o_web_studio_clicked',
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_FormRenderer_chatterContainer'),'o-web-studio-editor--element-clicked',
             "the chatter should have the clicked style");
         assert.strictEqual(vem.$('.o_web_studio_sidebar input[name="email_alias"]').val(), "coucou",
             "the email alias in sidebar should be fetched");
 
-        vem.destroy();
     });
 
     QUnit.test('fields without value and label (outside of groups) are shown in form', async function (assert) {
         assert.expect(6);
 
-        this.data.coucou.records = [{
-            id: 1,
-            display_name: "Kikou petite perruche",
-        }];
+        const coucouId1 = pyEnv['coucou'].create({ display_name: 'Kikou petite perruche' });
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -2048,7 +1587,7 @@ QUnit.module('ViewEditorManager', {
                         "<field name='char_field'/>" +
                     "</sheet>" +
                 "</form>",
-            res_id: 1,
+            res_id: coucouId1,
         });
 
         assert.doesNotHaveClass(vem.$('.o_web_studio_form_view_editor [name="id"]'), 'o_web_studio_widget_empty',
@@ -2064,13 +1603,11 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor [name="char_field"]').text(), "A char",
             "empty field without label should have its string as label");
 
-        vem.destroy();
     });
 
     QUnit.test('invisible group in form sheet', async function (assert) {
         assert.expect(8);
 
-        let fieldsView;
         const arch = `<form>
             <sheet>
                 <group>
@@ -2081,7 +1618,6 @@ QUnit.module('ViewEditorManager', {
         </form>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: `<form>
                     <sheet>
@@ -2095,47 +1631,37 @@ QUnit.module('ViewEditorManager', {
                 if (route === '/web_studio/edit_view') {
                     assert.equal(args.operations[0].new_attrs.invisible, 1,
                         'we should send "invisible"');
-
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = JSON.parse(JSON.stringify(vem.fields_view));
-
-        assert.containsN(vem, '.o_group.o_inner_group', 2,
+        assert.containsN(vem, '.o_inner_group', 2,
             "there should be two groups");
 
-        await testUtils.dom.click(vem.$('.o_group.o_inner_group:first'));
+        await testUtils.dom.click(vem.$('.o_inner_group:first'));
         assert.containsOnce(vem.$('.o_web_studio_sidebar'), 'input#invisible',
             "should have invisible checkbox");
         assert.notOk(vem.$('input#invisible').is(":checked"),
             "invisible checkbox should not be checked");
 
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#invisible'));
-        assert.containsN(vem, '.o_group.o_inner_group', 2,
-            "there should be one visible and one invisible group now");
-        assert.isNotVisible(vem.$('.o_group.o_inner_group.kikou'),
-            "there should be an invisible group");
-        assert.hasClass(vem.$('.o_group.o_inner_group.kikou2'), 'o_web_studio_clicked');
+        assert.containsN(vem, '.o_inner_group', 1,
+            "there should be one visible group now, kikou group is not rendered");
+
+        assert.containsNone(vem, ".o-web-studio-editor--element-clicked");
+        assert.hasClass(vem.$(".o_web_studio_sidebar .o_web_studio_new"), "active");
+
+        await click(vem.$el[0].querySelector(".o_inner_group.kikou2"));
         const $groupInput = vem.$('.o_web_studio_sidebar_content.o_display_group input[name="string"]');
         assert.strictEqual($groupInput.val(), "Kikou2", "the group name in sidebar should be set");
 
-        vem.destroy();
     });
 
     QUnit.test('correctly display hook in form sheet', async function (assert) {
-        assert.expect(4);
+        assert.expect(11);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -2154,23 +1680,59 @@ QUnit.module('ViewEditorManager', {
                 "</form>",
         });
 
+        const sheetHooksValues = [{
+            xpath: "/form[1]/sheet[1]",
+            position: "inside",
+            type: "insideSheet",
+        }, {
+            xpath: "/form[1]/sheet[1]/group[1]",
+            position: "after",
+            type: "afterGroup",
+        }, {
+            xpath: "/form[1]/sheet[1]/group[2]",
+            position: "after",
+            type: "afterGroup",
+        }];
+
+        target.querySelectorAll(".o_form_sheet > div.o_web_studio_hook").forEach(hook => {
+            const control = sheetHooksValues.shift();
+            assert.deepEqual(control, { ...hook.dataset });
+        });
+
         assert.containsN(vem, '.o_web_studio_form_view_editor .o_form_sheet > div.o_web_studio_hook', 3,
             "there should be three hooks as children of the sheet");
+
+        const innerGroupsHooksValues = [{
+            xpath: "/form[1]/sheet[1]/group[1]/group[1]",
+            position: "inside",
+        }, {
+            xpath: "/form[1]/sheet[1]/group[1]/group[2]",
+            position: "inside",
+        }, {
+            xpath: "/form[1]/sheet[1]/group[2]/group[1]",
+            position: "inside",
+        }, {
+            xpath: "/form[1]/sheet[1]/group[2]/group[2]",
+            position: "inside",
+        }];
+
+        target.querySelectorAll(".o_form_sheet .o_inner_group > div.o_web_studio_hook").forEach(hook => {
+            const control = innerGroupsHooksValues.shift();
+            assert.deepEqual(control, { ...hook.dataset });
+        });
+
         assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_form_sheet > div:eq(1)'),'o_web_studio_hook',
             "second div should be a hook");
         assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_form_sheet > div:eq(3)'),'o_web_studio_hook',
             "fourth div should be a hook");
         assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_form_sheet > div:eq(5)'),'o_web_studio_hook',
             "last div should be a hook");
-
-        vem.destroy();
     });
 
     QUnit.test('correctly display hook below group title', async function (assert) {
         assert.expect(14);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -2192,47 +1754,45 @@ QUnit.module('ViewEditorManager', {
         // first group (without title, without content)
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(0) .o_web_studio_hook').length, 1,
             "there should be 1 hook");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(0) tr:eq(1)'),'o_web_studio_hook',
-            "the second row should be a hook");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(0) > div:eq(0)'),'o_web_studio_hook',
+            "the first div should be a hook");
 
         // second group (with title, without content)
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(1) .o_web_studio_hook').length, 1,
             "there should be 1 hook");
-        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(1) tr:eq(0)').text(), "Kikou2",
-            "the first row is the group title");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(1) tr:eq(2)'),'o_web_studio_hook',
-            "the third row should be a hook");
+        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(1) > div:eq(0)').text(), "Kikou2",
+            "the first div is the group title");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(1) > div:eq(1)'),'o_web_studio_hook',
+            "The second div should be a hook");
 
         // third group (without title, with content)
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) .o_web_studio_hook').length, 2,
             "there should be 2 hooks");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) tr:eq(0)'),'o_web_studio_hook',
-            "the first row should be a hook");
-        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) tr:eq(1)').text(), "M2O",
-            "the second row is the field");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) tr:eq(2)'),'o_web_studio_hook',
-            "the third row should be a hook");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) > div:eq(0)'),'o_web_studio_hook',
+            "the first div should be a hook");
+        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) > div:eq(1)').text(), "M2O",
+            "the second div is the field");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(2) > div:eq(1) > div:eq(2)'),'o_web_studio_hook',
+            "the hook should be placed after the field");
 
         // last group (with title, with content)
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) .o_web_studio_hook').length, 2,
             "there should be 2 hooks");
-        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) tr:eq(0)').text(), "Kikou",
-            "the first row is the group title");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) tr:eq(1)'),'o_web_studio_hook',
-            "the second row should be a hook");
-        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) tr:eq(2)').text(), "ID",
-            "the third row is the field");
-        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) tr:eq(3)'),'o_web_studio_hook',
-            "the last row should be a hook");
+        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) > div:eq(0)').text(), "Kikou",
+            "the first div is the group title");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) > div:eq(1)'),'o_web_studio_hook',
+            "the second div should be a hook");
+        assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) > div:eq(2)').text(), "ID",
+            "the third div is the field");
+        assert.hasClass(vem.$('.o_web_studio_form_view_editor .o_inner_group:eq(3) > div:eq(2) > div:eq(2)'),'o_web_studio_hook',
+            "the hook is after the field");
 
-        vem.destroy();
     });
 
-    QUnit.test('correctly display hook at the end of tabs', async function(assert) {
-        assert.expect(2);
+    QUnit.test('correctly display hook at the end of tabs -- empty group', async function(assert) {
+        assert.expect(1);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -2251,10 +1811,12 @@ QUnit.module('ViewEditorManager', {
             'When the page contains only an empty group, last child is a studio hook.'
         );
 
-        vem.destroy();
+    });
+
+    QUnit.test('correctly display hook at the end of tabs -- multiple groups with content and an empty group', async function(assert) {
+        assert.expect(1);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form>" +
                     "<sheet>" +
@@ -2279,7 +1841,60 @@ QUnit.module('ViewEditorManager', {
             'When the page contains multiple groups with content and an empty group, last child is still a studio hook.'
         );
 
-        vem.destroy();
+    });
+
+    QUnit.test("notebook page hooks", async (assert) => {
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `<form>
+                    <sheet>
+                        <notebook>
+                            <page string="field"><field name="display_name" /></page>
+                            <page string="outer">
+                                <group><group></group></group>
+                            </page>
+                            <page string='foo'>
+                                <group>
+                                    <field name='m2o'/>
+                                </group>
+                                <group>
+                                    <field name='id'/>
+                                </group>
+                                <group></group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>`,
+        });
+
+        assert.containsOnce(target, ".o_notebook .tab-pane.active > .o_web_studio_hook");
+        assert.deepEqual({
+            ...target.querySelector(".o_notebook .tab-pane.active > .o_web_studio_hook").dataset
+        }, {
+            "position": "inside",
+            "type": "page",
+            "xpath": "/form[1]/sheet[1]/notebook[1]/page[1]"
+        });
+
+        await click(target.querySelectorAll(".o_notebook .nav-item a")[1]);
+        assert.containsOnce(target, ".o_notebook .tab-pane.active > .o_web_studio_hook");
+        assert.deepEqual({
+            ...target.querySelector(".o_notebook .tab-pane.active > .o_web_studio_hook").dataset
+        }, {
+            "position": "after",
+            "type": "afterGroup",
+            "xpath": "/form[1]/sheet[1]/notebook[1]/page[2]/group[1]"
+        });
+
+        await click(target.querySelectorAll(".o_notebook .nav-item a")[2]);
+        assert.containsOnce(target, ".o_notebook .tab-pane.active > .o_web_studio_hook");
+        assert.deepEqual({
+            ...target.querySelector(".o_notebook .tab-pane.active > .o_web_studio_hook").dataset
+        }, {
+            "position": "inside",
+            "type": "page",
+            "xpath": "/form[1]/sheet[1]/notebook[1]/page[3]"
+        });
     });
 
     QUnit.test('notebook edition', async function (assert) {
@@ -2297,9 +1912,7 @@ QUnit.module('ViewEditorManager', {
                 "</notebook>" +
             "</sheet>" +
         "</form>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -2312,21 +1925,10 @@ QUnit.module('ViewEditorManager', {
                         "a page should be added inside the notebook");
                     assert.strictEqual(args.operations[0].target.tag, 'notebook',
                         "the target should be the notebook in edit_view");
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsN(vem, '.o_notebook li', 2,
             "there should be one existing page and a fake one");
@@ -2334,7 +1936,7 @@ QUnit.module('ViewEditorManager', {
         // click on existing tab
         var $page = vem.$('.o_notebook li:first');
         await testUtils.dom.click($page);
-        assert.hasClass($page,'o_web_studio_clicked', "the page should be clickable");
+        assert.hasClass($page,'o-web-studio-editor--element-clicked', "the page should be clickable");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_page',
             "the sidebar should now display the page properties");
         var $pageInput = vem.$('.o_web_studio_sidebar_content.o_display_page input[name="string"]');
@@ -2345,13 +1947,30 @@ QUnit.module('ViewEditorManager', {
         // add a new page
         await testUtils.dom.click(vem.$('.o_notebook li:eq(1) > a'));
 
-        vem.destroy();
+    });
+
+    QUnit.test("notebook with empty page", async (assert) => {
+        assert.expect(1);
+        
+        var vem = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `<form>
+                    <sheet>
+                        <notebook>
+                            <page string="field"></page>
+                        </notebook>
+                    </sheet>
+                </form>`,
+        });
+
+        await testUtils.dom.click(vem.$('.o_notebook li:first'));
+        assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_page',
+            "the sidebar should now display the page properties");
     });
 
     QUnit.test('invisible notebook page in form', async function (assert) {
-        assert.expect(8);
+        assert.expect(9);
 
-        let fieldsView;
         const arch = `<form>
             <sheet>
                 <notebook>
@@ -2366,7 +1985,6 @@ QUnit.module('ViewEditorManager', {
         </form>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: `<form>
                         <sheet>
@@ -2384,22 +2002,12 @@ QUnit.module('ViewEditorManager', {
                 if (route === '/web_studio/edit_view') {
                     assert.equal(args.operations[0].new_attrs.invisible, 1,
                         'we should send "invisible"');
-
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = JSON.parse(JSON.stringify(vem.fields_view));
-
-        assert.containsN(vem, '.o_notebook li[data-node-id]', 2,
+        assert.containsN(vem, '.o_notebook li.o-web-studio-editor--element-clickable', 2,
             "there should be two pages");
 
         await testUtils.dom.click(vem.$('.o_notebook li:first'));
@@ -2409,15 +2017,18 @@ QUnit.module('ViewEditorManager', {
             "invisible checkbox should not be checked");
 
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#invisible'));
-        assert.containsN(vem, '.o_notebook li', 3,
-            "there should be one visible, one invisible page and a fake one");
-        assert.isNotVisible(vem.$('.o_notebook li.kikou'),
+        assert.containsN(vem, '.o_notebook li', 2,
+            "there should be one visible page and a fake one");
+        assert.isNotVisible(vem.$('.o_notebook li .kikou'),
             "there should be an invisible page");
-        assert.hasClass(vem.$('.o_notebook li.kikou2'), 'o_web_studio_clicked');
+
+        assert.containsNone(vem, ".o-web-studio-editor--element-clicked");
+        assert.hasClass(vem.$(".o_web_studio_sidebar .o_web_studio_new"), "active");
+
+        await click(vem.$el[0].querySelector("li .kikou2"));
         const $pageInput = vem.$('.o_web_studio_sidebar_content.o_display_page input[name="string"]');
         assert.strictEqual($pageInput.val(), "Kikou2", "the page name in sidebar should be set");
 
-        vem.destroy();
     });
 
     QUnit.test('label edition', async function (assert) {
@@ -2434,9 +2045,7 @@ QUnit.module('ViewEditorManager', {
                 "</group>" +
             "</sheet>" +
         "</form>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -2467,28 +2076,17 @@ QUnit.module('ViewEditorManager', {
                     }, "the target should be set in edit_view");
                     assert.deepEqual(args.operations[0].new_attrs, {string: 'Yeah'},
                         "the string attribute should be set in edit_view");
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
-        var $label = vem.$('.o_web_studio_form_view_editor label[data-node-id="1"]');
+        var $label = $(vem.$('.o_web_studio_form_view_editor label')[0]);
         assert.strictEqual($label.text(), "Kikou",
             "the label should be correctly set");
 
         await testUtils.dom.click($label);
-        assert.hasClass($label,'o_web_studio_clicked', "the label should be clickable");
+        assert.hasClass($label,'o-web-studio-editor--element-clicked', "the label should be clickable");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_label',
             "the sidebar should now display the label properties");
         var $labelInput = vem.$('.o_web_studio_sidebar_content.o_display_label input[name="string"]');
@@ -2498,11 +2096,10 @@ QUnit.module('ViewEditorManager', {
         var $fieldLabel = vem.$('.o_web_studio_form_view_editor label:contains("A char")');
         assert.strictEqual($fieldLabel.length, 1, "there should be a label for the field");
         await testUtils.dom.click($fieldLabel);
-        assert.doesNotHaveClass($fieldLabel, 'o_web_studio_clicked', "the field label should not be clickable");
+        assert.doesNotHaveClass($fieldLabel, 'o-web-studio-editor--element-clicked', "the field label should not be clickable");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
             "the sidebar should now display the field properties");
 
-        vem.destroy();
     });
 
     QUnit.test('add a statusbar', async function (assert) {
@@ -2513,9 +2110,7 @@ QUnit.module('ViewEditorManager', {
                 "<group><field name='display_name'/></group>" +
             "</sheet>" +
         "</form>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -2530,21 +2125,10 @@ QUnit.module('ViewEditorManager', {
                     assert.deepEqual(args.operations[1].node.attrs, {widget: 'statusbar', options: "{'clickable': '1'}"},
                         "the options should be correctly set");
 
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         var $statusbar = vem.$('.o_web_studio_form_view_editor .o_web_studio_statusbar_hook');
         assert.deepEqual($statusbar.length, 1, "there should be a hook to add a statusbar");
@@ -2556,7 +2140,6 @@ QUnit.module('ViewEditorManager', {
             "there should be 3 pre-filled values for the selection field");
         await testUtils.dom.click($('.modal-footer .btn-primary:first'));
 
-        vem.destroy();
     });
 
     QUnit.test('move a field in form', async function (assert) {
@@ -2571,7 +2154,6 @@ QUnit.module('ViewEditorManager', {
             "</sheet>" +
         "</form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -2608,7 +2190,7 @@ QUnit.module('ViewEditorManager', {
                     }, "the move operation should be correct");
                     // the server sends the arch in string but it's post-processed
                     // by the ViewEditorManager
-                    fieldsView.arch = "<form>" +
+                    const arch = "<form>" +
                         "<sheet>" +
                             "<group>" +
                                 "<field name='m2o'/>" +
@@ -2617,31 +2199,25 @@ QUnit.module('ViewEditorManager', {
                             "</group>" +
                         "</sheet>" +
                     "</form>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_form_sheet').text(), "Display NameA charM2O",
             "the moved field should be the first column");
 
+        // Don't be bothered by transition effects
+        vem.el.querySelectorAll(".o_web_studio_hook_separator").forEach(sep => {
+            sep.style.setProperty("transition", "none", "important");
+        })
         // move m2o before display_name
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_form_view_editor .ui-draggable:eq(2)'),
-            vem.$('.o_group .o_web_studio_hook:first'));
+        await dragAndDrop(vem.$('.o_web_studio_form_view_editor .o-draggable:eq(2)')[0],
+            vem.$('.o_inner_group .o_web_studio_hook:first')[0]);
 
         assert.strictEqual(vem.$('.o_web_studio_form_view_editor .o_form_sheet').text(), "M2ODisplay NameA char",
             "the moved field should be the first column");
 
-        vem.destroy();
     });
 
     QUnit.test('form editor add avatar image', async function (assert) {
@@ -2653,22 +2229,22 @@ QUnit.module('ViewEditorManager', {
                     </div>
                 </sheet>
             </form>`;
-        let fieldsView;
         let editViewCount = 0;
 
+        const self = this;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'partner',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
+                    let newArch;
                     if (editViewCount === 1) {
                         assert.deepEqual(args.operations[0], {
                             field: 'image',
                             type: 'avatar_image',
                         }, "Proper field name and operation type should be passed");
-                        fieldsView.arch = `<form>
+                        newArch = `<form>
                                 <sheet>
                                     <field name='image' widget='image' class='oe_avatar' options='{"preview_image": "image"}'/>
                                     <div class='oe_title'>
@@ -2700,21 +2276,17 @@ QUnit.module('ViewEditorManager', {
                                 ],
                             }
                         }, "Proper field name and operation type should be passed");
-                        fieldsView.arch = arch;
+                        newArch = arch;
                     } else if (editViewCount === 3) {
                         assert.deepEqual(args.operations[2], {
                             field: '',
                             type: 'avatar_image',
                         }, "Proper field name and operation type should be passed");
-                        fieldsView.fields['x_avatar_image'] = {
+                        self.data.partner.fields['x_avatar_image'] = {
                             string: "Image",
                             type: "binary"
                         };
-                        this.data.partner.fields['x_avatar_image'] = {
-                            string: "Image",
-                            type: "binary"
-                        };
-                        fieldsView.arch = `<form>
+                        newArch = `<form>
                                 <sheet>
                                     <field name='x_avatar_image' widget='image' class='oe_avatar' options='{"preview_image": "x_avatar_image"}'/>
                                     <div class='oe_title'>
@@ -2723,19 +2295,10 @@ QUnit.module('ViewEditorManager', {
                                 </sheet>
                             </form>`;
                     }
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "partner");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsNone(vem, '.o_field_widget.oe_avatar',
             "there should be no avatar image field");
@@ -2782,7 +2345,6 @@ QUnit.module('ViewEditorManager', {
         assert.containsNone(vem, '.oe_avatar.o_web_studio_avatar',
             "there should be the hook for avatar image");
 
-        vem.destroy();
     });
 
     QUnit.test('sidebar for a related field', async function (assert) {
@@ -2798,7 +2360,6 @@ QUnit.module('ViewEditorManager', {
             </form>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'product',
             arch: arch,
         });
@@ -2806,7 +2367,147 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click(vem.el.querySelector("[name='related']"));
         assert.containsOnce(vem.el, ".o_web_studio_sidebar .o_web_studio_properties.active");
         assert.strictEqual(vem.el.querySelector("input[name='string']").value, "myRelatedField");
-        vem.destroy();
+    });
+
+    QUnit.test('Phone field in form with SMS', async function (assert) {
+        assert.expect(3);
+
+        var arch = "<form><sheet>" +
+            "<group>" +
+            "<field name='display_name' widget='phone' />" +
+            "</group>" +
+            "</sheet></form>";
+        var vem = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: arch,
+            mockRPC(route, args) {
+                if (route === '/web_studio/edit_view') {
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        testUtils.mock.intercept(vem, 'view_change', ev => {
+            assert.equal(ev.data.new_attrs.options, '{"enable_sms":false}',
+                'Writing the enable_sms option workds');
+        });
+        await testUtils.dom.click(vem.$('.o_form_label:contains(Display Name)'));
+        assert.containsOnce(vem, 'input[name="enable_sms"]');
+        assert.ok(vem.$('input[name="enable_sms"]').is(':checked'),
+            'By default the boolean should be true');
+
+        await testUtils.dom.click(vem.$('input[name="enable_sms"]'));
+    });
+
+    QUnit.test('modification of field appearing multiple times in view', async function (assert) {
+        assert.expect(4);
+
+        // the typical case of the same field in a single view is conditional sub-views
+        // that use attrs={'invisible': [domain]}
+        // if the targeted node is after a hidden view, the hidden one should be ignored / skipped
+        var arch = '<form>' +
+                       '<group invisible="1">' +
+                           '<field name="display_name"/>' +
+                       '</group>' +
+                       '<group>' +
+                           '<field name="display_name"/>' +
+                       '</group>' +
+                       '<group>' +
+                           '<field name="char_field" />' +
+                       '</group>' +
+                   '</form>'
+
+        const vem = await studioTestUtils.createViewEditorManager({
+            arch: arch,
+            model: 'coucou',
+            debug: true,
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.deepEqual(args.operations[0].target.xpath_info, [
+                        {
+                            tag: 'form',
+                            indice: 1,
+                        },
+                        {
+                            tag: 'group',
+                            indice: 2,
+                        },
+                        {
+                            tag: 'field',
+                            indice: 1,
+                        },
+                    ], "the target should be the field of the second group");
+                    assert.deepEqual(args.operations[0].new_attrs, {string: "Foo"},
+                        "the string attribute should be changed from default to 'Foo'");
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
+                }
+            },
+        });
+
+        var $visibleElement = $(vem.$('.o_web_studio_form_view_editor .o_wrap_label.o-web-studio-editor--element-clickable')[0]);
+        assert.strictEqual($visibleElement.text(), "Display Name", "the name should be correctly set");
+
+        await testUtils.dom.click($visibleElement);
+        var $labelInput = vem.$('.o_web_studio_sidebar_content input[name="string"]');
+        assert.strictEqual($labelInput.val(), "Display Name", "the name in the sidebar should be set");
+        await testUtils.fields.editAndTrigger($labelInput, "Foo", ['change']);
+    });
+
+    QUnit.test('Open form view with button_box in studio', async function (assert) {
+        assert.expect(1);
+
+        // studioIsVisible (button_box props) is used in debug
+        patchWithCleanup(odoo, { debug: true });
+        const action = serverData.actions["studio.coucou_action"];
+        action.views = [[1, "form"]];
+        action.res_model = "partner";
+        serverData.views["partner,1,form"] = /*xml*/`<form>
+            <div name="button_box" class="oe_button_box" modifiers='{"invisible": [["display_name", "=", false]]}'>
+                <button type="object" class="oe_stat_button" icon="fa-check-square">
+                    <field name="display_name"/>
+                </button>
+            </div>
+        </form>`
+        const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
+
+        const buttonBoxFieldEl = target.querySelector('.oe_button_box button .o_field_widget span');
+        assert.strictEqual(buttonBoxFieldEl.textContent, 'jean', 'there should be a button_box');
+    });
+
+    QUnit.test("supports multiple occurences of field", async (assert) => {
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `<form><group>
+                <field name="display_name" widget="phone" options="{'enable_sms': false}" />
+                <field name="display_name" invisible="1" />
+            </group></form>`
+        });
+
+        assert.containsN(target, ".o_web_studio_form_view_editor .o_inner_group .o-web-studio-editor--element-clickable", 1);
+        await click(target, ".o_web_studio_sidebar_header div[name='view']");
+        await click(target, ".o_web_studio_sidebar #show_invisible");
+        assert.containsN(target, ".o_web_studio_form_view_editor .o_inner_group .o-web-studio-editor--element-clickable", 2);
+
+        await click(target.querySelectorAll(".o_web_studio_form_view_editor .o_inner_group .o-web-studio-editor--element-clickable")[0]);
+        assert.strictEqual(target.querySelector(".o_web_studio_sidebar input[name='enable_sms']").checked, false); // Would be true if not present in node's options
+
+        await click(target.querySelectorAll(".o_web_studio_form_view_editor .o_inner_group .o-web-studio-editor--element-clickable")[1]);
+        assert.strictEqual(target.querySelector(".o_web_studio_sidebar input[name='invisible']").checked, true);
+    });
+
+    QUnit.test("display placeholders when editing view without records", async (assert) => {
+        const vem = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+                <form>
+                    <field name="display_name" />
+                </form>`
+        });
+
+        assert.hasClass(vem.$("[name=display_name]"), "o_web_studio_widget_empty");
+        assert.strictEqual(vem.$("[name=display_name]").text().trim(), "Display Name");
     });
 
     QUnit.module('Kanban');
@@ -2815,7 +2516,6 @@ QUnit.module('ViewEditorManager', {
         assert.expect(4);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<kanban>" +
                     "<templates><t t-name='kanban-box'/></templates>" +
@@ -2826,24 +2526,23 @@ QUnit.module('ViewEditorManager', {
             "view type should be kanban");
         assert.containsOnce(vem, '.o_web_studio_kanban_view_editor',
             "there should be a kanban editor");
-        assert.containsNone(vem, '.o_web_studio_kanban_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable',
             "there should be no node");
         assert.containsNone(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook',
             "there should be no hook");
 
-        vem.destroy();
     });
 
     QUnit.test('kanban editor', async function (assert) {
         assert.expect(18);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
+            serverData,
             model: 'coucou',
             arch: "<kanban>" +
                     "<templates>" +
                         "<t t-name='kanban-box'>" +
-                            "<div class='o_kanban_record'>" +
+                            "<div class='oe_kanban_card'>" +
                                 "<field name='display_name'/>" +
                             "</div>" +
                         "</t>" +
@@ -2858,9 +2557,9 @@ QUnit.module('ViewEditorManager', {
             "first record should not be a ghost");
         assert.doesNotHaveClass(vem.$('.o_kanban_record:first'), 'o_kanban_demo',
             "first record should not be a demo");
-        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable',
             "there should be one node");
-        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'),'o_web_studio_widget_empty',
+        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'),'o_web_studio_widget_empty',
             "the empty node should have the empty class");
         assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook',
             "there should be one hook");
@@ -2873,13 +2572,13 @@ QUnit.module('ViewEditorManager', {
         assert.containsOnce(vem, '.o_kanban_record .o_web_studio_add_kanban_image',
             "there should be the hook for image");
 
-        await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'));
 
         assert.hasClass(vem.$('.o_web_studio_sidebar').find('.o_web_studio_properties'),'active',
             "the Properties tab should now be active");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
             "the sidebar should now display the field properties");
-        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'),'o_web_studio_clicked',
+        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'),'o-web-studio-editor--element-clicked',
             "the field should have the clicked style");
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('select[name="widget"]').val(), "char",
             "the widget in sidebar should be set by default");
@@ -2887,24 +2586,316 @@ QUnit.module('ViewEditorManager', {
             "the display attribute should be Default");
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('input[name="string"]').val(), "Display Name",
             "the field should have the label Display Name in the sidebar");
+    });
 
-        vem.destroy();
+    QUnit.test('no studio hook after a conditional field in the arch', async function (assert) {
+        /*
+         * When a condition is set directly on a field in the arch, no studio hook is pushed
+         * meaning there is no way to put another field just after that one.
+         * This is a requirement, otherwise the arch itself is at risk of being broken
+         * ie: `<field t-elif="someCondifiton" /><field name="newField" /><t t-else=""/>`
+         * is never valid.
+         */
+        serverData.models["coucou"].fields.xram = { type: "char", string: "xram" };
+        serverData.models["coucou"].records = [{ id: 1 }];
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <field name="xram" />
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card'>
+                                <field t-if="record.xram.raw_value === 'lrak'" name='display_name'/>
+                                <field t-elif="record.xram.raw_value === 'groucho'" name='display_name' />
+                                <field t-else="" name='display_name' />
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>`,
+        });
+        assert.containsNone(target, ".o_kanban_record .o_web_studio_hook");
+    });
+
+    QUnit.test('indulge if components are present in the arch', async function (assert) {
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <field name="display_name" />
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card'>
+                                <div class="rendered" />
+                                <MyComponent t-props="someProps" />
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>`,
+        });
+
+        assert.containsOnce(target, ".rendered");
+    });
+
+    QUnit.test('undo when edition of kanban results in error', async function (assert) {
+        let triggerError = false;
+
+        patchWithCleanup(KanbanRecord.prototype, {
+            setup() {
+                this._super();
+                if (triggerError) {
+                    owl.onWillRender(() => {
+                        throw new Error("Boom")
+                    });
+                }
+            }
+        });
+        const arch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <div class="rendered" />
+                            <field name="display_name" />
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+        const vem = await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch,
+            mockRPC(route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.step("edit_view");
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
+                }
+            }
+        });
+
+        testUtils.mock.intercept(vem, 'studio_error', function (event) {
+            triggerError = false;
+            assert.step("view edition error");
+            assert.strictEqual(event.data.error, 'view_rendering',
+                "should have raised an error");
+        });
+
+        assert.containsOnce(target, ".rendered");
+        // trigger an editView
+        await click(target.querySelector(".o-web-studio-editor--element-clickable"));
+        triggerError = true;
+        await testUtils.dom.click(vem.$('.o_web_studio_sidebar .o_web_studio_remove'));
+        await click(target.querySelector(".modal footer button"));
+        assert.verifySteps([
+            "edit_view",
+            "view edition error",
+            "edit_view"
+        ]);
+        assert.containsOnce(target, ".rendered");
+    });
+
+    QUnit.test('prevent crash when accessing details of implementation', async function (assert) {
+        // the XML editor button is only available in debug mode
+        const initialDebugMode = odoo.debug;
+        odoo.debug = true;
+
+        registerCleanup(() => {
+            odoo.debug = initialDebugMode;
+        })
+
+        const XMLEditorDef = makeDeferred();
+        patchWithCleanup(ace.prototype, {
+            start: async function () {
+                const res = this._super.apply(this, arguments);
+                await res;
+                XMLEditorDef.resolve();
+                return res;
+            }
+        });
+
+        const arch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <div t-if="myDetailMethod()" />
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch,
+            viewID: 1,
+            mockRPC(route, args) {
+                if (route === '/web_editor/get_assets_editor_resources') {
+                    return Promise.resolve({
+                        views: [{
+                            active: true,
+                            arch: arch,
+                            id: 1,
+                            inherit_id: false,
+                            name: "base view",
+                        }, {
+                            active: true,
+                            arch: "<data/>",
+                            id: 42,
+                            inherit_id: 1,
+                            name: "studio view",
+                        }],
+                        scss: [],
+                        js: [],
+                    });
+                }
+            }
+        });
+        await nextTick();
+        assert.strictEqual(target.querySelector(".o_kanban_record").textContent, "Preview is not available");
+
+        await click(target, ".o_web_studio_sidebar .o_web_studio_view");
+        await click(target, ".o_web_studio_sidebar .o_web_studio_xml_editor");
+        await XMLEditorDef;
+        assert.strictEqual(target.querySelector(".o_kanban_record").textContent, "Preview is not available");
+    });
+
+    QUnit.test("click on anything other than what was intended doesn't do anything", async (assert) => {
+        const handler = (ev) => {
+            assert.step("error");
+            ev.preventDefault();
+        };
+        window.addEventListener("error", handler);
+        registerCleanup(() => window.removeEventListener("error", handler));
+
+        const arch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <div class="myLittleHandler" t-on-click="unexistingHandler">SomeText</div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch,
+            viewID: 1,
+        });
+
+        assert.containsOnce(target, ".myLittleHandler");
+        await click(target, ".myLittleHandler");
+        assert.verifySteps([]);
+        assert.containsOnce(target, ".myLittleHandler");
+    });
+
+    QUnit.test("click on a link doesn't do anything", async (assert) => {
+        patchWithCleanup(_KanbanEditorRecord.prototype, {
+            onGlobalClickCapture(ev) {
+                assert.step("globalClickCapture");
+                assert.ok(!ev.defaultPrevented);
+                this._super(ev);
+                assert.ok(ev.defaultPrevented);
+            }
+        });
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div>
+                            <a name="action_view_tasks" type="object">Tasks</a>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`,
+            viewID: 1,
+        });
+
+        await click(target, "a[name='action_view_tasks']");
+        assert.verifySteps(["globalClickCapture"]);
+    });
+
+    QUnit.test("disable global click", async (assert) => {
+        registry.category("services").add("action", {
+            start() {
+                return {
+                    doAction() {
+                        assert.step("action done")
+                    },
+                    loadState() {},
+                    doActionButton() {
+                        assert.step("action done")
+                    }
+                }
+            }
+        })
+        const arch = `
+            <kanban action="42" type="object" >
+                <field name="display_name" />
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'/>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        const vem = await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch
+        })
+        // sanity check
+        vem.wowlEnv.services.action.doAction();
+        assert.verifySteps(["action done"]);
+
+        await click(target.querySelector(".o_kanban_record"));
+        assert.verifySteps([]);
+    })
+
+    QUnit.test("button with text node are correctly rendered", async (assert) => {
+        const arch = `
+            <kanban action="42" type="object" >
+                <field name="display_name" />
+                <templates>
+                    <t t-name='kanban-box'>
+                        <button type="object" name="42">Some action</button>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch
+        });
+
+        assert.strictEqual(target.querySelector(".o_kanban_record button").textContent, "Some action");
     });
 
     QUnit.test('kanban editor with async widget', async function (assert) {
-        var done = assert.async();
         assert.expect(7);
 
-        var fieldDef = testUtils.makeTestPromise();
-        var FieldChar = fieldRegistry.get('char');
-        fieldRegistry.add('asyncwidget', FieldChar.extend({
-            willStart: function () {
-                return fieldDef;
-            },
-        }));
+        const fieldDef = testUtils.makeTestPromise();
+        const owlFieldRegistry = registry.category("fields");
+        const FieldChar = owlFieldRegistry.get('char');
+        class MyFieldChar extends FieldChar {
+            setup() {
+                owl.onWillStart(() => {
+                    return fieldDef;
+                })
+            }
+        }
+        owlFieldRegistry.add("asyncwidget", MyFieldChar);
 
-        var prom = studioTestUtils.createViewEditorManager({
-            data: this.data,
+        const prom = studioTestUtils.createViewEditorManager({
             model: 'coucou',
             arch: "<kanban>" +
                     "<templates>" +
@@ -2915,32 +2906,28 @@ QUnit.module('ViewEditorManager', {
                 "</kanban>",
         });
 
-        assert.containsNone(document.body, '.o_web_studio_kanban_view_editor');
+        assert.containsNone(target, '.o_web_studio_kanban_view_editor');
         fieldDef.resolve();
 
-        prom.then(async function (vem) {
-            assert.containsOnce(document.body, '.o_web_studio_kanban_view_editor');
+        const vem = await prom;
 
-            assert.containsOnce(vem, '.o_web_studio_kanban_view_editor [data-node-id]');
-            assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook');
+        assert.containsOnce(target, '.o_web_studio_kanban_view_editor');
 
-            await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'));
+        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable');
+        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook');
 
-            assert.hasClass(vem.$('.o_web_studio_sidebar .o_web_studio_properties'), 'active');
-            assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
-            "the sidebar should now display the field properties");
-            assert.hasClass(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'), 'o_web_studio_clicked');
+        await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'));
 
-            vem.destroy();
-            done();
-        });
+        assert.hasClass(vem.$('.o_web_studio_sidebar .o_web_studio_properties'), 'active');
+        assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
+        "the sidebar should now display the field properties");
+        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'), 'o-web-studio-editor--element-clicked');
     });
 
-    QUnit.test('changing tab should reset selected_node_id', async function(assert) {
-        assert.expect(5);
+    QUnit.test('changing tab should reset the selected node', async function(assert) {
+        assert.expect(4);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch : "<kanban>" +
                     "<templates>" +
@@ -2957,33 +2944,30 @@ QUnit.module('ViewEditorManager', {
         // switch tab to 'view' click on 'show invisible elements'
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
-        assert.containsNone(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'), 'o_web_studio_clicked',
+        assert.containsNone(target, ".o-web-studio-editor--element-clickable.o-web-studio-editor--element-clicked",
             "the field should not have the clicked style");
 
         // select field 'display_name'
-        await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor [data-node-id="1"]'));
-        assert.hasClass(vem.$('.o_web_studio_widget_empty[data-node-id="1"]'), 'o_web_studio_clicked',
+        await testUtils.dom.click(vem.$(".o_web_studio_kanban_view_editor span.o-web-studio-editor--element-clickable[data-field-name='display_name']"));
+        assert.hasClass(vem.$('.o_web_studio_widget_empty.o-web-studio-editor--element-clickable'), 'o-web-studio-editor--element-clicked',
             "the field should have the clicked style");
-
-        assert.strictEqual(vem.editor.recordEditor.selected_node_id, 1, "selected_node_id should be 1");
 
         // changing tab (should reset selected_node_id)
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('.o_web_studio_view'));
-        assert.strictEqual(vem.editor.recordEditor.selected_node_id, false, "selected_node_id should be false");
+        assert.containsNone(target, ".o-web-studio-editor--element-clicked",
+            "no clicked element is present");
 
         // unchecked 'show invisible'
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
-        assert.containsNone(vem.$('.o_web_studio_widget_empty [data-node-id]'),'o_web_studio_clicked',
+        assert.containsNone(target, ".o-web-studio-editor--element-clicked",
             "the field should not have the clicked style");
 
-        vem.destroy();
     });
 
     QUnit.test('kanban editor show invisible elements', async function(assert) {
         assert.expect(4);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch : "<kanban>" +
                     "<templates>" +
@@ -2998,7 +2982,7 @@ QUnit.module('ViewEditorManager', {
                 "</kanban>",
         });
 
-        assert.containsNone(vem, '.o_web_studio_kanban_view_editor [data-node-id]',
+        assert.containsNone(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable',
             "there should be no visible node");
         assert.hasAttrValue(vem.$('input#show_invisible'), 'checked', undefined,
             "show invisible checkbox is not checked");
@@ -3006,12 +2990,11 @@ QUnit.module('ViewEditorManager', {
         // click on 'show invisible elements
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar').find('input#show_invisible'));
 
-        assert.containsN(vem, '.o_web_studio_kanban_view_editor [data-node-id]', 3,
+        assert.containsN(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable', 3,
             "the 3 invisible fields should be visible now");
-        assert.containsN(vem, '.o_web_studio_kanban_view_editor .o_web_studio_show_invisible[data-node-id]', 3,
+        assert.containsN(vem, '.o_web_studio_kanban_view_editor .o_web_studio_show_invisible.o-web-studio-editor--element-clickable', 3,
             "the 3 fields should have the correct class for background");
 
-        vem.destroy();
     });
 
     QUnit.test('kanban editor add priority', async function (assert) {
@@ -3026,10 +3009,8 @@ QUnit.module('ViewEditorManager', {
                         "</t>" +
                     "</templates>" +
                 "</kanban>";
-        var fieldsView;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<kanban>" +
                    "<templates>" +
@@ -3049,20 +3030,11 @@ QUnit.module('ViewEditorManager', {
                         field: 'priority',
                         type: 'kanban_priority',
                     }, "Proper field name and operation type should be passed");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            kanban: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsOnce(vem, '.o_kanban_record .o_web_studio_add_priority',
             "there should be the hook for priority");
@@ -3074,11 +3046,10 @@ QUnit.module('ViewEditorManager', {
         $('.modal .modal-body select > option[value="priority"]').prop('selected', true);
         // Click 'Confirm' Button
         await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
-        assert.containsOnce(vem, '.o_priority', "there should be priority widget in kanban record");
+        assert.containsOnce(vem, '.o_field_priority', "there should be priority widget in kanban record");
         assert.containsNone(vem, '.o_kanban_record .o_web_studio_add_priority',
             "there should be no priority hook if priority widget exists on kanban");
 
-        vem.destroy();
     });
 
     QUnit.test('kanban editor no avatar button if already in arch', async function (assert) {
@@ -3101,13 +3072,11 @@ QUnit.module('ViewEditorManager', {
         this.data.coucou.fields.partner_id = {string: 'Res Partner', type: 'many2one', relation: 'res.partner'};
         this.data.coucou.records = [{ id: 1, display_name: 'Eleven', partner_id: 11}];
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
         });
         assert.containsNone(vem, '.o_web_studio_add_kanban_image',
             "there should be no option to add an avatart");
-        vem.destroy();
     });
 
     QUnit.test('kanban editor add and remove image', async function (assert) {
@@ -3133,11 +3102,9 @@ QUnit.module('ViewEditorManager', {
                         "</t>" +
                     "</templates>" +
                 "</kanban>";
-        var fieldsView;
         var editViewCount = 0;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -3146,21 +3113,20 @@ QUnit.module('ViewEditorManager', {
                 }
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
+                    let newArch;
                     if (editViewCount === 1) {
                         assert.deepEqual(args.operations[0], {
                             field: 'partner_id',
                             type: 'kanban_image',
                         }, "Proper field name and operation type should be passed");
-                        // the server sends the arch in string but it's post-processed
-                        // by the ViewEditorManager
-                        fieldsView.arch = "<kanban>" +
+                        newArch = "<kanban>" +
                             "<templates>" +
                                 "<t t-name='kanban-box'>" +
                                     "<div class='o_kanban_record'>" +
                                         "<field name='display_name'/>" +
                                         "<div class='oe_kanban_bottom_right'>" +
                                             "<div>test</div>" + // dummy div to make sure img is deleted (otherwise parent div of only child will be deleted)
-                                            "<img t-att-src='kanban_image(\"res.partner\", \"avatar_128\", 1)' class='oe_kanban_avatar float-right' width='24' height='24'/>" +
+                                            "<img t-att-src='kanban_image(\"res.partner\", \"avatar_128\", 1)' class='oe_kanban_avatar float-end' width='24' height='24'/>" +
                                         "</div>" +
                                     "</div>" +
                                 "</t>" +
@@ -3178,23 +3144,13 @@ QUnit.module('ViewEditorManager', {
                             {tag: 'img', indice: 1}],
                             'Should have correct xpath_info as we do not have any tag identifier attribute on image img'
                         );
-                        // the server sends the arch in string but it's post-processed
-                        // by the ViewEditorManager
-                        fieldsView.arch = arch;
+                        newArch = arch;
                     }
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            kanban: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsOnce(vem, '.o_kanban_record .o_web_studio_add_kanban_image',
             "there should be the hook for Image");
@@ -3214,14 +3170,12 @@ QUnit.module('ViewEditorManager', {
             "should display the correct message");
         await testUtils.dom.click($('.modal-footer .btn-primary'));
 
-        vem.destroy();
     });
 
     QUnit.test('kanban editor with widget', async function (assert) {
         assert.expect(4);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<kanban>" +
                     "<templates>" +
@@ -3234,26 +3188,22 @@ QUnit.module('ViewEditorManager', {
                 "</kanban>",
         });
 
-        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable',
             "there should be one node");
         assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook',
             "there should be one hook");
 
-        await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'));
 
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('select[name="widget"]').val(), "email",
             "the widget in sidebar should be correctly set");
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('input[name="string"]').val(), "Display Name",
             "the field should have the label Display Name in the sidebar");
 
-        vem.destroy();
     });
 
     QUnit.test('grouped kanban editor', async function (assert) {
-        assert.expect(4);
-
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<kanban default_group_by='display_name'>" +
                     "<templates>" +
@@ -3266,16 +3216,20 @@ QUnit.module('ViewEditorManager', {
                 "</kanban>",
         });
 
-        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor'),'o_kanban_grouped',
+        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor '),'o_kanban_grouped',
             "the editor should be grouped");
-        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable',
             "there should be one node");
-        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'),'o_web_studio_widget_empty',
+        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'),'o_web_studio_widget_empty',
             "the empty node should have the empty class");
         assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook',
             "there should be one hook");
 
-        vem.destroy();
+        assert.containsNone(vem, ".o_kanban_header_title");
+        assert.containsNone(vem, ".o_kanban_counter");
+        assert.containsN(vem, ".o_kanban_group", 2);
+        assert.containsN(vem, ".o_kanban_group:nth-child(1) .o_kanban_record.o_kanban_demo", 6);
+        assert.containsN(vem, ".o_kanban_group:nth-child(2) .o_kanban_record.o_kanban_demo", 7);
     });
 
     QUnit.test('grouped kanban editor with record', async function (assert) {
@@ -3287,7 +3241,6 @@ QUnit.module('ViewEditorManager', {
         }];
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<kanban default_group_by='display_name'>" +
                     "<templates>" +
@@ -3302,14 +3255,33 @@ QUnit.module('ViewEditorManager', {
 
         assert.hasClass(vem.$('.o_web_studio_kanban_view_editor'),'o_kanban_grouped',
             "the editor should be grouped");
-        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable',
             "there should be one node");
-        assert.doesNotHaveClass(vem.$('.o_web_studio_kanban_view_editor [data-node-id]'), 'o_web_studio_widget_empty',
+        assert.doesNotHaveClass(vem.$('.o_web_studio_kanban_view_editor .o-web-studio-editor--element-clickable'), 'o_web_studio_widget_empty',
             "the empty node should not have the empty class");
         assert.containsOnce(vem, '.o_web_studio_kanban_view_editor .o_web_studio_hook',
             "there should be one hook");
 
-        vem.destroy();
+    });
+
+    QUnit.test('kanban editor, grouped on date field, no record', async function (assert) {
+        this.data.coucou.fields.date = { name: 'date', type: 'date', string: "Date" };
+        this.data.coucou.records = [];
+
+        const vem = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+                <kanban default_group_by='date'>
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div>field name='display_name'/></div>
+                        </t>
+                    </templates>
+                </kanban>`,
+        });
+
+        assert.hasClass(vem.$('.o_web_studio_kanban_view_editor'), 'o_kanban_grouped');
+        assert.containsOnce(vem, ".o_kanban_record:not(.o_kanban_demo)");
     });
 
     QUnit.test('Remove a drop-down menu using kanban editor', async function (assert) {
@@ -3323,7 +3295,7 @@ QUnit.module('ViewEditorManager', {
                                 '<field name="display_name"/>' +
                             '</div>' +
                             '<div class="o_dropdown_kanban dropdown">' +
-                                '<a class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#">' +
+                                '<a class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#">' +
                                     '<span class="fa fa-bars fa-lg"/>' +
                                 '</a>' +
                                 '<div class="dropdown-menu" role="menu">' +
@@ -3334,9 +3306,7 @@ QUnit.module('ViewEditorManager', {
                     '</t>' +
                 '</templates>' +
             '</kanban>';
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -3351,21 +3321,10 @@ QUnit.module('ViewEditorManager', {
                         {tag: 'div', indice: 2}],
                         'Should have correct xpath_info as we do not have any tag identifier attribute on drop-down div'
                     );
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            kanban: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
         assert.containsOnce(vem, '.o_dropdown_kanban', "there should be one dropdown node");
         await testUtils.dom.click(vem.$('.o_dropdown_kanban'));
         // remove drop-down from sidebar
@@ -3373,6 +3332,507 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual($('.modal-body:first').text(), "Are you sure you want to remove this div from the view?",
             "should display the correct message");
         await testUtils.dom.click($('.modal .btn-primary'));
+    });
+
+    QUnit.test("specific dropdown arch with distinct parts in a '<a />' tag", async (assert) => {
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+                <kanban>
+                    <templates>
+                        <t t-name="kanban-box" >
+                            <div>
+                                <div class="dropdown-menu o_kanban_card_manage_section">
+                                    <div role="menuitem">
+                                        <a class="dropdown-item" role="menuitem">View</a>
+                                    </div>
+                                </div>
+                                <a class="o_dropdown_kanban o_kanban_manage_toggle_button">
+                                    <i class="fa fa-ellipsis-v myCustomClass"/>
+                                </a>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            `,
+        });
+
+        assert.containsOnce(target, ".o_kanban_record .dropdown");
+        await click(target.querySelector(".o_kanban_record .myCustomClass"));
+        assert.containsOnce(target, ".o_web_studio_properties.active");
+        assert.strictEqual(target.querySelector(".o_web_studio_sidebar_content").textContent.trim(), "");
+    });
+
+    QUnit.test("specific dropdown with o_kanban_card_manage_section only", async (assert) => {
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+                <kanban>
+                    <templates>
+                        <t t-name="kanban-box" >
+                            <div>
+                                <div class="o_kanban_manage_button_section">
+                                    <a class="o_dropdown_kanban" href="#"><i class="fa fa-ellipsis-v" role="img" aria-label="Manage" title="Manage"/></a>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            `,
+        });
+
+        assert.containsOnce(target, ".o_kanban_record .dropdown");
+        await click(target.querySelector(".o_kanban_record .dropdown"));
+        assert.containsOnce(target, ".o_web_studio_properties.active");
+        assert.strictEqual(target.querySelector(".o_web_studio_sidebar_content").textContent.trim(), "");
+    });
+
+    QUnit.test('kanban editor remove "Set Cover Image" from dropdown menu', async function (assert) {
+        assert.expect(1);
+        var arch = "<kanban>" +
+                    "<templates>" +
+                        "<t t-name='kanban-box'>" +
+                            "<div class='o_kanban_record'>" +
+                                '<div class="o_dropdown_kanban dropdown">' +
+                                    '<a>' +
+                                        '<span class="fa fa-ellipsis-v"/>' +
+                                    '</a>' +
+                                    '<div class="dropdown-menu" role="menu">' +
+                                        '<a data-type="set_cover">Set Cover Image</a>' +
+                                    "</div>" +
+                                "</div>" +
+                                "<field name='displayed_image_id' widget='attachment_image'/>" +
+                            "</div>" +
+                        "</t>" +
+                    "</templates>" +
+                "</kanban>";
+
+        var vem = await studioTestUtils.createViewEditorManager({
+            model: 'partner',
+            arch: arch,
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view' && args.operations[0].type === "remove") {
+                    assert.deepEqual(args.operations[0], {
+                        target: {
+                            attrs: {name: 'displayed_image_id'},
+                            tag: "field",
+                            extra_nodes: [{
+                                tag: "a",
+                                attrs: {
+                                    type: 'set_cover',
+                                },
+                            }],
+                        },
+                        type: 'remove',
+                    }, "Proper field name and operation type should be passed");
+                    return getCurrentMockServer()._mockReturnView(arch, "partner");
+                }
+            },
+        });
+
+        // used to generate fields view in mockRPC
+        await testUtils.dom.click(vem.$(".o_kanban_record .o_dropdown_kanban"));
+        await testUtils.dom.click(vem.$(".o_display_div .o_web_studio_sidebar_checkbox input"));
+    });
+
+    QUnit.test('kanban editor add "Set Cover Image" option in dropdown menu', async function (assert) {
+        assert.expect(3);
+        var arch = "<kanban>" +
+                    "<templates>" +
+                        "<t t-name='kanban-box'>" +
+                            "<div class='o_kanban_record'>" +
+                                '<div class="o_dropdown_kanban dropdown">' +
+                                    '<a>' +
+                                        '<span class="fa fa-ellipsis-v"/>' +
+                                    '</a>' +
+                                    '<div class="dropdown-menu" role="menu">' +
+                                    "</div>" +
+                                "</div>" +
+                            "</div>" +
+                        "</t>" +
+                    "</templates>" +
+                "</kanban>";
+        var vem = await studioTestUtils.createViewEditorManager({
+            model: 'partner',
+            arch: arch,
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.deepEqual(args.operations[0], {field: 'displayed_image_id', type: 'kanban_set_cover'},
+                        "Proper field name and operation type should be passed");
+                    return getCurrentMockServer()._mockReturnView(arch, "partner");
+                }
+            },
+        });
+
+
+        await testUtils.dom.click(vem.$(".o_kanban_record .o_dropdown_kanban"));
+        assert.hasAttrValue(vem.$('.o_web_studio_sidebar input[name="set_cover"]'), 'checked', undefined,
+            "Option to set cover should not be enabled");
+        await testUtils.dom.click(vem.$('.o_web_studio_sidebar input[name="set_cover"]'));
+
+        assert.strictEqual($('.modal .modal-body select option[value="displayed_image_id"]').length, 1,
+            "there should be option having compatible field (displayed_image_id) Field selection drop-down ");
+        // Select the field for cover image
+        $('.modal .modal-body select option[value="displayed_image_id"]').prop('selected', true);
+        // Click the confirm button
+        await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
+
+    });
+
+    QUnit.test("drag and drop a new field", async (assert) => {
+        const newArch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <field name='display_name'/>
+                            <field name='char_field' display="full" />
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card'>
+                                <field name='display_name'/>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>`,
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.step("edit_view");
+                    assert.deepEqual(args.operations[0], {
+                        "node": {
+                            "attrs": {
+                                "display": "full",
+                                "name": "char_field"
+                            },
+                            "tag": "field"
+                        },
+                        "position": "after",
+                        "target": {
+                            "attrs": {
+                                "name": "display_name"
+                            },
+                            "tag": "field",
+                            "xpath_info": [
+                                {
+                                    "indice": 1,
+                                    "tag": "kanban"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "templates"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "t"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "div"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "field"
+                                }
+                            ]
+                        },
+                        "type": "add"
+                    })
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
+                }
+            },
+        });
+        await click(target, ".o_web_studio_sidebar .o_web_studio_sidebar_header [name='new']");
+
+        await testUtils.dom.dragAndDrop(
+            $(target.querySelector(".o_web_studio_sidebar_content .o_web_studio_component")),
+            $(target.querySelector(".o_web_studio_kanban_view_editor .o_web_studio_hook"))
+        );
+        assert.verifySteps(["edit_view"])
+    });
+
+    QUnit.test("placeholder for set but empty avatar", async (assert) => {
+        serverData.models["coucou"].fields.avatar = { type: "binary", string: "A vatar" }
+        serverData.models["coucou"].records = [{
+            id: 1,
+            avatar: false,
+        }];
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <field name="avatar" invisible="1"/>
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card'>
+                               <t name="user_avatar" t-if="record.avatar.raw_value">
+                                    <img t-att-src="kanban_image('coucou', 'avatar', record.avatar.raw_value)" class="oe_kanban_avatar" alt="Avatar"/>
+                                </t>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>`,
+        });
+        assert.containsNone(target, "img.oe_kanban_avatar");
+        assert.containsOnce(target, "span.oe_kanban_avatar");
+    });
+
+    QUnit.test("add tags with no many2many field", async (assert) => {
+        const coucouFieldsFiltered = Object.entries(serverData.models["coucou"].fields)
+            .filter(([fname, field]) => !field.type === "many2many");
+        serverData.models["coucou"].fields = Object.fromEntries(coucouFieldsFiltered);
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card' />
+                        </t>
+                    </templates>
+                </kanban>`,
+        });
+        await click(target, ".o_web_studio_add_kanban_tags")
+        assert.containsOnce(target, ".modal");
+        assert.strictEqual(target.querySelector(".modal-body").textContent, "You first need to create a many2many field in the form view.");
+    });
+
+    QUnit.test("add tags", async (assert) => {
+        serverData.models["coucou"].fields.m2m = { type: "many2many", string: "many 2 many", relation: "res.partner"};
+        const newArch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                             <field name="m2m"/>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card' />
+                        </t>
+                    </templates>
+                </kanban>`,
+
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.step("edit_view");
+                    assert.deepEqual(args.operations[0], {
+                        "node": {
+                            "attrs": {
+                            "name": "m2m"
+                            },
+                            "tag": "field"
+                        },
+                        "position": "inside",
+                        "target": {
+                            "attrs": {},
+                            "xpath_info": [
+                                {
+                                    "indice": 1,
+                                    "tag": "kanban"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "templates"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "t"
+                                }, {
+                                    "indice": 1,
+                                    "tag": "div"
+                                }
+                            ]
+                        },
+                        "type": "add"
+                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
+                }
+            }
+        });
+        await click(target, ".o_web_studio_add_kanban_tags");
+        await click(target.querySelector(".modal .modal-footer .btn-primary"));
+        assert.verifySteps(["edit_view"]);
+        assert.containsNone(target,".o_web_studio_add_kanban_tags");
+    });
+
+    QUnit.test("add dropdown", async (assert) => {
+        const newArch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <div class="o_dropdown_kanban dropdown" name="kanban_dropdown">
+                              <a class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu" role="button">
+                                <span class="fa fa-ellipsis-v"/>
+                              </a>
+                              <div class="dropdown-menu" role="menu" name="studio_div_e269b5">
+                                <t t-if="widget.editable">
+                                  <a type="edit" class="dropdown-item">Edit</a>
+                                </t>
+                                <t t-if="widget.deletable">
+                                  <a type="delete" class="dropdown-item">Delete</a>
+                                </t>
+                                <ul class="oe_kanban_colorpicker" data-field="x_color"/>
+                              </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: 'coucou',
+            arch: `<kanban>
+                    <templates>
+                        <t t-name='kanban-box'>
+                            <div class='oe_kanban_card' />
+                        </t>
+                    </templates>
+                </kanban>`,
+
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.step("edit_view");
+                    assert.deepEqual(args.operations[0], {
+                         "type": "kanban_dropdown"
+                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
+                }
+            }
+        });
+        await click(target, ".o_web_studio_add_dropdown");
+        await click(target.querySelector(".modal .modal-footer .btn-primary"));
+        assert.verifySteps(["edit_view"]);
+        assert.containsNone(target, ".o_web_studio_add_dropdown");
+    });
+
+    QUnit.test("toggle bold attribute", async (assert) => {
+        const newArch = `
+            <kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <field name='display_name' bold="True"/>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`;
+
+        await studioTestUtils.createViewEditorManager({
+            serverData,
+            model: "coucou",
+            arch: `<kanban>
+                <templates>
+                    <t t-name='kanban-box'>
+                        <div class='oe_kanban_card'>
+                            <field name='display_name'/>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`,
+            mockRPC: function (route, args) {
+                if (route === "/web_studio/edit_view") {
+                    assert.step("edit_view");
+                    assert.deepEqual(args.operations[0], {
+                        type: "attributes",
+                        target: {
+                            tag: "field",
+                            attrs: { name: "display_name" },
+                            xpath_info: [
+                                { tag: "kanban", indice: 1 },
+                                { tag: "templates", indice: 1 },
+                                { tag: "t", indice: 1 },
+                                { tag: "div", indice: 1 },
+                                { tag: "field", indice: 1 },
+                            ],
+                        },
+                        position: "attributes",
+                        node: {
+                            tag: "field",
+                            attrs: { name: "display_name", modifiers: {} },
+                        },
+                        new_attrs: { bold: "True" },
+                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
+                }
+            },
+        });
+
+        assert.containsNone(target, ".o_text_bold[data-field-name=display_name]");
+        await click(target, "[data-field-name=display_name]");
+        assert.containsOnce(target, ".o_web_studio_properties.active");
+        assert.hasAttrValue(
+            target.querySelector(".o_web_studio_sidebar input#bold"),
+            "checked",
+            undefined,
+            "show invisible checkbox is not checked"
+        );
+
+        await click(target, ".o_web_studio_sidebar input#bold");
+        assert.verifySteps(["edit_view"]);
+        assert.containsOnce(target, ".o_text_bold[data-field-name=display_name]");
+        await click(target, "[data-field-name=display_name]");
+        assert.containsOnce(target, ".o_web_studio_properties.active");
+        assert.hasAttrValue(
+            target.querySelector(".o_web_studio_sidebar input#bold"),
+            "checked",
+            "checked",
+            "show invisible checkbox is checked"
+        );
+    });
+
+    QUnit.test("disallow using activeFields for the kanban priority", async function (assert) {
+        assert.expect(2);
+
+        this.data.coucou.fields.another_selection = {
+            string: "Another selection",
+            type: "selection",
+            manual: true,
+            selection: [['1', "Low"], ['2', "Medium"], ['3', "High"]],
+        };
+
+        const vem = await studioTestUtils.createViewEditorManager({
+            data: this.data,
+            model: 'coucou',
+            arch: `
+                <kanban>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="o_kanban_record">
+                                <field name="display_name"/>
+                                <field name="another_selection"/>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>`,
+        });
+
+        await testUtils.dom.click(vem.$(".o_web_studio_add_priority"));
+
+        assert.containsOnce(document.body, ".o_web_studio_kanban_helper");
+
+        assert.deepEqual(
+            Array.prototype.map.call(
+                document.querySelectorAll(".o_web_studio_kanban_helper select option"),
+                (e) => e.value
+            ),
+            ["", "priority"]
+        );
+
         vem.destroy();
     });
 
@@ -3382,7 +3842,6 @@ QUnit.module('ViewEditorManager', {
         assert.expect(6);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<search/>",
         });
@@ -3399,7 +3858,42 @@ QUnit.module('ViewEditorManager', {
             "there should be one hook in the group by");
         assert.containsNone(vem, '.o_web_studio_search_view_editor [data-node-id]',
             "there should be no node");
-        vem.destroy();
+    });
+
+    QUnit.test('empty search editor: drag a groupby', async function (assert) {
+        assert.expect(3);
+        this.data.coucou.fields.__last_update.store = true;
+
+        const vem = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `<search/>`,
+            mockRPC: function (route, args) {
+                if (route === '/web_studio/edit_view') {
+                    assert.deepEqual(_.pick(args.operations[0].node.attrs, ["context", "create_group", "string"]),
+                        {
+                            string: "Last Modified on",
+                            context: "{'group_by': '__last_update'}",
+                            create_group: true,
+                        });
+                    return getCurrentMockServer()._mockReturnView(`
+                        <search>
+                            <group name="studio_group_by">
+                                <filter name="studio_group_by_abcdef" string="Last Updated on" context="{'group_by': 'write_date'}" />
+                            </group>
+                        </search>`, "coucou");
+                }
+            },
+        });
+
+        await testUtils.nextTick();
+        await testUtils.dom.dragAndDrop(
+            vem.$('.o_web_studio_existing_fields > .ui-draggable[title="Last Modified on"]'),
+            vem.$('.o_web_studio_search_group_by')
+        );
+        await testUtils.nextTick();
+
+        assert.containsOnce(vem, ".o_web_studio_search_group_by.table [data-node-id]");
+        assert.strictEqual(vem.$(".o_web_studio_search_group_by.table [data-node-id]").text().trim(), "Last Updated on");
     });
 
     QUnit.test('search editor', async function (assert) {
@@ -3422,34 +3916,21 @@ QUnit.module('ViewEditorManager', {
                     "domain='[]' context=\"{'group_by':'display_name'}\"/>" +
                 "</group>" +
             "</search>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.deepEqual(args.operations[0].node.attrs, {name: 'display_name'},
                         "we should only specify the name (in attrs) when adding a field");
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            search: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         // try to add a field in the autocompletion section
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_existing_fields > .ui-draggable:first'), $('.o_web_studio_search_autocompletion_fields .o_web_studio_hook:first'));
+        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_existing_fields > .ui-draggable[title="Display Name"]'), $('.o_web_studio_search_autocompletion_fields .o_web_studio_hook:first'));
 
         assert.strictEqual(vem.view_type, 'search',
             "view type should be search");
@@ -3483,7 +3964,6 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(vem.$('.o_web_studio_sidebar').find('input[name="string"]').val(), "Display Name",
             "the field should have the label Display Name in the sidebar");
 
-        vem.destroy();
     });
 
     QUnit.test('delete a field', async function (assert) {
@@ -3492,15 +3972,11 @@ QUnit.module('ViewEditorManager', {
         var arch = "<search>" +
                 "<field name='display_name'/>" +
             "</search>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
                     assert.deepEqual(args.operations[0], {
                         target: {
                             attrs: {name: 'display_name'},
@@ -3518,20 +3994,11 @@ QUnit.module('ViewEditorManager', {
                         },
                         type: 'remove',
                     });
-                    fieldsView.arch = "<search/>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            search: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView("<search/>", "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsOnce(vem, '[data-node-id]', "there should be one node");
         // edit the autocompletion field
@@ -3541,7 +4008,6 @@ QUnit.module('ViewEditorManager', {
 
         assert.containsNone(vem, '[data-node-id]', "there should be no node anymore");
 
-        vem.destroy();
     });
 
     QUnit.test('indicate that regular stored field(except date/datetime) can not be dropped in "Filters" section', async function (assert) {
@@ -3549,7 +4015,6 @@ QUnit.module('ViewEditorManager', {
 
         this.data.coucou.fields.display_name.store = true;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<search>" +
                 "<field name='display_name'/>" +
@@ -3572,7 +4037,7 @@ QUnit.module('ViewEditorManager', {
 
 
         // try to add a stored char field in the filters section
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_existing_fields > .ui-draggable:first'), $('.o_web_studio_search_filters .o_web_studio_hook:first'), {disableDrop: true});
+        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_existing_fields > .ui-draggable[title="Display Name"]'), $('.o_web_studio_search_filters .o_web_studio_hook:first'), {disableDrop: true});
 
         assert.hasClass(vem.$('.o_web_studio_search_filters'), 'text-muted',
             "filter section should be muted");
@@ -3581,14 +4046,12 @@ QUnit.module('ViewEditorManager', {
         assert.doesNotHaveClass(vem.$('.o_web_studio_search_autocompletion_fields'), 'text-muted',
             "autocompletion_fields section should not be muted");
 
-        vem.destroy();
     });
 
     QUnit.test('indicate that ungroupable field can not be dropped in "Filters" and "Group by" sections', async function (assert) {
         assert.expect(3);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<search>" +
                 "<field name='display_name'/>" +
@@ -3619,13 +4082,11 @@ QUnit.module('ViewEditorManager', {
         assert.doesNotHaveClass(vem.$('.o_web_studio_search_autocompletion_fields'), 'text-muted',
             "autocompletion_fields section should be muted");
 
-        vem.destroy();
     });
 
     QUnit.test('many2many field can be dropped in "Group by" sections', async function (assert) {
         assert.expect(3);
 
-        let fieldsView;
         const arch =
             `<search>
                 <field name='display_name'/>
@@ -3641,7 +4102,6 @@ QUnit.module('ViewEditorManager', {
         this.data.product.fields.m2m.store = true;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'product',
             arch:
                 `<search>
@@ -3658,19 +4118,10 @@ QUnit.module('ViewEditorManager', {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].node.attrs.context, "{'group_by': 'm2m'}",
                         "should date attribute in attrs when adding a date/datetime field");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            search: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "product");
                 }
-                return this._super(...arguments);
             },
         });
-
-        fieldsView = Object.assign({}, vem.fields_view);
 
         assert.containsN(vem, '.o_web_studio_search_sub_item .o_web_studio_search_group_by [data-node-id]', 1,
             'should have 1 group inside groupby dropdown');
@@ -3680,14 +4131,12 @@ QUnit.module('ViewEditorManager', {
         assert.containsN(vem, '.o_web_studio_search_sub_item .o_web_studio_search_group_by [data-node-id]', 2,
             'should have 2 group inside groupby dropdown');
 
-        vem.destroy();
     });
 
     QUnit.test('indicate that separators can not be dropped in "Automcompletion Fields" and "Group by" sections', async function (assert) {
         assert.expect(3);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<search>" +
                 "<field name='display_name'/>" +
@@ -3718,14 +4167,12 @@ QUnit.module('ViewEditorManager', {
         assert.doesNotHaveClass(vem.$('.o_web_studio_search_filters'), 'text-muted',
             "filter section should not be muted");
 
-        vem.destroy();
     });
 
     QUnit.test('indicate that filter can not be dropped in "Automcompletion Fields" and "Group by" sections', async function (assert) {
         assert.expect(3);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<search>" +
                     "<field name='display_name'/>" +
@@ -3756,7 +4203,6 @@ QUnit.module('ViewEditorManager', {
         assert.doesNotHaveClass(vem.$('.o_web_studio_search_filters'), 'text-muted',
             "filter section should not be muted");
 
-        vem.destroy();
     });
 
     QUnit.test('move a date/datetime field in search filter dropdown', async function (assert) {
@@ -3777,12 +4223,10 @@ QUnit.module('ViewEditorManager', {
                     "domain='[(\"display_name\",\"=\",coucou2)]'" +
                 "/>" +
             "</search>";
-        let fieldsView;
         this.data.coucou.fields.priority.store = true;
         this.data.coucou.fields.start.store = true;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<search>" +
                 "<field name='display_name'/>" +
@@ -3799,20 +4243,11 @@ QUnit.module('ViewEditorManager', {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].node.attrs.date, 'start',
                         "should date attribute in attrs when adding a date/datetime field");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            search: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.containsN(vem, '.o_web_studio_search_sub_item .o_web_studio_search_filters.table tbody tr.o_web_studio_hook', 3,
             "there should be three hooks in the filters dropdown");
@@ -3822,48 +4257,42 @@ QUnit.module('ViewEditorManager', {
             'should have two filters inside filters dropdown');
 
         // try to add a date field in the filters section
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_existing_fields .o_web_studio_field_datetime:first'), vem.$('.o_web_studio_search_sub_item .o_web_studio_search_filters .o_web_studio_hook').eq(1));
+        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_existing_fields .o_web_studio_field_datetime[title="Start Date"]'), vem.$('.o_web_studio_search_sub_item .o_web_studio_search_filters .o_web_studio_hook').eq(1));
         assert.containsN(vem, '.o_web_studio_search_sub_item .o_web_studio_search_filters.table tbody tr.o_web_studio_hook', 4,
             "there should be four hooks in the filters dropdown");
         assert.containsN(vem, '.o_web_studio_search_sub_item .o_web_studio_search_filters [data-node-id]', 3,
             'should have three filters inside filters dropdown');
 
-        vem.destroy();
     });
 
     QUnit.module('Pivot');
 
     QUnit.test('empty pivot editor', async function (assert) {
         assert.expect(3);
-
         this.data.coucou.records = [{
             id: 1,
             display_name: 'coucou',
         }];
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<pivot/>",
         });
 
         assert.strictEqual(vem.view_type, 'pivot',
             "view type should be pivot");
-        assert.containsOnce(vem, '.o_web_studio_view_renderer .o_legacy_pivot',
+        assert.containsOnce(vem, '.o_pivot',
             "there should be a pivot renderer");
-        assert.containsOnce(vem, '.o_web_studio_view_renderer > .o_legacy_pivot > table',
+        assert.containsOnce(vem, '.o_pivot > table',
             "the table should be the direct child of pivot");
 
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar_header [name="view"]'));
-
-        vem.destroy();
     });
 
     QUnit.test('switching column and row groupby fields in pivot editor', async function (assert) {
         const done = assert.async();
         assert.expect(21);
 
-        let fieldsView;
         let editViewCount = 0;
 
         this.data.product.fields.display_name.store = true;
@@ -3878,16 +4307,16 @@ QUnit.module('ViewEditorManager', {
             </pivot>`;
 
         const pivot = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'product',
             arch: arch,
             mockRPC(route, args) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
+                    let newArch = arch;
                     if (editViewCount === 1) {
                         assert.strictEqual(args.operations[0].target.field_names[0], "toughness",
                             "targeted field name should be toughness");
-                        fieldsView.arch = `
+                        newArch = `
                             <pivot>
                                 <field name='m2o' type='col'/>
                                 <field name='coucou_id' type='row'/>
@@ -3896,7 +4325,7 @@ QUnit.module('ViewEditorManager', {
                     } else if (editViewCount === 2) {
                         assert.strictEqual(args.operations[1].target.field_names[0], "display_name",
                             "targeted field name should be display_name");
-                        fieldsView.arch = `
+                        newArch = `
                             <pivot string='Pipeline Analysis' colGroupBys='display_name' rowGroupBys='coucou_id,toughness'>
                                 <field name='display_name' type='col'/>
                                 <field name='coucou_id' type='row'/>
@@ -3905,22 +4334,17 @@ QUnit.module('ViewEditorManager', {
                     } else if (editViewCount === 3) {
                         assert.strictEqual(args.operations[2].target.field_names[0], "m2o",
                             "targeted field name should be m2o");
-                        fieldsView.arch = `
+                        newArch = `
                             <pivot string='Pipeline Analysis' colGroupBys='display_name' rowGroupBys='m2o'>
                                 <field name='display_name' type='col'/>
                                 <field name='m2o' type='row'/>
                             </pivot>`;
                     }
-                    return Promise.resolve({
-                        fields_views: { pivot: fieldsView },
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "product");
                 }
-                return this._super(...arguments);
             },
         });
 
-        fieldsView = JSON.parse(JSON.stringify(pivot.fields_view));
         assert.strictEqual(pivot.view_type, 'pivot', "view type should be pivot");
 
         return concurrency.delay(100).then(async () => {
@@ -3937,9 +4361,9 @@ QUnit.module('ViewEditorManager', {
                 "the first row field should contain correct value");
             assert.strictEqual(pivot.$('select#second_row_groupby option:selected').val(), 'toughness',
                 "the second row field should contain correct value");
-            assert.strictEqual(pivot.$('th').slice(0, 5).text(), "TotaljacquesUndefined",
+            assert.strictEqual(pivot.$('th').slice(0, 5).text(), "TotalNonejacques",
                 "the col headers should be as expected");
-            assert.strictEqual(pivot.$('th').slice(8).text(), "TotalUndefinedUndefined",
+            assert.strictEqual(pivot.$('th').slice(8).text(), "TotalNoneNone",
                 "the row headers should be as expected");
 
             // change the column field value to Display Name
@@ -3952,7 +4376,7 @@ QUnit.module('ViewEditorManager', {
                 "the second row field should contain correct value");
             assert.strictEqual(pivot.$('th').slice(0, 5).text(), "Totalxpadxpod",
                 "the col headers should be as expected");
-            assert.strictEqual(pivot.$('th').slice(8).text(), "TotalUndefinedUndefined",
+            assert.strictEqual(pivot.$('th').slice(8).text(), "TotalNoneNone",
                 "the row headers should be as expected");
 
             // change the Row-First level field value to M2O
@@ -3965,8 +4389,90 @@ QUnit.module('ViewEditorManager', {
                 "the second row field should contain correct value");
             assert.strictEqual(pivot.$('th').slice(0, 5).text(), "Totalxpadxpod",
                 "the col headers should be as expected");
-            assert.strictEqual(pivot.$('th').slice(8).text(), "TotaljacquesUndefined",
+            assert.strictEqual(pivot.$('th').slice(8).text(), "TotalNonejacques",
                 "the row headers should be as expected");
+            done();
+        });
+    });
+
+    QUnit.test('column and row date groupbys in pivot editor', async function (assert) {
+        const done = assert.async();
+        assert.expect(14);
+
+        let editViewCount = 0;
+
+        this.data.coucou.fields.start.store = true;
+        this.data.coucou.fields.stop.store = true;
+        this.data.coucou.fields.m2o.store = true;
+        this.data.coucou.fields.char_field.store = true;
+
+        this.data.coucou.records = [{
+            id: 1,
+            char_field: 'Hi',
+            m2o: 1,
+            start: "2016-05-01",
+            stop: "2016-05-16",
+        }, {
+            id: 2,
+            char_field: 'Hello',
+            m2o: 2,
+            start: "2022-09-01",
+            stop: "2022-09-16",
+        }];
+
+        const arch = `
+            <pivot>
+                <field name="start" interval="day" type="row"/>
+                <field name="stop" interval="year" type="col"/>
+            </pivot>
+        `;
+
+        const pivot = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch,
+            mockRPC(route, args) {
+                if (route === '/web_studio/edit_view') {
+                    editViewCount++;
+                    let newArch = arch;
+                    if (editViewCount === 1) {
+                        assert.strictEqual(args.operations[0].target.field_names[0], "m2o");
+                        newArch = `
+                            <pivot>
+                                <field name='m2o' type='row'/>
+                                <field name='stop' type='col'/>
+                            </pivot>`;
+                    } else if (editViewCount === 2) {
+                        assert.strictEqual(args.operations[1].target.field_names[0], "char_field");
+                        newArch = `
+                            <pivot>
+                                <field name='m2o' type='row'/>
+                                <field name='char_field' type='col'/>
+                            </pivot>`;
+                    }
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
+                }
+            },
+        });
+
+        return concurrency.delay(100).then(async () => {
+            assert.strictEqual(pivot.$('select#first_row_groupby option:selected').val(), 'start');
+            assert.strictEqual(pivot.$('select#column_groupby option:selected').val(), 'stop');
+
+            // change the Row-First level field value to M2O
+            await testUtils.fields.editSelect(pivot.$('select#first_row_groupby'), 'm2o');
+            assert.strictEqual(pivot.$('select#first_row_groupby option:selected').val(), 'm2o');
+            assert.strictEqual(pivot.$('select#second_row_groupby option:selected').val(), '');
+            assert.strictEqual(pivot.$('select#column_groupby option:selected').val(), 'stop');
+            assert.strictEqual(pivot.$('th').slice(8).text(), "Totalxpadxpod");
+            assert.strictEqual(pivot.$('th').slice(0, 5).text(), "TotalMay 2016September 2022");
+
+            // change the column field value to A char
+            await testUtils.fields.editSelect(pivot.$('select#column_groupby'), 'char_field');
+            assert.strictEqual(pivot.$('select#first_row_groupby option:selected').val(), 'm2o');
+            assert.strictEqual(pivot.$('select#second_row_groupby option:selected').val(), '');
+            assert.strictEqual(pivot.$('select#column_groupby option:selected').val(), 'char_field');
+            assert.strictEqual(pivot.$('th').slice(8).text(), "Totalxpadxpod");
+            assert.strictEqual(pivot.$('th').slice(0, 5).text(), "TotalHelloHi");
 
             pivot.destroy();
             done();
@@ -3985,7 +4491,6 @@ QUnit.module('ViewEditorManager', {
         }];
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<graph/>",
         });
@@ -3993,10 +4498,9 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(vem.view_type, 'graph',
             "view type should be graph");
         return concurrency.delay(0).then(function () {
-            assert.containsOnce(vem, '.o_web_studio_view_renderer .o_legacy_graph_renderer');
-            assert.containsOnce(vem, '.o_web_studio_view_renderer .o_legacy_graph_renderer .o_graph_canvas_container canvas',
+            assert.containsOnce(vem, '.o_web_studio_view_renderer .o_graph_renderer');
+            assert.containsOnce(vem, '.o_web_studio_view_renderer .o_graph_renderer .o_graph_canvas_container canvas',
                 "the graph should be a child of its container");
-            vem.destroy();
             done();
         });
     });
@@ -4005,7 +4509,6 @@ QUnit.module('ViewEditorManager', {
         let done = assert.async();
         assert.expect(7);
 
-        let fieldsView;
         let editViewCount = 0;
 
         this.data.coucou.records = [{
@@ -4023,36 +4526,30 @@ QUnit.module('ViewEditorManager', {
             </graph>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
+                    let newArch = arch;
                     if (editViewCount === 1) {
-                        fieldsView.arch = `
+                        newArch = `
                             <graph string='Opportunities' type='line'>
                                 <field name='display_name' type='col'/>
                                 <field name='char_field' type='row'/>
                             </graph>`;
                     } else if (editViewCount === 2) {
-                        fieldsView.arch = `
+                        newArch = `
                             <graph string='Opportunities' type='pie'>
                                 <field name='display_name' type='col'/>
                                 <field name='char_field' type='row'/>
                             </graph>`;
                     }
-                    return Promise.resolve({
-                        fields_views: { graph: fieldsView },
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super(...arguments);
             },
         });
 
-        // Used to generate the new fields view in mockRPC
-        fieldsView = Object.assign({}, vem.fields_view);
         assert.containsN(vem, '.o_web_studio_sidebar_select [name="type"] option', 3, 'Default type contain 3 option');
 
         return concurrency.delay(100).then(async () => {
@@ -4062,17 +4559,92 @@ QUnit.module('ViewEditorManager', {
 
             // change the type field value to line chart
             await testUtils.fields.editSelect(vem.$('select#type'), 'line');
-            assert.strictEqual(vem.view.loadParams.mode, 'line',
+            assert.strictEqual(vem.view.controllerProps.modelParams.mode, 'line',
                 "the default type field should contain line chart");
             assert.isNotVisible(vem.el.querySelector('#stacked'), "the stacked graph checkbox should not be visible in line chart");
 
             // change the type field value to pie chart
             await testUtils.fields.editSelect(vem.$('select#type'), 'pie');
-            assert.strictEqual(vem.view.loadParams.mode, 'pie',
+            assert.strictEqual(vem.view.controllerProps.modelParams.mode, 'pie',
                 "the default type field should contain pie chart");
             assert.isNotVisible(vem.el.querySelector('#stacked'), "the stacked graph checkbox should not be visible in pie chart");
 
-            vem.destroy();
+            done();
+        });
+    });
+
+    QUnit.test('date groupbys in graph editor', async function (assert) {
+        const done = assert.async();
+        assert.expect(8);
+
+        let editViewCount = 0;
+
+        this.data.coucou.fields.start.store = true;
+        this.data.coucou.fields.stop.store = true;
+        this.data.coucou.fields.m2o.store = true;
+        this.data.coucou.fields.char_field.store = true;
+
+        this.data.coucou.records = [{
+            id: 1,
+            char_field: 'Hi',
+            m2o: 1,
+            start: "2016-05-01",
+            stop: "2016-05-16",
+        }, {
+            id: 2,
+            char_field: 'Hello',
+            m2o: 2,
+            start: "2022-09-01",
+            stop: "2022-09-16",
+        }];
+
+        const arch = `
+            <graph>
+                <field name="start" interval="day"/>
+                <field name="stop" interval="year"/>
+            </graph>
+        `;
+
+        const graph = await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch,
+            mockRPC(route, args) {
+                if (route === '/web_studio/edit_view') {
+                    editViewCount++;
+                    let newArch = arch;
+                    if (editViewCount === 1) {
+                        assert.strictEqual(args.operations[0].target.field_names[0], "m2o");
+                        newArch = `
+                            <graph>
+                                <field name="m2o"/>
+                                <field name="stop" interval="year"/>
+                            </graph>`;
+                    } else if (editViewCount === 2) {
+                        assert.strictEqual(args.operations[1].target.field_names[0], "char_field");
+                        newArch = `
+                            <graph>
+                                <field name="m2o"/>
+                                <field name="char_field"/>
+                            </graph>`;
+                    }
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
+                }
+            },
+        });
+
+        return concurrency.delay(100).then(async () => {
+            assert.strictEqual(graph.$('select#first_groupby option:selected').val(), 'start');
+            assert.strictEqual(graph.$('select#second_groupby option:selected').val(), 'stop');
+
+            await testUtils.fields.editSelect(graph.$('select#first_groupby'), 'm2o');
+            assert.strictEqual(graph.$('select#first_groupby option:selected').val(), 'm2o');
+            assert.strictEqual(graph.$('select#second_groupby option:selected').val(), 'stop');
+
+            await testUtils.fields.editSelect(graph.$('select#second_groupby'), 'char_field');
+            assert.strictEqual(graph.$('select#first_groupby option:selected').val(), 'm2o');
+            assert.strictEqual(graph.$('select#second_groupby option:selected').val(), 'char_field');
+
+            graph.destroy();
             done();
         });
     });
@@ -4084,27 +4656,18 @@ QUnit.module('ViewEditorManager', {
 
         this.data.coucou.records = [];
 
+        const arch = "<gantt date_start='start' date_stop='stop'/>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
-            arch: "<gantt date_start='start' date_stop='stop'/>",
+            arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].new_attrs.precision, '{"day":"hour:quarter"}',
                         "should correctly set the precision");
-                        return Promise.resolve({
-                            fields: fieldsView.fields,
-                            fields_views: {
-                                gantt: fieldsView,
-                            }
-                        });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         assert.strictEqual(vem.view_type, 'gantt',
             "view type should be gantt");
@@ -4116,53 +4679,48 @@ QUnit.module('ViewEditorManager', {
         vem.$('.o_web_studio_sidebar_content.o_display_view select[name="precision_day"] option[value="hour:quarter"]').prop('selected', true).trigger('change');
         await testUtils.nextTick();
 
-        vem.destroy();
     });
 
     QUnit.module('Map');
 
     QUnit.test('marker popup fields in editor sidebar', async function (assert) {
+        // WOWL TODO
         assert.expect(12);
+        let mapRenderer = null;
+        patchWithCleanup(MapRenderer.prototype, {
+            setup() {
+                mapRenderer = this;
+                this._super(...arguments);
+            },
+        });
 
-        const partner = this.data['res.partner'].records.find(partner => partner.id === 11);
-        Object.assign(partner, {
+        const partnerIds = pyEnv['res.partner'].search([['display_name', '=', 'Dustin']]);
+        pyEnv['res.partner'].write(partnerIds, {
             display_name: 'Magan',
             partner_latitude: 10.0,
             partner_longitude: 10.5,
         });
-
-        let fieldsView;
+        const irModelFieldsIds = pyEnv['ir.model.fields'].search([['name', 'in', ['name', 'description']]]);
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'tasks',
-            arch: "<map res_partner='partner_id' routing='true' studio_map_field_ids='[3, 4]' hide_name='true' hide_address='true'>" +
+            model: 'mail.activity',
+            arch: `<map res_partner='request_partner_id' routing='true' studio_map_field_ids='[${irModelFieldsIds[0]},${irModelFieldsIds[1]}]' hide_name='true' hide_address='true'>` +
                     "<field name='name' string='Name'/>" +
-                    "<field name='description' string='Description'/>" +
+                    "<field name='summary' string='Description'/>" +
                 "</map>",
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.deepEqual(args.operations[0], {
                         type: 'map_popup_fields',
-                        target: {field_ids: [3], operation_type: 'remove'},
+                        target: {field_ids: [irModelFieldsIds[0]], operation_type: 'remove'},
                     });
-                    fieldsView.arch = "<map res_partner='partner_id' routing='true' studio_map_field_ids='[4]' hide_name='true' hide_address='true'>" +
-                        "<field name='description' string='Description'/>" +
+                    const newArch = `<map res_partner='request_partner_id' routing='true' studio_map_field_ids='[${irModelFieldsIds[1]}]' hide_name='true' hide_address='true'>` +
+                        "<field name='summary' string='Description'/>" +
                     "</map>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            map: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "mail.activity");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // Used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
-
-        // Marker popup field in sidebar
         assert.containsOnce(vem, '.o_web_studio_sidebar .o_map_popup_fields',
             'Should have marker popup fields');
         assert.containsN(vem, '.o_web_studio_sidebar .o_map_popup_fields .badge', 2,
@@ -4171,21 +4729,21 @@ QUnit.module('ViewEditorManager', {
         // Map rendered correctly
         assert.strictEqual(vem.view_type, 'map',
             'view type should be map');
-        assert.strictEqual(vem.editor.props.records.length, 1,
+        assert.strictEqual(mapRenderer.props.model.data.records.length, 1,
             'There should be one records');
-        assert.containsOnce(vem.editor, 'div.leaflet-marker-icon',
+        assert.containsOnce(vem.editor.el, 'div.leaflet-marker-icon',
             'There should be one marker on the map');
 
         // Marker popup have correct field
         await testUtils.dom.click($(vem.editor.el).find('div.leaflet-marker-icon'));
 
-        assert.strictEqual($(vem.editor.el).find('.o_map_popup_table tbody tr:first .contentName').text().trim(),
+        assert.strictEqual($(vem.editor.el).find('.o-map-renderer--popup-table tbody tr:first .o-map-renderer--popup-table-content-name').text().trim(),
             'Name', 'Marker popup have should have a name field');
-        assert.strictEqual($(vem.editor.el).find('.o_map_popup_table tbody tr:first .contentString').text().trim(),
+        assert.strictEqual($(vem.editor.el).find('.o-map-renderer--popup-table tbody tr:first .o-map-renderer--popup-table-content-value').text().trim(),
             'Chhagan', 'Marker popup have should have a name Chhagan');
-        assert.strictEqual($(vem.editor.el).find('.o_map_popup_table tbody tr:last .contentName').text().trim(),
+        assert.strictEqual($(vem.editor.el).find('.o-map-renderer--popup-table tbody tr:last .o-map-renderer--popup-table-content-name').text().trim(),
             'Description', 'Marker popup have should have a Description field');
-        assert.strictEqual($(vem.editor.el).find('.o_map_popup_table tbody tr:last .contentString').text().trim(),
+        assert.strictEqual($(vem.editor.el).find('.o-map-renderer--popup-table tbody tr:last .o-map-renderer--popup-table-content-value').text().trim(),
             'shaktiman', 'Marker popup have should have a description shaktiman');
 
         // Remove field and check marker popup fields
@@ -4194,10 +4752,8 @@ QUnit.module('ViewEditorManager', {
             'Should have only one selected fields in marker popup fields');
 
         await testUtils.dom.click($(vem.editor.el).find('div.leaflet-marker-icon'));
-        assert.containsOnce(vem.editor, '.o_map_popup_table tbody tr',
+        assert.containsOnce(vem.editor.el, '.o-map-renderer--popup-table tbody tr',
             'Marker popup have should have only Description field');
-
-        vem.destroy();
     });
 
     QUnit.module('Others');
@@ -4205,24 +4761,13 @@ QUnit.module('ViewEditorManager', {
     QUnit.test('error during tree rendering: undo', async function (assert) {
         assert.expect(4);
 
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='id'/></tree>",
             mockRPC: function (route) {
                 if (route === '/web_studio/edit_view') {
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = "<tree><field name='id'/></tree>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView("<tree><field name='id'/></tree>", "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
@@ -4231,37 +4776,30 @@ QUnit.module('ViewEditorManager', {
                 "should have raised an error");
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
-
-        // make the rendering crashes only the first time (the operation will
-        // be undone and we will re-render with the old arch the second time)
-        var oldRenderView = ListRenderer.prototype._renderView;
-        var firstExecution = true;
-        ListRenderer.prototype._renderView = function () {
-            if (firstExecution) {
-                firstExecution = false;
-                throw "Error during rendering";
-            } else {
-                return oldRenderView.apply(this, arguments);
+        let isFirstExecution = true;
+        patchWithCleanup(ListRenderer.prototype, {
+            setup() {
+                this._super();
+                owl.onWillRender(() => {
+                    if (isFirstExecution) {
+                        isFirstExecution = false;
+                        throw new Error("Error during rendering");
+                    }
+                })
             }
-        };
+        })
 
         // delete a field to generate a view edition
-        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-studio-xpath]'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar .o_web_studio_remove'));
         await testUtils.dom.click($('.modal .btn-primary'));
 
         assert.strictEqual($('.o_web_studio_view_renderer').length, 1,
             "there should only be one renderer");
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "the view should be back as normal with 1 field");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_view',
             "the sidebar should have reset to its default mode");
-
-        ListRenderer.prototype._renderView = oldRenderView;
-
-        vem.destroy();
     });
 
     QUnit.test('error in view edition: undo', async function (assert) {
@@ -4269,7 +4807,6 @@ QUnit.module('ViewEditorManager', {
 
         var firstExecution = true;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='id'/></tree>",
             mockRPC: function (route) {
@@ -4277,45 +4814,32 @@ QUnit.module('ViewEditorManager', {
                     if (firstExecution) {
                         firstExecution = false;
                         // simulate a failed route
-                        return Promise.reject();
+                        return false;
                     } else {
-                        // the server sends the arch in string but it's post-processed
-                        // by the ViewEditorManager
-                        fieldsView.arch = "<tree><field name='id'/></tree>";
-                        return Promise.resolve({
-                            fields: fieldsView.fields,
-                            fields_views: {
-                                list: fieldsView,
-                            }
-                        });
+                        return getCurrentMockServer()._mockReturnView("<tree><field name='id'/></tree>", "coucou");
                     }
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         testUtils.mock.intercept(vem, 'studio_error', function (event) {
             assert.strictEqual(event.data.error, 'wrong_xpath',
                 "should have raised an error");
         });
 
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be one field in the view");
 
         // delete a field to generate a view edition
-        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-studio-xpath]'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar .o_web_studio_remove'));
         await testUtils.dom.click($('.modal-dialog .btn-primary'));
 
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "the view should be back as normal with 1 field");
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_view',
             "the sidebar should have reset to its default mode");
 
-        vem.destroy();
     });
 
     QUnit.test('add a monetary field without currency_id', async function (assert) {
@@ -4327,7 +4851,6 @@ QUnit.module('ViewEditorManager', {
         };
         var arch = "<tree><field name='display_name'/></tree>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4339,19 +4862,11 @@ QUnit.module('ViewEditorManager', {
                         relation: 'res.currency',
                         type: 'many2one',
                     });
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
+
         var currencyCreationText = "In order to use a monetary field, you need a currency field on the model. " +
             "Do you want to create a currency field first? You can make this field invisible afterwards.";
 
@@ -4371,7 +4886,6 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual($('.modal-body:eq(1)').text(), currencyCreationText, "this should trigger an alert");
         await testUtils.dom.click($('.modal-footer:eq(1) .btn:contains(Ok)'));
 
-        vem.destroy();
     });
 
     QUnit.test('add a monetary field with currency_id', async function (assert) {
@@ -4389,35 +4903,22 @@ QUnit.module('ViewEditorManager', {
         };
 
         var arch = "<tree><field name='display_name'/></tree>";
-        var fieldsView;
         var nbEdit = 0;
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route) {
                 if (route === '/web_studio/edit_view') {
                     nbEdit++;
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         // add a monetary field
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be one node");
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_monetary'), $('.o_web_studio_hook'));
         assert.strictEqual(nbEdit, 1, "the view should have been updated");
@@ -4433,7 +4934,6 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click($('.modal-footer .btn-primary:first'));
         assert.strictEqual(nbEdit, 2, "the view should have been updated");
 
-        vem.destroy();
     });
 
     QUnit.test('add a related field', async function (assert) {
@@ -4448,13 +4948,13 @@ QUnit.module('ViewEditorManager', {
         this.data.product.fields.m2o.store = true;
 
         var nbEdit = 0;
-        var fieldsView;
+        const arch = "<tree><field name='display_name'/></tree>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
-            arch: "<tree><field name='display_name'/></tree>",
+            arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
+                    let newArch = arch;
                     if (nbEdit === 0) {
                         assert.strictEqual(args.operations[0].node.field_description.related,
                             'm2o.display_name', "related arg should be correct");
@@ -4464,7 +4964,7 @@ QUnit.module('ViewEditorManager', {
                             true, "readonly arg should be correct");
                         assert.strictEqual(args.operations[0].node.field_description.store,
                             false, "store arg should be correct");
-                        fieldsView.arch = "<tree><field name='display_name'/><field name='related_field'/></tree>";
+                        newArch = "<tree><field name='display_name'/><field name='related_field'/></tree>";
                     } else if (nbEdit === 1) {
                         assert.strictEqual(args.operations[1].node.field_description.related,
                             'm2o.m2o', "related arg should be correct");
@@ -4496,22 +4996,14 @@ QUnit.module('ViewEditorManager', {
                             false, "store arg should be correct");
                     }
                     nbEdit++;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
         // listen to 'warning' events bubbling up
         testUtils.mock.intercept(vem, 'warning', assert.step.bind(assert, 'warning'));
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_related'), $('.o_web_studio_hook'));
 
@@ -4562,7 +5054,6 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(nbEdit, 4, "should have edited the view");
         assert.verifySteps([], "should have triggered only one warning");
 
-        vem.destroy();
     });
 
     QUnit.test('add a one2many field', async function (assert) {
@@ -4572,7 +5063,6 @@ QUnit.module('ViewEditorManager', {
                         '<field name="display_name"/>' +
                     '</group></form>';
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4588,21 +5078,10 @@ QUnit.module('ViewEditorManager', {
                 }
                 if (route === '/web_studio/edit_view') {
                     assert.step('edit');
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         // listen to 'warning' events bubbling up
         testUtils.mock.intercept(vem, 'warning', assert.step.bind(assert, 'warning'));
@@ -4622,7 +5101,6 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual($('.modal').length, 0, "the modal should be closed");
         assert.verifySteps(['edit'], "should have created the field");
 
-        vem.destroy();
     });
 
     QUnit.test('add a one2many field without many2one', async function (assert) {
@@ -4632,7 +5110,6 @@ QUnit.module('ViewEditorManager', {
                         '<field name="display_name"/>' +
                     '</group></form>';
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'partner',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4640,7 +5117,6 @@ QUnit.module('ViewEditorManager', {
                     assert.deepEqual(args.args, [[['relation', '=', 'partner'], ['ttype', '=', 'many2one']]],
                         "the domain should be correctly set when checking if the m2o for o2m exists or not");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
@@ -4649,13 +5125,11 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click($('.modal button:contains("Ok")'));
         assert.containsNone($, '.modal', "the modal should be closed");
 
-        vem.destroy();
     });
 
     QUnit.test('add a one2many lines field', async function (assert) {
         assert.expect(1);
 
-        let fieldsView;
         const arch = `
             <form>
                 <group>
@@ -4663,7 +5137,6 @@ QUnit.module('ViewEditorManager', {
                 </group>
             </form>`;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'partner',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4672,24 +5145,13 @@ QUnit.module('ViewEditorManager', {
                 }
                 if (route === '/web_studio/edit_view') {
                     assert.strictEqual(args.operations[0].node.field_description.special, 'lines');
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "partner");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = Object.assign({}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_lines'), $('.o_web_studio_hook'));
 
-        vem.destroy();
     });
 
     QUnit.test('add a many2many field', async function(assert) {
@@ -4699,7 +5161,6 @@ QUnit.module('ViewEditorManager', {
                         '<field name="display_name"/>' +
                     '</group></form>';
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4711,21 +5172,10 @@ QUnit.module('ViewEditorManager', {
                 }
                 if (route === '/web_studio/edit_view') {
                     assert.step('edit');
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         // listen to 'warning' events bubbling up
         testUtils.mock.intercept(vem, 'warning', assert.step.bind(assert, 'warning'));
@@ -4745,7 +5195,6 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual($('.modal').length, 0, "the modal should be closed");
         assert.verifySteps(['edit'], "should have created the field");
 
-        vem.destroy();
     });
 
     QUnit.test('add a many2one field', async function (assert) {
@@ -4755,7 +5204,6 @@ QUnit.module('ViewEditorManager', {
                         '<field name="display_name"/>' +
                     '</group></form>';
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4767,21 +5215,10 @@ QUnit.module('ViewEditorManager', {
                 }
                 if (route === '/web_studio/edit_view') {
                     assert.step('edit');
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
 
         // listen to 'warning' events bubbling up
         testUtils.mock.intercept(vem, 'warning', assert.step.bind(assert, 'warning'));
@@ -4801,15 +5238,12 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual($('.modal').length, 0, "the modal should be closed");
         assert.verifySteps(['edit'], "should have created the field");
 
-        vem.destroy();
     });
 
     QUnit.test('switch mode after element removal', async function (assert) {
         assert.expect(5);
 
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='id'/><field name='display_name'/></tree>",
             mockRPC: function (route) {
@@ -4817,25 +5251,17 @@ QUnit.module('ViewEditorManager', {
                     // the server sends the arch in string but it's post-processed
                     // by the ViewEditorManager
                     assert.ok(true, "should edit the view to delete the field");
-                    fieldsView.arch = "<tree><field name='display_name'/></tree>";
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    const newArch = "<tree><field name='display_name'/></tree>";
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        assert.containsN(vem, '.o_web_studio_list_view_editor [data-node-id]', 2,
+        assert.containsN(vem, '.o_web_studio_list_view_editor [data-studio-xpath]', 2,
             "there should be two nodes");
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
-        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-node-id]:first'));
+        await testUtils.dom.click(vem.$('.o_web_studio_list_view_editor [data-studio-xpath]:first'));
 
         assert.containsOnce(vem, '.o_web_studio_sidebar_content.o_display_field',
             "the sidebar should display the field properties");
@@ -4844,12 +5270,11 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar .o_web_studio_remove'));
         await testUtils.dom.click($('.modal .btn-primary'));
 
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be one node");
         assert.containsNone(vem, '.o_web_studio_sidebar_content.o_display_field',
             "the sidebar should have switched mode");
 
-        vem.destroy();
     });
 
     QUnit.test('open XML editor in read-only', async function (assert) {
@@ -4873,7 +5298,6 @@ QUnit.module('ViewEditorManager', {
 
         var arch = "<form><sheet><field name='display_name'/></sheet></form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -4890,7 +5314,6 @@ QUnit.module('ViewEditorManager', {
                         js: [],
                     });
                 }
-                return this._super.apply(this, arguments);
             },
             viewID: 1,
         });
@@ -4914,7 +5337,6 @@ QUnit.module('ViewEditorManager', {
             odoo.debug = initialDebugMode;
             testUtils.mock.unpatch(ace);
 
-            vem.destroy();
             done();
         });
     });
@@ -4940,29 +5362,13 @@ QUnit.module('ViewEditorManager', {
 
         var arch = "<form><sheet><field name='display_name'/></sheet></form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                        studio_view_id: 42,
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 } else if (route === '/web_studio/edit_view_arch') {
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 } else if (route === '/web_editor/get_assets_editor_resources') {
                     assert.strictEqual(args.key, 1, "the correct view should be fetched");
                     return Promise.resolve({
@@ -4983,14 +5389,10 @@ QUnit.module('ViewEditorManager', {
                         js: [],
                     });
                 }
-                return this._super.apply(this, arguments);
             },
             viewID: 1,
             studioViewID: 42,
         });
-
-        // used to generate the new fields view in mockRPC
-        var fieldsView = $.extend(true, {}, vem.fields_view);
         assert.containsOnce(vem, '.o_web_studio_form_view_editor',
             "the form editor should be displayed");
         // do an operation
@@ -5020,7 +5422,6 @@ QUnit.module('ViewEditorManager', {
             odoo.debug = initialDebugMode;
             testUtils.mock.unpatch(ace);
 
-            vem.destroy();
             done();
         });
     });
@@ -5030,7 +5431,6 @@ QUnit.module('ViewEditorManager', {
 
         var arch = "<form><sheet><field name='display_name'/></sheet></form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
         });
@@ -5048,7 +5448,33 @@ QUnit.module('ViewEditorManager', {
 
         assert.strictEqual($('.modal:visible').length, 1, "should not display the create modal");
 
-        vem.destroy();
+    });
+
+    QUnit.test('new button in buttonbox with first element invisible', async function (assert) {
+        serverData.models["coucou"].records[0] = {
+            display_name: "someName",
+            id: 99,
+        };
+
+        const arch = `
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="someName" class="someClass" type="object"
+                            modifiers="{&quot;invisible&quot;: [[&quot;display_name&quot;, &quot;=&quot;, &quot;someName&quot;]]}" />
+                    </div>
+                    <field name='display_name'/>
+                </sheet>
+            </form>`;
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: arch,
+            res_id: 99,
+            serverData,
+        });
+
+        assert.containsOnce(target, ".oe_button_box .o_web_studio_button_hook");
+        assert.containsNone(target, "button.someClass");
     });
 
     QUnit.test('element removal', async function (assert) {
@@ -5062,9 +5488,7 @@ QUnit.module('ViewEditorManager', {
                 "</group>" +
                 "<notebook><page name='page'><field name='id'/></page></notebook>" +
             "</sheet></form>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -5085,22 +5509,11 @@ QUnit.module('ViewEditorManager', {
                         assert.strictEqual(_.last(args.operations[3].target.xpath_info).tag, 'notebook',
                             'should have the notebook as xpath last element');
                     }
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
         // remove field
         await testUtils.dom.click(vem.$('[name="display_name"]').parent());
@@ -5117,14 +5530,14 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click($('.modal .btn-primary'));
 
         // remove group
-        await testUtils.dom.click(vem.$('.o_group[data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_inner_group.o-web-studio-editor--element-clickable'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar .o_web_studio_remove'));
         assert.strictEqual($('.modal-body:first').text(), "Are you sure you want to remove this group from the view?",
             "should display the correct message");
         await testUtils.dom.click($('.modal .btn-primary'));
 
         // remove page
-        await testUtils.dom.click(vem.$('.o_notebook li[data-node-id]'));
+        await testUtils.dom.click(vem.$('.o_notebook li.o-web-studio-editor--element-clickable'));
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar .o_web_studio_remove'));
         assert.strictEqual($('.modal-body:first').text(), "Are you sure you want to remove this page from the view?",
             "should display the correct message");
@@ -5132,11 +5545,10 @@ QUnit.module('ViewEditorManager', {
 
         assert.strictEqual(editViewCount, 4,
             "should have edit the view 4 times");
-        vem.destroy();
     });
 
     QUnit.test('update sidebar after edition', async function (assert) {
-        assert.expect(4);
+        assert.expect(5);
 
         var editViewCount = 0;
         var arch = "<form><sheet>" +
@@ -5145,46 +5557,31 @@ QUnit.module('ViewEditorManager', {
                 "</group>" +
                 "<notebook><page><field name='id'/></page></notebook>" +
             "</sheet></form>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
-                    // the server sends the arch in string but it's post-processed
-                    // by the ViewEditorManager
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        testUtils.mock.intercept(vem, 'node_clicked', function (event) {
-            assert.step(event.data.node.tag);
-        }, true);
-
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
-
         // rename field
         await testUtils.dom.click(vem.$('[name="display_name"]').parent());
+
+        assert.containsOnce(vem.el, '.o_wrap_label.o-web-studio-editor--element-clicked[data-field-name=display_name]');
+        assert.strictEqual(vem.el.querySelector(".o_web_studio_sidebar [name=string]").value, "Display Name");
         vem.$('.o_web_studio_sidebar [name="string"]').focus();
         await testUtils.fields.editAndTrigger(vem.$('.o_web_studio_sidebar [name="string"]'), 'test', 'change');
+        assert.containsOnce(vem.el, '.o_wrap_label.o-web-studio-editor--element-clicked[data-field-name=display_name]');
+        // The name stay the same because on the mockRPC we return the same view.
+        assert.strictEqual(vem.el.querySelector(".o_web_studio_sidebar [name=string]").value, "Display Name");
 
         assert.strictEqual(editViewCount, 1,
             "should have edit the view 1 time");
-        assert.verifySteps(['field', 'field'],
-            "should have clicked again on the node after edition to reload the sidebar");
 
-        vem.destroy();
     });
 
     QUnit.test('default value in sidebar', async function (assert) {
@@ -5197,7 +5594,6 @@ QUnit.module('ViewEditorManager', {
                 "</group>" +
             "</sheet></form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -5208,7 +5604,6 @@ QUnit.module('ViewEditorManager', {
                         return Promise.resolve({default_value: '1'});
                     }
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
@@ -5220,21 +5615,18 @@ QUnit.module('ViewEditorManager', {
         assert.strictEqual(vem.$('.o_web_studio_sidebar_content.o_display_field select[data-type="default_value"]').val(), "1",
             "the sidebar should now display the field properties");
 
-        vem.destroy();
     });
 
     QUnit.test('default value for new field name', async function (assert) {
         assert.expect(2);
 
         let editViewCount = 0;
-        let fieldsView;
         const arch = `<form><sheet>
             <group>
             <field name='display_name'/>
             </group>
             </sheet></form>`;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -5248,33 +5640,23 @@ QUnit.module('ViewEditorManager', {
                         assert.ok(args.operations[1].node.field_description.name.startsWith('x_studio_float_field_'),
                             "default new field name should start with x_studio_float_field_*");
                     }
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = Object.assign({}, vem.fields_view);
 
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'), vem.$('.o_group .o_web_studio_hook:first'));
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_float'), vem.$('.o_group .o_web_studio_hook:first'));
+        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'), vem.$('.o_inner_group .o_web_studio_hook:first'));
+        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_float'), vem.$('.o_inner_group .o_web_studio_hook:first'));
 
-        vem.destroy();
     });
 
     QUnit.test('remove starting underscore from new field value', async function (assert) {
         assert.expect(1);
         // renaming is only available in debug mode
-        const initialDebugMode = odoo.debug;
-        odoo.debug = true;
+        patchWithCleanup(odoo, { debug: true });
 
-        let fieldsView;
+        const self = this;
         const arch = `<form><sheet>
             <group>
             <field name="display_name"/>
@@ -5282,40 +5664,29 @@ QUnit.module('ViewEditorManager', {
             </sheet></form>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     const fieldName = args.operations[0].node.field_description.name;
-                    fieldsView.arch = `<form><sheet><group><field name='${fieldName}'/><field name='display_name'/></group></sheet></form>`;
-                    fieldsView.fields[fieldName] = {
+                    const newArch = `<form><sheet><group><field name='${fieldName}'/><field name='display_name'/></group></sheet></form>`;
+                    self.data.coucou.fields[fieldName] = {
                         string: "Hello",
                         type: "char"
                     };
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 } else if (route === '/web_studio/rename_field') {
-                    return Promise.resolve();
+                    // random value returned in order for the mock server to know that this route is implemented.
+                    return true;
                 }
-                return this._super(...arguments);
             },
         });
 
-        fieldsView = Object.assign({}, vem.fields_view);
-
-        await testUtils.dom.dragAndDrop(vem.el.querySelector('.o_web_studio_new_fields .o_web_studio_field_char'), vem.$('.o_group .o_web_studio_hook:first'));
+        await testUtils.dom.dragAndDrop(vem.el.querySelector('.o_web_studio_new_fields .o_web_studio_field_char'), vem.$('.o_inner_group .o_web_studio_hook:first'));
 
         // rename the field
         await testUtils.fields.editAndTrigger(vem.el.querySelector('.o_web_studio_sidebar input[name="name"]'), '__new', ['change']);
         assert.strictEqual(vem.el.querySelector('.input-group input').value, 'new', "value should not contain starting underscore in new field");
-
-        odoo.debug = initialDebugMode;
-        vem.destroy();
     });
 
     QUnit.test('notebook and group not drag and drop in a group', async function (assert) {
@@ -5331,14 +5702,12 @@ QUnit.module('ViewEditorManager', {
                 "</group>" +
             "</sheet></form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route) {
                 if (route === '/web_studio/edit_view') {
                     editViewCount++;
                 }
-                return this._super.apply(this, arguments);
             },
         });
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_field_type_container .o_web_studio_field_tabs'), $('.o_group .o_web_studio_hook'));
@@ -5347,34 +5716,32 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_field_type_container .o_web_studio_field_columns'), $('.o_group .o_web_studio_hook'));
         assert.strictEqual(editViewCount, 0,
             "the group cannot be dropped inside a group");
-        vem.destroy();
     });
 
     QUnit.test('drop monetary field outside of group', async function (assert) {
         assert.expect(1);
 
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<form><sheet/></form>",
         });
 
-        await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_monetary'), $('.o_web_studio_hook'), {disableDrop: true});
+        await testUtils.dom.dragAndDrop(
+            vem.$('.o_web_studio_new_fields .o_web_studio_field_monetary'),
+            $('.o_web_studio_hook'),
+            { disableDrop: true }
+        );
         assert.containsNone(vem, '.o_web_studio_nearest_hook', "There should be no highlighted hook");
-
-        vem.destroy();
     });
 
     QUnit.test('add a selection field in non debug', async function (assert) {
-        assert.expect(8);
+        assert.expect(14);
 
         // inline selection edition is only available in non debug mode
         var initialDebugMode = odoo.debug;
         odoo.debug = false;
-        var fieldsView;
         var arch = "<tree><field name='display_name'/></tree>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -5382,19 +5749,12 @@ QUnit.module('ViewEditorManager', {
                     assert.strictEqual(args.operations[0].node.field_description.selection,
                         "[[\"Value 1\",\"Miramar\"]]",
                         "the selection value should be set correctly");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
+
+        testUtils.mock.intercept(vem, 'warning', assert.step.bind(assert, 'warning'), true);
 
         await testUtils.dom.dragAndDrop(
             vem.$('.o_web_studio_new_fields .o_web_studio_field_selection'),
@@ -5403,6 +5763,17 @@ QUnit.module('ViewEditorManager', {
             "a modal should be opened");
         assert.containsNone($, '.modal .o_web_studio_selection_editor',
             "there should be no selection editor");
+
+        // saving selection with no values should show a warning and not save
+        assert.containsNone($, '.modal .o_web_studio_selection_editor > li',
+            "there should be 0 selection value");
+        assert.verifySteps([]);  // making sure no warning was triggered before clicking on Confirm
+        await testUtils.dom.click($('.modal button:contains("Confirm")'));
+        assert.verifySteps(["warning"]);  // make sure a warning was triggered
+        assert.containsNone($, '.modal .o_web_studio_selection_editor > li',
+            "there should still be 0 selection value")
+        assert.containsOnce($, '.modal .o_web_studio_field_dialog_form',
+            "a modal should still be opened");
 
         // add a new value (with ENTER)
         await testUtils.fields.editAndTrigger($('.modal .o_web_studio_selection_new_value input'),
@@ -5428,19 +5799,16 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click($('.modal button:contains("Confirm")'));
 
         odoo.debug = initialDebugMode;
-        vem.destroy();
     });
 
     QUnit.test('add a selection field in debug', async function (assert) {
-        assert.expect(14);
+        assert.expect(20);
 
         // Dialog to edit selection values is only available in debug mode
         var initialDebugMode = odoo.debug;
         odoo.debug = true;
-        var fieldsView;
         var arch = "<tree><field name='display_name'/></tree>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -5449,24 +5817,28 @@ QUnit.module('ViewEditorManager', {
                         "[[\"Value 2\",\"Value 2\"],[\"Value 1\",\"My Value\"],[\"Sulochan\",\"Sulochan\"]]",
                         "the selection should be set");
                     assert.ok(true, "should have refreshed the view");
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
+
+        testUtils.mock.intercept(vem, 'warning', assert.step.bind(assert, 'warning'), true);
 
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_selection'), $('.o_web_studio_hook:first'));
         assert.strictEqual($('.modal .o_web_studio_field_dialog_form').length, 1, "a modal should be opened");
         assert.strictEqual($('.modal .o_web_studio_selection_editor').length, 0, "there should be no selection editor");
+
+        // saving selection with no values should show a warning and not save
+        assert.containsNone($, '.modal .o_web_studio_selection_editor > li',
+            "there should be 0 selection value");
+        assert.verifySteps([]);  // making sure no warning was triggered before clicking on Confirm
+        await testUtils.dom.click($('.modal button:contains("Confirm")'));
+        assert.verifySteps(["warning"]);  // make sure a warning was triggered
+        assert.containsNone($, '.modal .o_web_studio_selection_editor > li',
+            "there should still be 0 selection value")
+        assert.containsOnce($, '.modal .o_web_studio_field_dialog_form',
+            "a modal should still be opened");
 
         // add a new value (with ENTER)
         $('.modal .o_web_studio_selection_new_value input')
@@ -5513,16 +5885,13 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.click($('.modal button:contains(Confirm)'));
 
         odoo.debug = initialDebugMode;
-        vem.destroy();
     });
 
     QUnit.test('add a selection field with widget priority', async function (assert) {
         assert.expect(5);
 
         var arch = "<tree><field name='display_name'/></tree>";
-        var fieldsView;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route, args) {
@@ -5534,29 +5903,19 @@ QUnit.module('ViewEditorManager', {
                     assert.strictEqual(args.operations[0].node.attrs.widget, "priority",
                         "the widget should be correctly set");
 
-                    fieldsView.arch = arch;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            list: fieldsView,
-                        }
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        // used to generate the new fields view in mockRPC
-        fieldsView = $.extend(true, {}, vem.fields_view);
 
-        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-node-id]',
+        assert.containsOnce(vem, '.o_web_studio_list_view_editor [data-studio-xpath]',
             "there should be one node");
         // add a priority field
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_priority'), $('.o_web_studio_hook'));
 
         assert.strictEqual($('.modal').length, 0, "there should be no modal");
 
-        vem.destroy();
     });
 
     QUnit.test('blockUI not removed just after rename', async function (assert) {
@@ -5574,60 +5933,54 @@ QUnit.module('ViewEditorManager', {
             assert.step('unblock UI');
         };
 
-        var fieldsView;
+        const self = this;
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: "<tree><field name='display_name'/></tree>",
             mockRPC: function(route, args) {
-                if (!['/mail/init_messaging', '/mail/load_message_failures'].includes(route)) {
+                if (!['/mail/init_messaging', '/mail/load_message_failures', '/bus/im_status', ...ROUTES_TO_IGNORE].includes(route)) {
                     assert.step(route);
                 }
                 if (route === '/web_studio/edit_view') {
                     var fieldName = args.operations[0].node.field_description.name;
-                    fieldsView.arch = `<tree><field name='${fieldName}'/><field name='display_name'/></tree>`;
-                    fieldsView.fields[fieldName] = {
+                    const newArch = `<tree><field name='${fieldName}'/><field name='display_name'/></tree>`;
+                    self.data.coucou.fields[fieldName] = {
                         string: "Coucou",
                         type: "char"
                     };
-                    return Promise.resolve({
-                        fields_views: {list: fieldsView},
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 } else if (route === '/web_studio/rename_field') {
-                    return Promise.resolve();
+                    // random value returned in order for the mock server to know that this route is implemented.
+                    return true;
                 }
-                return this._super.apply(this, arguments);
             }
         });
 
-        assert.strictEqual(vem.$('thead th[data-node-id]').length, 1, "there should be one field");
+        assert.strictEqual(vem.$('thead th[data-studio-xpath]').length, 1, "there should be one field");
 
         // create a new field before existing one
-        fieldsView = $.extend(true, {}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'), vem.$('.o_web_studio_hook:first'));
         await testUtils.nextTick();
-        assert.strictEqual(vem.$('thead th[data-node-id]').length, 2, "there should be two fields");
+        assert.strictEqual(vem.$('thead th[data-studio-xpath]').length, 2, "there should be two fields");
 
         // rename the field
         await testUtils.fields.editAndTrigger(vem.$('.o_web_studio_sidebar input[name="name"]'), 'new', ['change']);
 
         assert.verifySteps([
-            '/web/dataset/search_read',
+            "/web/dataset/call_kw/coucou/web_search_read",
             'block UI',
             '/web_studio/edit_view',
-            '/web/dataset/search_read',
+            "/web/dataset/call_kw/coucou/web_search_read",
             'unblock UI',
             '/web_studio/get_default_value',
             'block UI',
             '/web_studio/rename_field',
             '/web_studio/edit_view',
-            '/web/dataset/search_read',
+            "/web/dataset/call_kw/coucou/web_search_read",
             '/web_studio/get_default_value',
             'unblock UI',
         ]);
 
-        vem.destroy();
 
         framework.blockUI = blockUI;
         framework.unblockUI = unblockUI;
@@ -5646,36 +5999,31 @@ QUnit.module('ViewEditorManager', {
             assert.step('unblock UI');
         };
 
-        let fieldsView;
+        const arch = "<tree><field name='display_name'/></tree>";
+        const self = this;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
-            arch: "<tree><field name='display_name'/></tree>",
+            arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.step(route);
                     const fieldName = args.operations[0].node.field_description.name;
-                    fieldsView.arch = `<tree><field name='${fieldName}'/><field name='display_name'/></tree>`;
-                    fieldsView.fields[fieldName] = {
+                    const newArch = `<tree><field name='${fieldName}'/><field name='display_name'/></tree>`;
+                    self.data.coucou.fields[fieldName] = {
                         string: "Coucou",
                         type: "char"
                     };
-                    return Promise.resolve({
-                        fields_views: { list: fieldsView },
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             }
         });
 
-        assert.strictEqual(vem.$('thead th[data-node-id]').length, 1, "there should be one field");
+        assert.strictEqual(vem.$('thead th[data-studio-xpath]').length, 1, "there should be one field");
 
         // create a new field before existing one
-        fieldsView = $.extend(true, {}, vem.fields_view);
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_new_fields .o_web_studio_field_char'), vem.$('.o_web_studio_hook:first'));
         await testUtils.nextTick();
-        assert.strictEqual(vem.$('thead th[data-node-id]').length, 2, "there should be two fields");
+        assert.strictEqual(vem.$('thead th[data-studio-xpath]').length, 2, "there should be two fields");
 
         assert.verifySteps([
             'block UI',
@@ -5683,192 +6031,13 @@ QUnit.module('ViewEditorManager', {
             'unblock UI',
         ]);
 
-        vem.destroy();
 
         framework.blockUI = blockUI;
         framework.unblockUI = unblockUI;
     });
 
-    QUnit.test('Find tag in simple view', async function (assert) {
-        assert.expect(2);
-        const arch = `
-            <form>
-                <field name='display_name'/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        let node = vem.editor.findNode(vem.view.arch, {tag: 'field'});
-        assert.equal(node.tag, 'field', "It shoudl have found the node");
-        node = vem.editor.findNode(vem.view.arch, {tag: 'field', attrs: {class: 'not-in-dom'}});
-        assert.notOk(node, "It should not have found anything")
-        vem.destroy();
-    });
-
-    QUnit.test('Find with other class', async function (assert) {
-        assert.expect(1);
-        const arch = `
-            <form>
-                <field class="my-class other-class" name='display_name'/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        let node = vem.editor.findNode(vem.view.arch, {tag: 'field', class: 'my-class'});
-        assert.equal(node.tag, 'field', "It shoudl have found the node");
-        vem.destroy();
-    });
-
-    QUnit.test('Find tag and attr in simple view', async function (assert) {
-        assert.expect(3);
-        const arch = `
-            <form>
-                <field class='my-class' name='display_name'/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        let node = vem.editor.findNode(vem.view.arch, {tag: 'field', class: 'my-class'});
-        assert.equal(node.tag, 'field', "It should have found the node");
-        assert.equal(node.attrs.class, 'my-class', "It should have found the node");
-        node = vem.editor.findNode(vem.view.arch, {tag: 'field', class: 'other-class'});
-        assert.notOk(node, "It should not have found anything")
-        vem.destroy();
-    });
-
-    QUnit.test('Find first tag', async function (assert) {
-        assert.expect(1);
-        const arch = `
-            <form>
-                <field class='my-class' name='display_name'/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        const node = vem.editor.findNode(vem.view.arch, {tag: 'form'});
-        assert.equal(node.tag, 'form', "It should have found the node");
-        vem.destroy();
-    });
-
-    QUnit.test('Find first neigbours', async function (assert) {
-        assert.expect(2);
-        const arch = `
-            <form>
-                <field name='display_name' class="first"/>
-                <field name='start' class="second"/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        const node = vem.editor.findNode(vem.view.arch, {tag: 'field'});
-        assert.equal(node.tag, 'field', "It should have found the node");
-        assert.equal(node.attrs.class, 'first', "It should have found the first node");
-        vem.destroy();
-    });
-
-    QUnit.test('Find nested node', async function (assert) {
-        assert.expect(2);
-        const arch = `
-            <form>
-                <group>
-                    <group>
-                        <field name='display_name' class="nested"/>
-                    </group>
-                </group>
-                <group>
-                    <field name='start' class="not-nested"/>
-                </group>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        const node = vem.editor.findNode(vem.view.arch, {tag: 'field'});
-        assert.equal(node.tag, 'field', "It should have found the node");
-        assert.equal(node.attrs.class, 'not-nested', "It should have found the first node");
-        vem.destroy();
-    });
-
-    QUnit.test('Find invisble', async function (assert) {
-        assert.expect(2);
-        const arch = `
-            <form>
-                <field name='display_name' invisible="0"/>
-                <field name='start' invisible="1"/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        const node = vem.editor.findNode(vem.view.arch, {tag: 'field', invisible: "1"});
-        assert.equal(node.tag, 'field', "It should have found the node");
-        assert.equal(node.attrs.name, 'start', "It should have found the invisible node");
-        vem.destroy();
-    });
-
-    QUnit.test('Find node with attr only', async function (assert) {
-        assert.expect(1);
-        const arch = `
-            <form>
-                <field name='display_name'/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        const node = vem.editor.findNode(vem.view.arch, {name: 'display_name'});
-        assert.equal(node.tag, 'field', "It should have found the node");
-        vem.destroy();
-    });
-
-    QUnit.test('Find node with multiple attrs', async function (assert) {
-        assert.expect(2);
-        const arch = `
-            <form>
-                <field name='display_name' class="my-class"/>
-            </form>
-        `
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-        let node = vem.editor.findNode(vem.view.arch, {
-            class: "not-my-class",
-            name: 'display_name',
-        });
-        assert.notOk(node, "It should not have matched the node")
-        node = vem.editor.findNode(vem.view.arch, {
-            class: "my-class",
-            name: 'display_name',
-        });
-        assert.equal(node.tag, 'field', "It should have matched the node");
-        vem.destroy();
-    });
-
     QUnit.test("Sidebar should display all field's widgets", async function (assert) {
-        assert.expect(5);
+        assert.expect(10);
 
         const arch = `
             <form><sheet>
@@ -5877,7 +6046,6 @@ QUnit.module('ViewEditorManager', {
                 </group>
             </sheet></form>`;
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
         });
@@ -5889,52 +6057,21 @@ QUnit.module('ViewEditorManager', {
             .options).map(x => x.label);
 
         const charWidgetNames = [
-            "Copy to Clipboard",
-            "Email",
-            "Phone",
-            "Text",
-            "URL"
+            "Badge (badge)",
+            "Copy Text to Clipboard (CopyClipboardChar)",
+            "Copy URL to Clipboard (CopyClipboardURL)",
+            "Email (email)",
+            "Image (image_url)",
+            "Phone (phone)",
+            "Reference (reference)",
+            "Text (char)",
+            "Text (char_emojis)",
+            "URL (url)",
         ];
         for (const name of charWidgetNames) {
             assert.ok(displayedWidgetNames.includes(name));
         }
 
-        vem.destroy();
-    });
-
-    QUnit.test("Sidebar should display component field's widgets", async function (assert) {
-        assert.expect(1);
-
-        class CompField extends AbstractFieldOwl {}
-        CompField.template = owl.tags.xml`<div></div>`;
-        CompField.description = 'Component Field';
-        CompField.supportedFieldTypes = ['char'];
-
-        fieldRegistryOwl.add('comp_field', CompField);
-
-        const arch = `
-            <form><sheet>
-                <group>
-                    <field name="display_name"/>
-                </group>
-            </sheet></form>`;
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-        });
-
-        await testUtils.dom.click(vem.$('.o_field_widget'));
-
-        const displayedWidgetNames = Array
-            .from(document.getElementById('widget')
-            .options).map(x => x.label);
-
-        assert.ok(displayedWidgetNames.includes(CompField.description));
-
-        delete fieldRegistryOwl.map.comp_field;
-
-        vem.destroy();
     });
 
     QUnit.test('click on the "More" Button', async function (assert) {
@@ -5944,9 +6081,10 @@ QUnit.module('ViewEditorManager', {
         patchWithCleanup(odoo, { debug: true });
 
         const action = serverData.actions["studio.coucou_action"];
-        action.views = [[1, "form"]];
+        const irUiViewId1 = pyEnv['ir.ui.view'].create({ model: 'bloups' });
+        action.views = [[irUiViewId1, "form"]];
         action.res_model = "coucou";
-        serverData.views["coucou,1,form"] = /*xml */ `
+        serverData.views[`coucou,${irUiViewId1},form`] = /*xml */ `
             <form>
                 <sheet>
                     <field name='display_name'/>
@@ -5957,27 +6095,123 @@ QUnit.module('ViewEditorManager', {
             </form>`;
         serverData.views["coucou,false,search"] = `<search></search>`;
 
-        Object.assign(serverData.models, {
-            "ir.ui.view": {
-                fields: {
-                    model: { type: "char" },
-                },
-                records: [{  id: 1, model: "bloups" }],
-            },
-        });
-
         serverData.views["ir.ui.view,false,form"] = /*xml */ `<form><field name="model" /></form>`;
         serverData.views["ir.ui.view,false,search"] = /*xml */ `<search />`;
 
-        const webClient = await createEnterpriseWebClient({serverData, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
-        await testUtils.dom.click(webClient.el.querySelector(".o_web_studio_view"));
+        const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
+        await testUtils.dom.click(target.querySelector(".o_web_studio_view"));
 
-        assert.containsOnce(webClient, '.o_web_studio_sidebar .o_web_studio_parameters',
+        assert.containsOnce(target, '.o_web_studio_sidebar .o_web_studio_parameters',
             "there should be the button to go to the ir.ui.view form");
-        await testUtils.dom.click(webClient.el.querySelector('.o_web_studio_sidebar .o_web_studio_parameters'));
+        await testUtils.dom.click(target.querySelector('.o_web_studio_sidebar .o_web_studio_parameters'));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_studio .o_action_manager .o_form_view");
+        assert.containsOnce(target, ".o_studio .o_action_manager .o_form_view");
+    });
+
+    QUnit.test("kanban: onchange is resilient to errors", async (assert) => {
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+            <kanban>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="rendered">
+                            <field name="display_name" />
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`,
+            mockRPC(route, args) {
+                if (args.method === "onchange") {
+                    assert.step("onchange");
+                    throw new Error("Boom");
+                }
+            }
+        });
+
+        assert.verifySteps(["onchange"]);
+        assert.containsOnce(target, ".rendered");
+    });
+
+    QUnit.test("kanban: onchange is resilient to errors -- debug mode", async (assert) => {
+        const _console = window.console;
+        window.console = Object.assign(Object.create(_console), {
+            warn(msg) {
+                assert.step(msg);
+            },
+        });
+        registerCleanup(() => {
+            window.console = _console;
+        });
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+            <kanban>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="rendered">
+                            <field name="display_name" />
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`,
+            mockRPC(route, args) {
+                if (args.method === "onchange") {
+                    assert.step("onchange");
+                    throw new Error("Boom");
+                }
+            }
+        });
+
+        assert.verifySteps([
+            "onchange",
+            "The onchange triggered an error. It may indicate either a faulty call to onchange, or a faulty model python side"
+        ]);
+        assert.containsOnce(target, ".rendered");
+    });
+
+    QUnit.test("form: onchange is resilient to errors -- debug mode", async (assert) => {
+        const _console = window.console;
+        window.console = Object.assign(Object.create(_console), {
+            warn(msg) {
+                assert.step(msg);
+            },
+        });
+        registerCleanup(() => {
+            window.console = _console;
+        });
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+        await studioTestUtils.createViewEditorManager({
+            model: 'coucou',
+            arch: `
+            <form>
+                <div class="rendered">
+                    <field name="name" />
+                </div>
+            </form>`,
+            mockRPC(route, args) {
+                if (args.method === "onchange") {
+                    assert.step("onchange");
+                    const error = new RPCError();
+                    error.exceptionName = "odoo.exceptions.ValidationError";
+                    error.code = 200;
+                    return Promise.reject(error);
+                }
+            }
+        });
+
+        assert.verifySteps([
+            "onchange",
+            "The onchange triggered an error. It may indicate either a faulty call to onchange, or a faulty model python side"
+        ]);
+        assert.containsOnce(target, ".rendered");
     });
 
     QUnit.module('X2Many');
@@ -5990,16 +6224,15 @@ QUnit.module('ViewEditorManager', {
             unblockUI: () => Promise.resolve()
         });
 
-        serverData.models.coucou.records = [{
-            id: 11,
+        const coucouId1 = pyEnv['coucou'].create({
             display_name: 'Coucou 11',
-            product_ids: [37],
-        }];
+            product_ids: pyEnv['product'].search([['display_name', '=', 'xpad']]),
+        });
 
         const action = serverData.actions["studio.coucou_action"];
         action.views = [[1, "form"]];
         action.res_model = "coucou";
-        action.res_id = 11;
+        action.res_id = coucouId1;
         serverData.views["coucou,1,form"] = /*xml */ `
             <form>
                 <sheet>
@@ -6019,6 +6252,7 @@ QUnit.module('ViewEditorManager', {
             "partner,3,list": "<tree><field name='display_name'/></tree>",
         });
 
+
         patchWithCleanup(MockServer.prototype, {
             mockEditView(args) {
                 assert.equal(args.model, "product")
@@ -6026,15 +6260,16 @@ QUnit.module('ViewEditorManager', {
             }
         });
 
-        const webClient = await createEnterpriseWebClient({serverData, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
         // edit the x2m form view
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many'));
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="form"]'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="form"]'));
         await legacyExtraNextTick();
-        await testUtils.dom.click($(webClient.el).find('.o_field_many2manytags'));
-        await testUtils.dom.click($(webClient.el).find('#option_no_create'));
+        await testUtils.dom.click($(target).find('.o_field_many2many_tags'));
+        await testUtils.dom.click($(target).find('#option_no_create'));
     });
 
     QUnit.test('disable creation(no_create options) in many2many_tags widget', async function (assert) {
@@ -6061,47 +6296,41 @@ QUnit.module('ViewEditorManager', {
             }
         }
 
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_many2manytags'));
-        assert.containsOnce(webClient, '.o_web_studio_sidebar #option_no_create',
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_many2many_tags'));
+        assert.containsOnce(target, '.o_web_studio_sidebar #option_no_create',
             "should have no_create option for m2m field");
-        assert.notOk($(webClient.el).find('.o_web_studio_sidebar #option_no_create').is(':checked'),
+        assert.notOk($(target).find('.o_web_studio_sidebar #option_no_create').is(':checked'),
             'by default the no_create option should be false');
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_sidebar #option_no_create'));
+        await testUtils.dom.click($(target).find('.o_web_studio_sidebar #option_no_create'));
     });
 
     QUnit.test('disable creation(no_create options) in many2many_tags_avatar widget', async function (assert) {
         assert.expect(3);
 
-        let fieldsView;
-        const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'product',
-            arch: `
+        const arch = `
             <form>
                 <sheet>
                     <field name="m2m" widget="many2many_tags_avatar"/>
                 </sheet>
-            </form>`,
+            </form>`;
+        const vem = await studioTestUtils.createViewEditorManager({
+            model: 'product',
+            arch,
             mockRPC: function (route, args) {
                 if (route === '/web_studio/edit_view') {
                     assert.equal(args.operations[0].new_attrs.options, '{"no_create":true}',
                         'no_create options should send with true value');
-                    return Promise.resolve({
-                        fields_views: { form: fieldsView },
-                        fields: fieldsView.fields,
-                    });
+                    return getCurrentMockServer()._mockReturnView(arch, "product");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = $.extend(true, {}, vem.fields_view);
-
-        await testUtils.dom.click(vem.$('.o_web_studio_view_renderer .o_field_many2manytags'));
+        await testUtils.dom.click(vem.$('.o_web_studio_view_renderer .o_field_many2many_tags_avatar'));
         assert.containsOnce(vem, '.o_web_studio_sidebar #option_no_create',
             "should have no_create option for many2many_tags_avatar widget");
         assert.notOk(vem.$('.o_web_studio_sidebar #option_no_create').is(':checked'),
@@ -6109,7 +6338,6 @@ QUnit.module('ViewEditorManager', {
 
         await testUtils.dom.click(vem.$('.o_web_studio_sidebar #option_no_create'));
 
-        vem.destroy();
     });
 
     QUnit.test('disable creation(no_create options) in many2many_avatar_user and many2many_avatar_employee widget', async function (assert) {
@@ -6143,18 +6371,32 @@ QUnit.module('ViewEditorManager', {
                     'no_create options should send with true value');
             }
         }
-
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        // Required by widget.
+        registry.category("services").add("messaging", {
+            start() {
+                return {
+                    get: async() => {return {}},
+                    modelManager: {
+                        startListening: () => {},
+                        stopListening: () => {},
+                        removeListener: () => {},
+                        messagingCreatedPromise: testUtils.makeTestPromise(),
+                    },
+                };
+            }
+        });
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
         // check many2many_avatar_user
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_many2manytags[name="m2m_users"]'));
-        assert.containsOnce(webClient, '.o_web_studio_sidebar #option_no_create',
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_many2many_avatar_user[name="m2m_users"]'));
+        assert.containsOnce(target, '.o_web_studio_sidebar #option_no_create',
             "should have no_create option for many2many_avatar_user");
-        assert.notOk($(webClient.el).find('.o_web_studio_sidebar #option_no_create').is(':checked'),
+        assert.notOk($(target).find('.o_web_studio_sidebar #option_no_create').is(':checked'),
             'by default the no_create option should be false');
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_sidebar #option_no_create'));
+        await testUtils.dom.click($(target).find('.o_web_studio_sidebar #option_no_create'));
     });
 
     QUnit.test('display one2many without inline views', async function (assert) {
@@ -6167,7 +6409,7 @@ QUnit.module('ViewEditorManager', {
             <form>
                 <sheet>
                     <field name='display_name'/>
-                    <field name='product_ids'/>
+                    <field name='product_ids' widget="one2many"/>
                 </sheet>
             </form>`;
         serverData.views["coucou,false,search"] = `<search></search>`;
@@ -6179,7 +6421,7 @@ QUnit.module('ViewEditorManager', {
                 assert.strictEqual(model, "product");
                 assert.strictEqual(field_name, "product_ids");
                 assert.strictEqual(subview_type, "tree");
-                assert.strictEqual(subview_xpath, "");
+                assert.strictEqual(subview_xpath, "/form[1]/sheet[1]/field[2]");
                 assert.strictEqual(view_id, 1);
 
                 // hardcode inheritance mechanisme
@@ -6194,16 +6436,17 @@ QUnit.module('ViewEditorManager', {
             }
         };
 
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
-        var $one2many = $(webClient.el).find('.o_field_one2many.o_field_widget');
-        assert.strictEqual($one2many.children().length, 2,
+        var $one2many = $(target).find('.o_field_one2many.o_field_widget');
+        assert.strictEqual($one2many.children().length, 1,
             "The one2many widget should be displayed");
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_one2many'));
         await testUtils.dom.click(
-            $(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type="list"]'));
+            $(target).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type="list"]'));
         await legacyExtraNextTick();
     });
 
@@ -6243,8 +6486,6 @@ QUnit.module('ViewEditorManager', {
                 return Promise.resolve([]);
             }
             if (route === '/web_studio/edit_view') {
-                // We need to create the fieldsView here because the fieldsViewGet in studio
-                // has a specific behaviour so cannot use the mock server fieldsViewGet
                 assert.strictEqual(args.view_id, 1);
                 assert.strictEqual(args.operations.length, 1);
 
@@ -6263,83 +6504,164 @@ QUnit.module('ViewEditorManager', {
                 const target = operation.target;
                 assert.deepEqual(target.attrs, {name: "display_name"});
                 assert.strictEqual(target.tag, "field");
-                assert.strictEqual(target.subview_xpath, "//field[@name='product_ids']/tree");
+                assert.strictEqual(target.subview_xpath, "//field[@name='product_ids']/tree[1]");
 
-                const fieldsView = {};
-                fieldsView.arch = /* xml */`<form>
-                    <sheet>
-                        <field name='display_name'/>
-                        <field name='product_ids'>
-                            <tree><field name='coucou_id'/><field name='display_name'/></tree>
-                        </field>
-                    </sheet>
-                </form>`;
-                fieldsView.model = "coucou";
-                fieldsView.fields = {
-                    display_name: {
-                        string: "Display Name",
-                        type: "char",
-                    },
-                    product_ids: {
-                        string: "product",
-                        type: "one2many",
-                        relation: "product",
-                        views: {
-                            list: {
-                                arch: "<tree><field name='coucou_id'/><field name='display_name'/></tree>",
-                                fields: {
-                                    coucou_id: {
-                                        string: "coucou",
-                                        type: "many2one",
-                                        relation: "coucou",
-                                    },
-                                    display_name: {
-                                        string: "Display Name",
-                                        type: "char",
-                                    },
-                                },
-                            },
-                        },
-                    }
-                };
-                return Promise.resolve({
-                    fields: fieldsView.fields,
-                    fields_views: {
-                        form: fieldsView,
-                    },
-                });
+                serverData.views["coucou,1,form"] = /*xml */ `
+                    <form>
+                        <sheet>
+                            <field name='display_name'/>
+                            <field name='product_ids'>
+                                <tree><field name='coucou_id'/><field name='display_name'/></tree>
+                            </field>
+                        </sheet>
+                    </form>`;
             }
         };
 
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many'));
-        const blockOverlayZindex = webClient.el.querySelector('.o_web_studio_view_renderer .o_field_one2many .blockOverlay').style['z-index'];
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_one2many'));
+        const blockOverlayZindex = target.querySelector('.o_web_studio_view_renderer .o_field_one2many .o-web-studio-edit-x2manys-buttons').style['z-index'];
         assert.strictEqual(blockOverlayZindex, '1000',
             "z-index of blockOverlay should be 1000");
         assert.verifySteps(['coucou']);
 
-        await testUtils.dom.click($($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many')[0]));
+        await testUtils.dom.click($($(target).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many')[0]));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_web_studio_view_renderer thead tr [data-node-id]',
+        assert.containsOnce(target, '.o_web_studio_view_renderer thead tr [data-studio-xpath]',
             "there should be 1 nodes in the x2m editor.");
 
-        await testUtils.dom.dragAndDrop($(webClient.el).find('.o_web_studio_existing_fields .o_web_studio_field_many2one')[0], $('.o_web_studio_hook'));
+        await testUtils.dom.dragAndDrop($(target).find('.o_web_studio_existing_fields .o_web_studio_field_many2one')[0], $('.o_web_studio_hook'));
         await testUtils.nextTick();
 
-        assert.containsN(webClient, '.o_web_studio_view_renderer thead tr [data-node-id]', 2,
+        assert.containsN(target, '.o_web_studio_view_renderer thead tr [data-studio-xpath]', 2,
             "there should be 2 nodes after the drag and drop.");
 
         // click on a field in the x2m list view
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer [data-node-id]:first'));
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer [data-studio-xpath]:first'));
         await legacyExtraNextTick();
         assert.verifySteps(['product'], "the model should be the x2m relation");
 
         // edit field properties
-        assert.containsOnce(webClient, '.o_web_studio_sidebar .o_web_studio_parameters',
+        assert.containsOnce(target, '.o_web_studio_sidebar .o_web_studio_parameters',
             "there should be button to edit the field properties");
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_sidebar .o_web_studio_parameters'));
+        await testUtils.dom.click($(target).find('.o_web_studio_sidebar .o_web_studio_parameters'));
+    });
+
+    QUnit.test('edit one2many list view with widget fieldDependencies and some records', async function (assert) {
+        serverData.models.product.fields.is_dep = { type: "char", string: "Dependency from fields_get" };
+        serverData.models.coucou.records[0] = {
+            id: 1,
+            display_name: "coucou1",
+            product_ids: [1],
+        }
+        serverData.models.product.records[0] = {
+            id: 1,
+            is_dep: "the meters",
+            display_name: "people say",
+        };
+
+        const CharField = registry.category("fields").get("char");
+        class CharWithDependencies extends CharField {
+            setup() {
+                super.setup();
+                const record = this.props.record;
+                owl.onMounted(() => {
+                    assert.step(`widget Dependency: ${JSON.stringify(record.fields.is_dep)} : ${record.data.is_dep}`)
+                })
+            }
+        }
+        CharWithDependencies.fieldDependencies = {
+            is_dep: { type: "char"},
+        }
+        registry.category("fields").add("list.withDependencies", CharWithDependencies);
+
+        const LegacyFieldChar = fieldRegistry.get('char');
+        fieldRegistry.add('withDependencies', LegacyFieldChar.extend({
+            description: "Test Widget",
+        }));
+
+        const action = serverData.actions["studio.coucou_action"];
+        action.res_id = 1;
+        action.views = [[1, "form"]];
+        action.res_model = "coucou";
+        serverData.views["coucou,1,form"] = /*xml */`<form>
+            <sheet>
+                <field name='display_name'/>
+                <field name='product_ids'>
+                    <tree><field name='display_name' widget="withDependencies"/></tree>
+                </field>
+            </sheet>
+        </form>`;
+        const mockRPC = (route, args) => {
+            if (args.method === "fields_get") {
+                assert.step("fields_get");
+            }
+        }
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        assert.verifySteps([
+            `widget Dependency: {"type":"char"} : the meters`,
+        ])
+        await openStudio(target);
+        assert.verifySteps([
+            `widget Dependency: {"type":"char"} : the meters`,
+        ])
+
+        assert.containsOnce(target, ".o_web_studio_form_view_editor");
+        await click(target.querySelector(".o_field_one2many"));
+        await click(target.querySelector(".o_field_one2many .o_web_studio_editX2Many"));
+        await legacyExtraNextTick();
+        assert.verifySteps([
+            "fields_get",
+            `widget Dependency: {"type":"char","string":"Dependency from fields_get"} : the meters`,
+        ])
+        assert.containsOnce(target, ".o_web_studio_list_view_editor");
+
+        delete fieldRegistry.map.withDependencies;
+    });
+
+    QUnit.test("entering x2many with view widget", async (assert) => {
+        class MyWidget extends owl.Component {}
+        MyWidget.template = owl.xml`<div class="myWidget" />`;
+        registry.category("view_widgets").add("myWidget", MyWidget);
+
+        serverData.models.coucou.records[0] = {
+            id: 1,
+            display_name: "coucou1",
+            product_ids: [1],
+        }
+        serverData.models.product.records[0] = {
+            id: 1,
+            display_name: "people say",
+        };
+
+        const action = serverData.actions["studio.coucou_action"];
+        action.res_id = 1;
+        action.views = [[1, "form"]];
+        action.res_model = "coucou";
+        serverData.views["coucou,1,form"] = /*xml */`<form>
+            <sheet>
+                <field name='display_name'/>
+                <field name='product_ids'>
+                    <tree><widget name="myWidget"/></tree>
+                </field>
+            </sheet>
+        </form>`;
+        const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
+
+        assert.containsOnce(target, ".o_web_studio_form_view_editor");
+        assert.containsOnce(target, ".myWidget");
+
+        await click(target, ".o_web_studio_view_renderer .o_field_one2many");
+        await click(target, ".o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type='list']");
+        await legacyExtraNextTick();
+        assert.containsOnce(target, ".o_web_studio_list_view_editor");
+        assert.containsOnce(target, ".myWidget");
     });
 
     QUnit.test('edit one2many list view with tree_view_ref context key', async function (assert) {
@@ -6352,7 +6674,7 @@ QUnit.module('ViewEditorManager', {
             <form>
                 <sheet>
                     <field name='display_name'/>
-                    <field name='product_ids' context="{'tree_view_ref': 'module.tree_view_ref'}" />
+                    <field name='product_ids' widget="one2many" context="{'tree_view_ref': 'module.tree_view_ref'}" />
                 </sheet>
             </form>`;
 
@@ -6368,7 +6690,7 @@ QUnit.module('ViewEditorManager', {
                 assert.strictEqual(model, "product");
                 assert.strictEqual(field_name, "product_ids");
                 assert.strictEqual(subview_type, "tree");
-                assert.strictEqual(subview_xpath, "");
+                assert.strictEqual(subview_xpath, "/form[1]/sheet[1]/field[2]");
                 assert.strictEqual(view_id, 1);
 
                 // hardcode inheritance mechanisme
@@ -6383,11 +6705,12 @@ QUnit.module('ViewEditorManager', {
             }
         };
 
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many'));
-        await testUtils.dom.click($($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many')[0]));
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_one2many'));
+        await testUtils.dom.click($($(target).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many')[0]));
         await legacyExtraNextTick();
     });
 
@@ -6399,16 +6722,15 @@ QUnit.module('ViewEditorManager', {
             unblockUI: () => Promise.resolve()
         });
 
-        serverData.models.coucou.records = [{
-            id: 11,
+        const coucouId1 = pyEnv['coucou'].create({
             display_name: 'Coucou 11',
-            product_ids: [37],
-        }];
+            product_ids: pyEnv['product'].search([['display_name', '=', 'xpad']]),
+        });
 
         const action = serverData.actions["studio.coucou_action"];
         action.views = [[1, "form"]];
         action.res_model = "coucou";
-        action.res_id = 11;
+        action.res_id = coucouId1;
         serverData.views["coucou,1,form"] = /*xml */ `
             <form>
                 <sheet>
@@ -6432,9 +6754,8 @@ QUnit.module('ViewEditorManager', {
             "partner,3,list": "<tree><field name='display_name'/></tree>",
         });
 
-        serverData.views["coucou,false,search"] = `<search></search>`;
-
-        patchWithCleanup(MockServer.prototype, {
+    serverData.views["coucou,false,search"] = `<search></search>`;
+    patchWithCleanup(MockServer.prototype, {
             mockEditView(args) {
                 const result = this._super(...arguments);
                 if (args.view_id !== 1) {
@@ -6442,35 +6763,6 @@ QUnit.module('ViewEditorManager', {
                 }
 
                 assert.ok(true, "should edit the view to add the one2many field");
-                result.fields_views.form.arch = "<form>" +
-                    "<sheet>" +
-                        "<field name='display_name'/>" +
-                        "<field name='product_ids'/>" +
-                    "</sheet>" +
-                "</form>";
-                result.fields.product_ids.views = {
-                    form: {
-                        arch: "<form><sheet><group><field name='partner_ids'/></group></sheet></form>",
-                        fields: {
-                            partner_ids: {
-                                string: "partners",
-                                type: "one2many",
-                                relation: "partner",
-                                views: {
-                                    form: {
-                                        arch: "<form><sheet><group><field name='display_name'/></group></sheet></form>",
-                                        fields: {
-                                            display_name: {
-                                                string: "Display Name",
-                                                type: "char",
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                };
                 return result;
             }
         });
@@ -6486,60 +6778,59 @@ QUnit.module('ViewEditorManager', {
             }
         };
 
-        const { widget: webClient } = await start({
-            hasWebClient: true,
+        const { webClient } = await start({
             serverData,
-            mockRPC
+            mockRPC,
         });
 
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
         await testUtils.nextTick();
 
-        assert.containsOnce(webClient, '.o_web_studio_add_chatter',
+        assert.containsOnce(target, '.o_web_studio_add_chatter',
             "should be possible to add a chatter");
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_one2many'));
         await legacyExtraNextTick();
         await testUtils.dom.click(
-            $(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type="form"]'));
+            $(target).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type="form"]'));
         await legacyExtraNextTick();
-        assert.containsNone(webClient, '.o_web_studio_add_chatter',
+        assert.containsNone(target, '.o_web_studio_add_chatter',
             "should not be possible to add a chatter");
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_view_renderer .o_field_one2many'));
         await testUtils.dom.click(
-            $(webClient.el).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type="form"]')
+            $(target).find('.o_web_studio_view_renderer .o_field_one2many .o_web_studio_editX2Many[data-type="form"]')
         );
         await testUtils.nextTick();
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.o_field_char').eq(0).text(), 'jean',
+        assert.strictEqual($(target).find('.o_field_char').eq(0).text(), 'jean',
             "the partner view form should be displayed.");
         await testUtils.dom.dragAndDrop(
-            $(webClient.el).find('.o_web_studio_new_fields .o_web_studio_field_char'),
-            $(webClient.el).find('.o_group .o_web_studio_hook:first')
+            $(target).find('.o_web_studio_new_fields .o_web_studio_field_char'),
+            $(target).find('.o_inner_group .o_web_studio_hook:first')
         );
 
         // add a new button
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_web_studio_button_hook'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_web_studio_button_hook'));
         assert.strictEqual($('.modal .o_web_studio_new_button_dialog').length, 1,
             "there should be an opened modal to add a button");
         await testUtils.dom.click($('.modal .o_web_studio_new_button_dialog .js_many2one_field input'));
     });
 
     QUnit.test('edit one2many list view that uses parent key [REQUIRE FOCUS]', async function (assert) {
+        // Skipped: need "parent." thing
         assert.expect(3);
 
-        serverData.models.coucou.records = [{
-            id: 11,
+        const coucouId1 = pyEnv['coucou'].create({
             display_name: 'Coucou 11',
-            product_ids: [37],
-        }];
-        var fieldsView;
+            product_ids: pyEnv['product'].search([['display_name', '=', 'xpad']]),
+        });
 
         const action = serverData.actions["studio.coucou_action"];
         action.views = [[1, "form"]];
         action.res_model = "coucou";
-        action.res_id = 11;
+        action.res_id = coucouId1;
         serverData.views["coucou,1,form"] = /*xml */ `
            <form>
                 <sheet>
@@ -6563,20 +6854,21 @@ QUnit.module('ViewEditorManager', {
         serverData.views["coucou,false,search"] = `<search></search>`;
 
         const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
         // edit the x2m form view
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many'));
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="form"]'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="form"]'));
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.o_web_studio_form_view_editor .o_field_widget[name="m2o"]').text(), "jacques",
+        assert.strictEqual($(target).find('.o_web_studio_form_view_editor .o_field_widget[name="m2o"]').text(), "jacques",
             "the x2m form view should be correctly rendered");
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_widget[name="m2o"]'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_widget[name="m2o"]'));
 
         // open the domain editor
         assert.strictEqual($('.modal .o_domain_selector').length, 0,
             "the domain selector should not be opened");
-        $(webClient.el).find('.o_web_studio_sidebar_content input[name="domain"]').trigger('focus');
+        $(target).find('.o_web_studio_sidebar_content input[name="domain"]').trigger('focus');
         await testUtils.nextTick();
         assert.strictEqual($('.modal .o_domain_selector').length, 1,
             "the domain selector should be correctly opened");
@@ -6590,16 +6882,15 @@ QUnit.module('ViewEditorManager', {
             unblockUI: () => Promise.resolve()
         });
 
-        serverData.models.coucou.records = [{
-            id: 11,
+        const coucouId1 = pyEnv['coucou'].create({
             display_name: 'Coucou 11',
-            product_ids: [37],
-        }];
+            product_ids: pyEnv['product'].search([['display_name', '=', 'xpad']]),
+        });
 
         const action = serverData.actions["studio.coucou_action"];
         action.views = [[1, "form"]];
         action.res_model = "coucou";
-        action.res_id = 11;
+        action.res_id = coucouId1;
         serverData.views["coucou,1,form"] = /*xml */ `
             <form>
                 <sheet>
@@ -6625,13 +6916,13 @@ QUnit.module('ViewEditorManager', {
                     node: {
                         tag: 'field',
                         attrs: {name: 'coucou_id'},
-                        subview_xpath: "//field[@name='product_ids']/tree",
+                        subview_xpath: "//field[@name='product_ids']/tree[1]",
                     },
                     position: 'before',
                     target: {
                         tag: 'field',
                         attrs: {name: 'm2o'},
-                        subview_xpath: "//field[@name='product_ids']/tree",
+                        subview_xpath: "//field[@name='product_ids']/tree[1]",
                         xpath_info: [
                             {
                                 indice: 1,
@@ -6645,43 +6936,25 @@ QUnit.module('ViewEditorManager', {
                     },
                     type: 'move',
                 }, "the move operation should be correct");
-
-                result.fields.product_ids.views = {
-                    list: {
-                        arch: "<tree>" +
-                        "<field name='m2o'/>" +
-                        "<field name='coucou_id'/>" +
-                        "</tree>",
-                        fields: {
-                            m2o: {
-                                type: "many2one",
-                                relation: "coucou",
-                            },
-                            coucou_id: {
-                                type: "many2one",
-                                relation: "coucou",
-                            },
-                        },
-                    },
-                };
                 return result;
             },
         });
 
-        const webClient = await createEnterpriseWebClient({serverData, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
         // edit the x2m form view
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many'));
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="list"]'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="list"]'));
         await legacyExtraNextTick();
 
-        assert.strictEqual($(webClient.el).find('.o_web_studio_list_view_editor th').text(), "M2Ocoucou",
+        assert.strictEqual($(target).find('.o_web_studio_list_view_editor th').text(), "M2Ocoucou",
             "the columns should be in the correct order");
 
         // move coucou at index 0
-        await testUtils.dom.dragAndDrop($(webClient.el).find('.o_web_studio_list_view_editor th:contains(coucou)'),
-            $(webClient.el).find('th.o_web_studio_hook:first'));
+        await testUtils.dom.dragAndDrop($(target).find('.o_web_studio_list_view_editor th:contains(coucou)'),
+            $(target).find('th.o_web_studio_hook:first'));
     });
 
     QUnit.test('notebook and group drag and drop after a group', async function (assert) {
@@ -6692,7 +6965,6 @@ QUnit.module('ViewEditorManager', {
                 "</group>" +
             "</sheet></form>";
         var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
         });
@@ -6703,10 +6975,10 @@ QUnit.module('ViewEditorManager', {
         await testUtils.dom.dragAndDrop(vem.$('.o_web_studio_field_type_container .o_web_studio_field_columns'),
             $afterGroupHook, {disableDrop: true});
         assert.containsOnce(vem, '.o_web_studio_nearest_hook', "There should be 1 highlighted hook");
-        vem.destroy();
     });
 
     QUnit.test('One2Many list editor column_invisible in attrs ', async function (assert) {
+        // Skipped: need "parent." thing
         assert.expect(2);
 
         patchWithCleanup(framework, {
@@ -6714,16 +6986,14 @@ QUnit.module('ViewEditorManager', {
             unblockUI: () => Promise.resolve()
         });
 
-        serverData.models.coucou.records = [{
-            id: 11,
+        pyEnv['coucou'].create({
             display_name: 'Coucou 11',
-            product_ids: [37],
-        }];
+            product_ids: pyEnv['product'].search([['display_name', '=', 'xpad']]),
+        });
 
         const action = serverData.actions["studio.coucou_action"];
         action.views = [[1, "form"]];
         action.res_model = "coucou";
-        //ction.res_id = 11;
         serverData.views["coucou,1,form"] = /*xml */ `
         <form>
             <field name='product_ids'>
@@ -6746,60 +7016,29 @@ QUnit.module('ViewEditorManager', {
 
                 assert.equal(args.operations[0].new_attrs.readonly, '1',
                     'We should send "readonly" in the node attr');
-
-                result.fields_views.arch = coucouArchReturn;
-                Object.assign(result.fields, coucouFields);
                 return result;
             }
         });
 
-        const productArchReturn = /* xml */`
-            <tree>
-                <field name="display_name" attrs="{&quot;column_invisible&quot;: [[&quot;parent.id&quot;,&quot;=&quot;,false]]}" readonly="1" modifiers="{&quot;column_invisible&quot;: [[&quot;parent.id&quot;, &quot;=&quot;, false]], &quot;readonly&quot;: true}"/>
-            </tree>`;
-
-        const coucouArchReturn = /* xml */ `
-            <form>
-                <field name="product_ids">${productArchReturn}</field>
-            </form>`;
-
-        const coucouFields = {
-            product_ids: {
-                string: "product",
-                type: "one2many",
-                relation: "product",
-                views: {
-                    list: {
-                        arch: productArchReturn,
-                        fields: {
-                            display_name: {
-                                string: "Display Name",
-                                type: "char",
-                            },
-                        },
-                    },
-                },
-            }
-        };
-
-        const webClient = await createEnterpriseWebClient({serverData, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
         // Enter edit mode of the O2M
-        await testUtils.dom.click($(webClient.el).find('.o_field_x2many_list[name=product_ids]'));
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_editX2Many[data-type="list"]'));
+        await testUtils.dom.click($(target).find('.o_field_one2many[name=product_ids]'));
+        await testUtils.dom.click($(target).find('.o_web_studio_editX2Many[data-type="list"]'));
         await legacyExtraNextTick();
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_sidebar').find('.o_web_studio_view'));
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_sidebar').find('input#show_invisible'));
+        await testUtils.dom.click($(target).find('.o_web_studio_sidebar').find('.o_web_studio_view'));
+        await testUtils.dom.click($(target).find('.o_web_studio_sidebar').find('input#show_invisible'));
 
         // select the first column
-        await testUtils.dom.click($(webClient.el).find('thead th[data-node-id=1]'));
+        await testUtils.dom.click($(target).find('thead th[data-studio-xpath]'));
         // enable readonly
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_sidebar').find('input#readonly'));
+        await testUtils.dom.click($(target).find('.o_web_studio_sidebar').find('input#readonly'));
     });
 
-    QUnit.test('One2Many form datapoint doesn\'t contain the parent datapoint', async function (assert) {
+    QUnit.test("One2Many form datapoint doesn't contain the parent datapoint", async function (assert) {
         /*
         * OPW-2125214
         * When editing a child o2m form with studio, the fields_get method tries to load
@@ -6808,16 +7047,15 @@ QUnit.module('ViewEditorManager', {
         */
         assert.expect(1);
 
-        serverData.models.coucou.records = [{
-            id: 11,
+        const coucouId1 = pyEnv['coucou'].create({
             display_name: 'Coucou 11',
             product_ids: [],
-        }];
+        });
 
         const action = serverData.actions["studio.coucou_action"];
         action.views = [[1, "form"]];
         action.res_model = "coucou";
-        action.res_id = 11;
+        action.res_id = coucouId1;
         serverData.views["coucou,1,form"] = /*xml */ `
            <form>
                <field name='product_ids'>
@@ -6838,55 +7076,20 @@ QUnit.module('ViewEditorManager', {
             }
         };
 
-        const webClient = await createEnterpriseWebClient({serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
-        await doActionAndOpenStudio(webClient, "studio.coucou_action");
+        const webClient = await createEnterpriseWebClient({ serverData, mockRPC, legacyParams: {withLegacyMockServer: true}});
+        await doAction(webClient, "studio.coucou_action");
+        await openStudio(target);
 
-        await testUtils.dom.click($(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many'));
+        await testUtils.dom.click($(target).find('.o_web_studio_form_view_editor .o_field_one2many'));
         await testUtils.dom.click(
-            $(webClient.el).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="form"]')
+            $(target).find('.o_web_studio_form_view_editor .o_field_one2many .o_web_studio_editX2Many[data-type="form"]')
         );
         await legacyExtraNextTick();
-    });
-
-    QUnit.test('Phone field in form with SMS', async function (assert) {
-        assert.expect(3);
-
-        var arch = "<form><sheet>" +
-                "<group>" +
-                    "<field name='display_name' widget='phone' />" +
-                "</group>" +
-            "</sheet></form>";
-        var vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
-            model: 'coucou',
-            arch: arch,
-            intercepts: {
-                view_change(ev) {
-                    assert.equal(ev.data.new_attrs.options, '{"enable_sms":false}',
-                        'Writing the enable_sms option workds');
-                }
-            },
-            mockRPC(route, args) {
-                if (route === '/web_studio/edit_view') {
-                    return Promise.resolve();
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        await testUtils.dom.click(vem.$('.o_form_label:contains(Display Name)'));
-        assert.containsOnce(vem, 'input[name="enable_sms"]');
-        assert.ok(vem.$('input[name="enable_sms"]').is(':checked'),
-            'By default the boolean should be true');
-
-        await testUtils.dom.click(vem.$('input[name="enable_sms"]'));
-        vem.destroy();
     });
 
     QUnit.test('folds/unfolds the existing fields into sidebar', async function (assert) {
         assert.expect(10);
 
-        let fieldsView;
         const arch = `<form>
             <group>
                 <field name="display_name"/>
@@ -6894,29 +7097,21 @@ QUnit.module('ViewEditorManager', {
         </form>`;
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC: function (route) {
                 if (route === '/web_studio/edit_view') {
-                    fieldsView.arch = `<form>
+                    const newArch = `<form>
                         <group>
                             <field name="char_field"/>
                             <field name="display_name"/>
                         </group>
                     </form>`;
-                    return Promise.resolve({
-                        fields: fieldsView.fields,
-                        fields_views: {
-                            form: fieldsView,
-                        },
-                    });
+                    return getCurrentMockServer()._mockReturnView(newArch, "coucou");
                 }
-                return this._super.apply(this, arguments);
             },
         });
 
-        fieldsView = JSON.parse(JSON.stringify(vem.fields_view));
 
         assert.containsN(vem, '.o_web_studio_field_type_container', 3,
             "there should be three sections in Add (new & existing fields & Components");
@@ -6937,7 +7132,7 @@ QUnit.module('ViewEditorManager', {
 
         // drag and drop the new char field
         await testUtils.dom.dragAndDrop(vem.el.querySelector('.o_web_studio_existing_fields .o_web_studio_field_char'),
-            vem.el.querySelector('.o_group .o_web_studio_hook'));
+            vem.el.querySelector('.o_inner_group .o_web_studio_hook'));
         assert.isVisible(vem.el.querySelector('.o_web_studio_existing_fields_section'),
             "keep the existing fields section visible when adding the new field");
 
@@ -6951,7 +7146,6 @@ QUnit.module('ViewEditorManager', {
         assert.isNotVisible(vem.el.querySelector('.o_web_studio_existing_fields_section'),
             "the existing fields section should not be visible");
 
-        vem.destroy();
     });
 
     QUnit.test('open xml editor of component view', async function (assert) {
@@ -6974,7 +7168,6 @@ QUnit.module('ViewEditorManager', {
 
         const arch = '<pivot />';
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC(route) {
@@ -6997,7 +7190,6 @@ QUnit.module('ViewEditorManager', {
                         js: [],
                     });
                 }
-                return this._super(...arguments);
             },
             viewID: 1,
             studioViewID: 42,
@@ -7011,14 +7203,12 @@ QUnit.module('ViewEditorManager', {
         odoo.debug = initialDebugMode;
         testUtils.mock.unpatch(ace);
 
-        vem.destroy();
     });
 
     QUnit.test('existing field section should be unfolded by default in kanban', async function (assert) {
         assert.expect(2);
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: `<kanban>
                     <templates>
@@ -7037,14 +7227,12 @@ QUnit.module('ViewEditorManager', {
         assert.isVisible(vem.el.querySelector('.o_web_studio_existing_fields_section'),
             "the existing fields section should be visible");
 
-        vem.destroy();
     });
 
     QUnit.test('existing field section should be unfolded by default in search', async function (assert) {
         assert.expect(2);
 
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: `<search>
                     <field name='display_name'/>
@@ -7056,7 +7244,6 @@ QUnit.module('ViewEditorManager', {
         assert.isVisible(vem.el.querySelector('.o_web_studio_existing_fields_section'),
             "the existing fields section should be visible");
 
-        vem.destroy();
     });
 
     QUnit.test('open xml editor of graph component view and close it', async function (assert) {
@@ -7079,7 +7266,6 @@ QUnit.module('ViewEditorManager', {
 
         const arch = '<graph />';
         const vem = await studioTestUtils.createViewEditorManager({
-            data: this.data,
             model: 'coucou',
             arch: arch,
             mockRPC(route) {
@@ -7102,7 +7288,6 @@ QUnit.module('ViewEditorManager', {
                         js: [],
                     });
                 }
-                return this._super(...arguments);
             },
             viewID: 1,
             studioViewID: 42,
@@ -7119,12 +7304,11 @@ QUnit.module('ViewEditorManager', {
         await testUtils.owlCompatibilityExtraNextTick();
         assert.containsNone(vem, '.o_ace_view_editor');
         assert.containsOnce(vem, '.o_web_studio_sidebar');
-        assert.containsOnce(vem, '.o_legacy_graph_renderer');
+        assert.containsOnce(vem, '.o_graph_renderer');
 
         odoo.debug = initialDebugMode;
         testUtils.mock.unpatch(ace);
 
-        vem.destroy();
     });
 });
 });

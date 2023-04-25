@@ -4,24 +4,30 @@ import ReportEditorManager from "web_studio.ReportEditorManager";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 
+import { Component, xml } from "@odoo/owl";
+
 class ReportEditorAdapter extends ComponentAdapter {
-    constructor(parent, props) {
+    constructor(props) {
         props.Component = ReportEditorManager;
         super(...arguments);
+    }
+
+    setup() {
+        super.setup();
         this.actionService = useService("action");
         this.user = useService("user");
         this.rpc = useService("rpc");
         this.orm = useService("orm");
         this.studio = useService("studio");
         this.reportEnv = {};
-        this.env = owl.Component.env;
+        this.env = Component.env;
     }
 
     get handle() {
         return this.studio.editedReport;
     }
 
-    async willStart() {
+    async onWillStart() {
         const proms = [];
         await this._readReport();
         await this._loadEnvironment();
@@ -30,7 +36,7 @@ class ReportEditorAdapter extends ComponentAdapter {
         proms.push(this._getReportViews());
         proms.push(this._readPaperFormat());
         await Promise.all(proms);
-        return super.willStart();
+        return super.onWillStart();
     }
 
     get widgetArgs() {
@@ -70,12 +76,9 @@ class ReportEditorAdapter extends ComponentAdapter {
             domain = [["move_type", "!=", "entry"]];
         }
 
-        const result = await this.orm.search(
-            this.report.model,
-            domain,
-            undefined,
-            this.user.context
-        );
+        const result = await this.orm.search(this.report.model, domain, {
+            context: this.user.context,
+        });
         this.reportEnv.ids = result;
         this.reportEnv.currentId = this.reportEnv.ids && this.reportEnv.ids[0];
     }
@@ -94,8 +97,7 @@ class ReportEditorAdapter extends ComponentAdapter {
                 ["abstract", "=", false],
             ],
             ["name", "model"],
-            undefined,
-            this.user.context
+            { context: this.user.context }
         );
         this.models = {};
         models.forEach((model) => {
@@ -107,12 +109,9 @@ class ReportEditorAdapter extends ComponentAdapter {
      * @returns {Promise}
      */
     async _readReport() {
-        const result = await this.orm.read(
-            "ir.actions.report",
-            [this.handle.res_id],
-            undefined,
-            this.user.context
-        );
+        const result = await this.orm.read("ir.actions.report", [this.handle.res_id], undefined, {
+            context: this.user.context,
+        });
         this.report = result[0];
     }
     /**
@@ -184,14 +183,13 @@ class ReportEditorAdapter extends ComponentAdapter {
             context: this.user.context,
         });
         this.report = result[0];
-        this.render();
+        this.render(true);
     }
 }
 
 // We need this to wrap in a div
 // ViewEditor doesn't need this because it extends AbstractEditor, and defines a template
-export class ReportEditor extends owl.Component {}
-ReportEditor.template = owl.tags
-    .xml`<div class="o_web_studio_client_action"><ReportEditorAdapter /></div>`;
+export class ReportEditor extends Component {}
+ReportEditor.template = xml`<div class="o_web_studio_client_action"><ReportEditorAdapter /></div>`;
 ReportEditor.components = { ReportEditorAdapter };
 registry.category("actions").add("web_studio.report_editor", ReportEditor);

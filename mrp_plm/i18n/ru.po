@@ -3,24 +3,25 @@
 # 	* mrp_plm
 # 
 # Translators:
-# Андрей Гусев <gaussgss@gmail.com>, 2021
-# Vasiliy Korobatov <korobatov@gmail.com>, 2021
-# Ekaterina <nawsikaya@bk.ru>, 2021
-# Диляра Дельтаева <dilya.kz93@gmail.com>, 2021
-# Martin Trigaux, 2021
-# Ivan Yelizariev // IEL (ellui) <yelizariev@itpp.dev>, 2021
-# ILMIR <karamov@it-projects.info>, 2021
-# Irina Fedulova <istartlin@gmail.com>, 2021
+# Ekaterina <nawsikaya@bk.ru>, 2022
+# Диляра Дельтаева <dilya.kz93@gmail.com>, 2022
+# Андрей Гусев <gaussgss@gmail.com>, 2022
+# Vasiliy Korobatov <korobatov@gmail.com>, 2022
+# Irina Fedulova <istartlin@gmail.com>, 2022
+# Иван Дроздов <hiraetari@gmail.com>, 2022
+# Ivan Kropotkin <yelizariev@itpp.dev>, 2022
+# ILMIR <karamov@it-projects.info>, 2022
 # Сергей Шебанин <sergey@shebanin.ru>, 2022
+# Martin Trigaux, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: Сергей Шебанин <sergey@shebanin.ru>, 2022\n"
-"Language-Team: Russian (https://www.transifex.com/odoo/teams/41243/ru/)\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Martin Trigaux, 2022\n"
+"Language-Team: Russian (https://app.transifex.com/odoo/teams/41243/ru/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -45,6 +46,13 @@ msgid "# ECOs in progress"
 msgstr "Кол-во ИИ в прцессе"
 
 #. module: mrp_plm
+#. odoo-python
+#: code:addons/mrp_plm/models/mrp_eco.py:0
+#, python-format
+msgid "%(approval_name)s %(approver_name)s %(approval_status)s this ECO"
+msgstr ""
+
+#. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_type_dashboard_view_kanban
 msgid "<i class=\"fa fa-ellipsis-v\" role=\"img\" aria-label=\"Manage\" title=\"Manage\"/>"
 msgstr "<i class=\"fa fa-ellipsis-v\" role=\"img\" aria-label=\"Manage\" title=\"Manage\"/>"
@@ -59,6 +67,7 @@ msgstr ""
 "title=\"Domain alias\"/>&amp;nbsp;"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid ""
@@ -95,7 +104,7 @@ msgid ""
 "creating new records for this alias."
 msgstr ""
 "Словарь Python, который будет использован для получения значений по "
-"умолчанию при создании записей для этого псевдонима."
+"умолчанию при создании новых записей для этого алиаса."
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_needaction
@@ -246,7 +255,7 @@ msgstr "Тип одобрения"
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_stage_view_form
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_view_form
 msgid "Approvals"
-msgstr "Одобрения"
+msgstr "Согласования"
 
 #. module: mrp_plm
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco__approval_ids
@@ -292,19 +301,13 @@ msgid "At Date"
 msgstr "На дату"
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid "Attachment"
-msgstr "Вложение"
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_attachment_count
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_attachment_count
 msgid "Attachment Count"
 msgstr "Количество вложений"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__mrp_document_ids
 #, python-format
@@ -312,6 +315,7 @@ msgid "Attachments"
 msgstr "Вложения"
 
 #. module: mrp_plm
+#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_approval__awaiting_my_validation
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_search
 msgid "Awaiting My Validation"
 msgstr ""
@@ -323,20 +327,21 @@ msgstr ""
 
 #. module: mrp_plm
 #: model:ir.model,name:mrp_plm.model_report_mrp_report_bom_structure
-msgid "BOM Structure Report"
-msgstr "Отчет структуры спецификации"
+msgid "BOM Overview Report"
+msgstr ""
 
 #. module: mrp_plm
 #: model:ir.model,name:mrp_plm.model_mrp_bom
 msgid "Bill of Material"
-msgstr "Ведомость материалов"
+msgstr "Спецификация"
 
 #. module: mrp_plm
 #: model:ir.model,name:mrp_plm.model_mrp_bom_line
 msgid "Bill of Material Line"
-msgstr "строка спецификации"
+msgstr "Cтрока спецификации"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.actions.act_window,name:mrp_plm.mrp_bom_action_kanban
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__bom_id
@@ -344,7 +349,7 @@ msgstr "строка спецификации"
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_search
 #, python-format
 msgid "Bill of Materials"
-msgstr "Ведомость материалов"
+msgstr "Спецификация"
 
 #. module: mrp_plm
 #: model_terms:ir.actions.act_window,help:mrp_plm.mrp_bom_action_kanban
@@ -355,6 +360,7 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__kanban_state__blocked
 #: model:mrp.eco.stage,legend_blocked:mrp_plm.ecostage_effective
@@ -363,7 +369,7 @@ msgstr ""
 #: model:mrp.eco.stage,legend_blocked:mrp_plm.ecostage_validated
 #, python-format
 msgid "Blocked"
-msgstr "Заблокировано"
+msgstr "Заблокирована"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_stage__is_blocking
@@ -387,7 +393,10 @@ msgid "BoM Revision"
 msgstr "Ревизия ВМ"
 
 #. module: mrp_plm
+#. odoo-javascript
+#: code:addons/mrp_plm/static/src/components/bom_overview_table/mrp_bom_overview_table.xml:0
 #: model_terms:ir.ui.view,arch_db:mrp_plm.report_mrp_bom_inherit_mrp_plm
+#, python-format
 msgid "BoM Version"
 msgstr ""
 
@@ -430,14 +439,6 @@ msgstr "Изменения внесены в новый доработки сп�
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_view_form
 msgid "Changes made on the operation."
 msgstr ""
-
-#. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid "Close"
-msgstr "Закрыть"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__color
@@ -487,7 +488,7 @@ msgstr "конфликт разрешен"
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__operation_change
 msgid "Consumed in Operation"
-msgstr "Поглощено операций"
+msgstr "Используется в операции"
 
 #. module: mrp_plm
 #: model_terms:ir.actions.act_window,help:mrp_plm.mrp_eco_stage_action
@@ -510,7 +511,7 @@ msgstr "Создайте новый тип заказа на инженерны�
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_tag__create_uid
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__create_uid
 msgid "Created by"
-msgstr "Создан"
+msgstr "Создал"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__create_date
@@ -522,7 +523,7 @@ msgstr "Создан"
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_tag__create_date
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__create_date
 msgid "Created on"
-msgstr "Создан"
+msgstr "Дата создания"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__alias_bounced_content
@@ -602,7 +603,7 @@ msgstr "Документы"
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__state__done
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_search
 msgid "Done"
-msgstr "Сделано"
+msgstr "Выполнено"
 
 #. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_kanban
@@ -708,8 +709,10 @@ msgid "ECO(s)"
 msgstr "ИИ"
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/js/mrp_bom_report.js:0
+#. odoo-javascript
+#: code:addons/mrp_plm/static/src/components/bom_overview_display_filter/mrp_bom_overview_display_filter.js:0
+#: code:addons/mrp_plm/static/src/components/bom_overview_line/mrp_bom_overview_line.js:0
+#: code:addons/mrp_plm/static/src/components/bom_overview_table/mrp_bom_overview_table.xml:0
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__nb_ecos
 #: model:ir.model.fields,field_description:mrp_plm.field_product_product__eco_ids
 #: model:ir.model.fields,field_description:mrp_plm.field_product_template__eco_ids
@@ -723,12 +726,14 @@ msgid "ECOs"
 msgstr "ИИ"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Eco"
 msgstr "ИИ"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Eco BoM"
@@ -904,9 +909,7 @@ msgstr "Значок, обозначающий действие исключен
 
 #. module: mrp_plm
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco__message_needaction
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco__message_unread
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__message_needaction
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Если отмечено, новые сообщения будут требовать вашего внимания."
 
@@ -926,15 +929,6 @@ msgid ""
 msgstr ""
 "Если установлено, этот контент будет автоматически отправлен "
 "неавторизованным пользователям вместо сообщения по умолчанию."
-
-#. module: mrp_plm
-#: model:ir.model.fields,help:mrp_plm.field_mrp_bom__active
-msgid ""
-"If the active field is set to False, it will allow you to hide the bills of "
-"material without removing it."
-msgstr ""
-"Если значение активного поля — «Ложь», то это позволит вам скрыть ведомость "
-"материалов, не удаляя её."
 
 #. module: mrp_plm
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco__active
@@ -957,6 +951,7 @@ msgid "In #{kanban_getcolorname(record.color.raw_value)}"
 msgstr "В # {kanban_getcolorname (record.color.raw_value)}"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__kanban_state__normal
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco__state__progress
@@ -1068,11 +1063,6 @@ msgid "Latest Bom"
 msgstr ""
 
 #. module: mrp_plm
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco__email_cc
-msgid "List of cc from incoming emails."
-msgstr "Список копий из входящих писем."
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_main_attachment_id
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_main_attachment_id
 msgid "Main Attachment"
@@ -1122,7 +1112,7 @@ msgstr "Теги ИИ для MRP"
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__my_activity_date_deadline
 msgid "My Activity Deadline"
-msgstr "Крайний срок моей активности "
+msgstr "Крайний срок моего действия"
 
 #. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_search
@@ -1138,12 +1128,12 @@ msgstr "Мои проверки"
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_stage__name
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__name
 msgid "Name"
-msgstr "Название"
+msgstr "Имя"
 
 #. module: mrp_plm
 #: model:mrp.eco.stage,name:mrp_plm.ecostage_new
 msgid "New"
-msgstr "Новые"
+msgstr "Новое"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__new_bom_id
@@ -1188,7 +1178,7 @@ msgstr "Новая ревизия количества"
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__activity_calendar_event_id
 msgid "Next Activity Calendar Event"
-msgstr "Календарное событие для следующего действия"
+msgstr "Встреча в календаре для следующего действия"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__activity_date_deadline
@@ -1238,13 +1228,6 @@ msgid "Note"
 msgstr "Заметка"
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/js/mrp_plm_toaster_button.js:0
-#, python-format
-msgid "Note that a new version of this BOM is available."
-msgstr ""
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_needaction_counter
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_needaction_counter
 msgid "Number of Actions"
@@ -1269,12 +1252,6 @@ msgid "Number of messages with delivery error"
 msgstr "Количество сообщений с ошибкой отправки"
 
 #. module: mrp_plm
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco__message_unread_counter
-#: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Количество непрочитанных сообщений"
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_routing_change__old_time_cycle_manual
 msgid "Old manual duration"
 msgstr "Старая продолжительность"
@@ -1295,6 +1272,13 @@ msgstr "Операция"
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_view_form
 msgid "Operation Changes"
 msgstr ""
+
+#. module: mrp_plm
+#. odoo-python
+#: code:addons/mrp_plm/models/mrp_eco.py:0
+#, python-format
+msgid "Operation not supported"
+msgstr "Операция не поддерживается"
 
 #. module: mrp_plm
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco_type__alias_force_thread_id
@@ -1427,6 +1411,7 @@ msgid "Priority"
 msgstr "Приоритет"
 
 #. module: mrp_plm
+#: model:ir.model,name:mrp_plm.model_product_template
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__product_tmpl_id
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__product_id
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_bom_change_view_form
@@ -1435,15 +1420,11 @@ msgid "Product"
 msgstr "Продукт"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Product Only"
 msgstr "только товар"
-
-#. module: mrp_plm
-#: model:ir.model,name:mrp_plm.model_product_template
-msgid "Product Template"
-msgstr "Шаблон продукта"
 
 #. module: mrp_plm
 #: model:ir.model,name:mrp_plm.model_mrp_document
@@ -1471,6 +1452,7 @@ msgid "Quantity"
 msgstr "Количество"
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #: model:mrp.eco.stage,legend_done:mrp_plm.ecostage_effective
 #: model:mrp.eco.stage,legend_done:mrp_plm.ecostage_new
@@ -1478,7 +1460,7 @@ msgstr "Количество"
 #: model:mrp.eco.stage,legend_done:mrp_plm.ecostage_validated
 #, python-format
 msgid "Ready"
-msgstr "Готово"
+msgstr "Можно производить"
 
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__rebase_id
@@ -1586,13 +1568,6 @@ msgid "Set Cover Image"
 msgstr "Установить Обложку"
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid "Set a Cover Image"
-msgstr "Установить фоновое изображение"
-
-#. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__allow_apply_change
 msgid "Show Apply Change"
 msgstr "Показать принятые изменения"
@@ -1651,6 +1626,7 @@ msgstr ""
 "Запланировано: срок в будущем."
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "Successfully Rebased !"
@@ -1759,19 +1735,10 @@ msgstr ""
 "отправителя или сделает владельцем администратора."
 
 #. module: mrp_plm
-#. openerp-web
-#: code:addons/mrp_plm/static/src/xml/mrp_plm_templates.xml:0
-#, python-format
-msgid ""
-"There is no available image to be set as cover. Add an image as an "
-"attachment to the engineering order."
-msgstr ""
-
-#. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_stage_view_form
 msgid "This step is done. Click to block or set in progress."
 msgstr ""
-"Этот этап выполнен. Нажмите, чтобы заблокировать или отметьте как "
+"Этот шаг выполнен. Нажмите, чтобы заблокировать или отметьте как "
 "\"выполняется\"."
 
 #. module: mrp_plm
@@ -1797,7 +1764,7 @@ msgstr "Действия на сегодня"
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__change_type
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_routing_change__change_type
 msgid "Type"
-msgstr "Тип"
+msgstr "Раздел"
 
 #. module: mrp_plm
 #: model:ir.model.fields,help:mrp_plm.field_mrp_eco__activity_exception_decoration
@@ -1807,7 +1774,7 @@ msgstr "Тип активности исключения в записи."
 #. module: mrp_plm
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_stage__type_ids
 msgid "Types"
-msgstr "Типы заявок"
+msgstr "Разделы резюме"
 
 #. module: mrp_plm
 #: model_terms:ir.ui.view,arch_db:mrp_plm.view_document_file_kanban_mrp_plm
@@ -1818,18 +1785,6 @@ msgstr "Отменить"
 #: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_bom_change__uom_change
 msgid "Unit of Measure"
 msgstr "Единица измерения"
-
-#. module: mrp_plm
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_unread
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_unread
-msgid "Unread Messages"
-msgstr "Непрочитанные сообщения"
-
-#. module: mrp_plm
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco__message_unread_counter
-#: model:ir.model.fields,field_description:mrp_plm.field_mrp_eco_type__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Счетчик непрочитанных сообщений"
 
 #. module: mrp_plm
 #: model:ir.model.fields.selection,name:mrp_plm.selection__mrp_eco_bom_change__change_type__update
@@ -1914,12 +1869,14 @@ msgid ""
 msgstr ""
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "You cannot change the stage, as approvals are required in the process."
 msgstr "Вы не можете сменить этап, т. к. одобрения требуются в процессе."
 
 #. module: mrp_plm
+#. odoo-python
 #: code:addons/mrp_plm/models/mrp_eco.py:0
 #, python-format
 msgid "You cannot change the stage, as approvals are still required."
@@ -1939,8 +1896,3 @@ msgstr "напр., Отдел главного инженера"
 #: model_terms:ir.ui.view,arch_db:mrp_plm.mrp_eco_kanban
 msgid "oe_kanban_text_red"
 msgstr "oe_kanban_text_red"
-
-#. module: mrp_plm
-#: model_terms:ir.ui.view,arch_db:mrp_plm.message_approval
-msgid "this ECO."
-msgstr ""

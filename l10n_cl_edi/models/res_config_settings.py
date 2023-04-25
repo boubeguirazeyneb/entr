@@ -2,8 +2,6 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from odoo import fields, models
 
-from .res_company import L10N_CL_SII_REGIONAL_OFFICES_ITEMS
-
 
 class ResConfigSettings(models.TransientModel):
 
@@ -31,3 +29,4 @@ class ResConfigSettings(models.TransientModel):
              '2 - Fees Receipt Issuer (Applies to suppliers who issue fees receipt)\n'
              '3 - End consumer (only receipts)\n'
              '4 - Foreigner')
+    l10n_cl_is_there_shared_certificate = fields.Boolean(related='company_id.l10n_cl_is_there_shared_certificate')

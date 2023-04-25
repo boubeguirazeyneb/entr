@@ -9,7 +9,7 @@ from datetime import datetime
 # This test class has to be tested at install since the flow is modified in industry_fsm_stock
 # where the SO gets confirmed as soon as a product is added in an FSM task which causes the
 # tests of this class to fail
-class TestMultiCompanyCommon(TestSaleCommonBase):
+class TestMultiCompany(TestSaleCommonBase):
 
     @classmethod
     def setUpClass(cls):
@@ -110,29 +110,32 @@ class TestMultiCompanyCommon(TestSaleCommonBase):
             'name': 'test timesheet',
             'user_id': cls.default_user_employee.id,
             'unit_amount': 0.25,
+            'employee_id': cls.env['hr.employee'].create({'user_id': cls.env.uid}).id,
         }
         cls.env['account.analytic.line'].create(values)
 
     def test_task(self):
+        task_company_id = self.task_1.company_id.id
+
         # This should not raise an error.
         self.task_1.with_context(allowed_company_ids=[self.env.company.id, self.companyB.id], company_id=self.companyB.id).action_fsm_view_material()
 
         self.assertFalse(self.task_1.fsm_done, "Task should not be validated")
         self.assertFalse(self.task_1.sale_order_id, "Task should not be linked to a SO")
         self.task_1._fsm_ensure_sale_order()
+        so_company_id = self.task_1.sale_order_id.company_id.id
         self.assertEqual(self.task_1.sale_order_id.state, 'draft', "Sale order should not be confirmed")
         # Validating a task while in another company should not impact the propagation of the company_id to the sale order
         self.task_1.with_context(allowed_company_ids=[self.env.company.id, self.companyB.id], company_id=self.companyB.id).action_fsm_validate()
         self.assertTrue(self.task_1.fsm_done, "Task should be validated")
         self.assertEqual(self.task_1.sale_order_id.state, 'sale', "Sale order should be confirmed")
-        self.assertEqual(self.task_1.sale_order_id.company_id.id, self.task_1.company_id.id, "The company of the sale order should be the same as the one from the task")
-        # Generating an invoice from a task while in another company should not impact the propagation of the company_id to the invoice
+        self.assertEqual(so_company_id, task_company_id, "The company of the sale order should be the same as the one from the task")
+        # Generating an invoice from a task while in another company should not impact the propagation of the company_id to the invoice, the company of the SO should be propagated
         self.assertTrue(self.task_1.task_to_invoice, "Task should be invoiceable")
-        # YTI This is supposed to be reintroduced after a fix from DBO See #42408
-        # invoice_ctx = self.task_1.action_create_invoice()['context']
-        # invoice_ctx['allowed_company_ids']=[self.env.company.id, self.company_data_2['company'].id]
-        # invoice_ctx['company_id']=self.company_data_2['company'].id
-        # invoice_wizard = self.env['sale.advance.payment.inv'].with_context(invoice_ctx).create({})
-        # invoice_wizard.create_invoices()
-        # self.assertFalse(self.task_1.task_to_invoice, "Task should not be invoiceable")
-        # self.assertEqual(self.task_1.sale_order_id.invoice_ids[0].company_id.id, self.task_1.company_id.id, "The company of the invoice should be the same as the one from the task")
+        invoice_ctx = self.task_1.action_create_invoice()['context']
+        invoice_ctx['allowed_company_ids'] = [self.companyB.id, so_company_id]
+        invoice_ctx['company_id'] = self.companyB.id
+        invoice_wizard = self.env['sale.advance.payment.inv'].with_context(invoice_ctx).create({})
+        invoice_wizard.create_invoices()
+        self.assertFalse(self.task_1.task_to_invoice, "Task should not be invoiceable")
+        self.assertEqual(self.task_1.sale_order_id.invoice_ids[0].company_id.id, so_company_id, "The company of the invoice should be the same as the one from the SO")

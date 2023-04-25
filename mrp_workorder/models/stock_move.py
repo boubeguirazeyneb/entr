@@ -9,12 +9,12 @@ class StockMove(models.Model):
 
     def _should_bypass_set_qty_producing(self):
         production = self.raw_material_production_id or self.production_id
-        if production and self.has_tracking == 'none' and ((self.product_id in production.workorder_ids.quality_point_ids.component_id) or self.operation_id):
+        if production and (self.has_tracking == 'none' or production.use_auto_consume_components_lots) and ((self.product_id in production.workorder_ids.quality_point_ids.component_id) or self.operation_id):
             return True
         return super()._should_bypass_set_qty_producing()
 
-    def _action_assign(self):
-        res = super()._action_assign()
+    def _action_assign(self, force_qty=False):
+        res = super()._action_assign(force_qty=force_qty)
         for workorder in self.raw_material_production_id.workorder_ids:
             for check in workorder.check_ids:
                 if check.test_type not in ('register_consumed_materials', 'register_byproducts'):

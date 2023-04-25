@@ -3,18 +3,18 @@
 # 	* hr_contract_sign
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Yenthe Van Ginneken <yenthespam@gmail.com>, 2021
-# Erwin van der Ploeg <erwin@odooexperts.nl>, 2021
+# Erwin van der Ploeg <erwin@odooexperts.nl>, 2022
+# Martin Trigaux, 2022
+# Jolien De Paepe, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:40+0000\n"
-"Last-Translator: Erwin van der Ploeg <erwin@odooexperts.nl>, 2021\n"
-"Language-Team: Dutch (https://www.transifex.com/odoo/teams/41243/nl/)\n"
+"POT-Creation-Date: 2023-04-14 06:18+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Jolien De Paepe, 2023\n"
+"Language-Team: Dutch (https://app.transifex.com/odoo/teams/41243/nl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -22,12 +22,21 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: hr_contract_sign
+#. odoo-python
 #: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
 #, python-format
 msgid "%s and %s are the signatories."
 msgstr "%sen %s zijn de ondertekenaars."
 
 #. module: hr_contract_sign
+#. odoo-python
+#: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
+#, python-format
+msgid "%s does not have a work or private email set."
+msgstr "%s heeft geen werk of privé e-mail."
+
+#. module: hr_contract_sign
+#. odoo-python
 #: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
 #, python-format
 msgid ""
@@ -41,7 +50,17 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.hr_employee_sign_view_form
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.res_users_request_sign_view_form
 msgid "<span class=\"o_stat_text\">Signature Requests</span>"
-msgstr "<span class=\"o_stat_text\">Handtekening verzoek</span>"
+msgstr "<span class=\"o_stat_text\">Handtekening verzoeken</span>"
+
+#. module: hr_contract_sign
+#: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
+msgid "Attach a file"
+msgstr "Bijlage toevoegen"
+
+#. module: hr_contract_sign
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__attachment_ids
+msgid "Attachment"
+msgstr "Bijlage"
 
 #. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__contract_id
@@ -54,9 +73,9 @@ msgid "Contract history"
 msgstr "Contractgeschiedenis"
 
 #. module: hr_contract_sign
-#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__follower_ids
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__cc_partner_ids
 msgid "Copy to"
-msgstr "Kopie naar"
+msgstr "Kopiëren naar"
 
 #. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__create_uid
@@ -76,7 +95,7 @@ msgstr "Negeren"
 #. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__display_name
 msgid "Display Name"
-msgstr "Schermnaam"
+msgstr "Weergavenaam"
 
 #. module: hr_contract_sign
 #: model:ir.actions.act_window,name:hr_contract_sign.sign_contract_wizard_action
@@ -84,9 +103,14 @@ msgid "Document Signature"
 msgstr "Document handtekening"
 
 #. module: hr_contract_sign
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_plan_activity_type__sign_template_id
+msgid "Document to sign"
+msgstr "Te ondertekenen document"
+
+#. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__sign_template_ids
 msgid "Documents to sign"
-msgstr "Documenten om te ondertekenen"
+msgstr "Te ondertekenen documenten"
 
 #. module: hr_contract_sign
 #: model:ir.model.fields,help:hr_contract_sign.field_hr_contract_sign_document_wizard__sign_template_ids
@@ -95,13 +119,12 @@ msgid ""
 "        Documents with 1 responsible will only have to be signed by the employee while documents with 2 different responsible will have to be signed by both the employee and the responsible.\n"
 "        "
 msgstr ""
-"Documenten om te ondertekenen. Alleen documenten met 1 of 2 verschillende verantwoordelijken kunnen worden geselecteerd.\n"
+"Te ondertekenen documenten. Alleen documenten met 1 of 2 verschillende verantwoordelijken kunnen worden geselecteerd.\n"
 "        Documenten met 1 verantwoordelijke hoeven alleen door de werknemer te worden ondertekend terwijl documenten met 2 verschillende verantwoordelijken door zowel de werknemer als de verantwoordelijke moeten worden ondertekend.\n"
 "        "
 
 #. module: hr_contract_sign
 #: model:ir.model,name:hr_contract_sign.model_hr_employee
-#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__employee_id
 msgid "Employee"
 msgstr "Werknemer"
 
@@ -112,23 +135,24 @@ msgstr "Arbeidsovereenkomst"
 
 #. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__employee_role_id
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_plan_activity_type__employee_role_id
 msgid "Employee Role"
 msgstr "Rol werknemer"
 
 #. module: hr_contract_sign
-#: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
-#, python-format
-msgid "Employee must be linked to a user and a partner."
-msgstr "Werknemer moet gekoppeld zijn aan een gebruiker en een relatie."
-
-#. module: hr_contract_sign
 #: model:ir.model.fields,help:hr_contract_sign.field_hr_contract_sign_document_wizard__employee_role_id
+#: model:ir.model.fields,help:hr_contract_sign.field_hr_plan_activity_type__employee_role_id
 msgid ""
 "Employee's role on the templates to sign. The same role must be present in "
 "all the templates"
 msgstr ""
 "De rol van de werknemer op de te ondertekenen sjablonen. Dezelfde rol moet "
 "in alle sjablonen aanwezig zijn"
+
+#. module: hr_contract_sign
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__employee_ids
+msgid "Employees"
+msgstr "Werknemers"
 
 #. module: hr_contract_sign
 #: model:sign.item.role,name:hr_contract_sign.sign_item_role_job_responsible
@@ -146,6 +170,11 @@ msgid "ID"
 msgstr "ID"
 
 #. module: hr_contract_sign
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_plan_activity_type__is_signature_request
+msgid "Is Signature Request"
+msgstr "Is een handtekening verzoek"
+
+#. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard____last_update
 msgid "Last Modified on"
 msgstr "Laatst gewijzigd op"
@@ -161,11 +190,17 @@ msgid "Last Updated on"
 msgstr "Laatst bijgewerkt op"
 
 #. module: hr_contract_sign
+#: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
+msgid "Mail Options"
+msgstr "E-mail opties"
+
+#. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__message
 msgid "Message"
 msgstr "Bericht"
 
 #. module: hr_contract_sign
+#. odoo-python
 #: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
 #, python-format
 msgid ""
@@ -181,10 +216,16 @@ msgid "No template available"
 msgstr "Geen sjabloon beschikbaar"
 
 #. module: hr_contract_sign
+#. odoo-python
 #: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
 #, python-format
 msgid "Only %s has to sign."
 msgstr "Alleen %s hoeft te tekenen."
+
+#. module: hr_contract_sign
+#: model:sign.template,redirect_url_text:hr_contract_sign.template_sign_termination
+msgid "Open Link"
+msgstr "Open link"
 
 #. module: hr_contract_sign
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
@@ -192,15 +233,36 @@ msgid "Optional Message..."
 msgstr "Optioneel bericht..."
 
 #. module: hr_contract_sign
+#: model:ir.model,name:hr_contract_sign.model_hr_plan_wizard
+msgid "Plan Wizard"
+msgstr "Plan wizard"
+
+#. module: hr_contract_sign
+#: model:ir.model,name:hr_contract_sign.model_hr_plan_activity_type
+msgid "Plan activity type"
+msgstr "Plan activiteitssoort"
+
+#. module: hr_contract_sign
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__possible_template_ids
+msgid "Possible Template"
+msgstr "Mogelijk sjabloon"
+
+#. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract__sign_request_ids
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_history__sign_request_ids
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_employee__sign_request_ids
 msgid "Requested Signatures"
-msgstr "Handtekening verzoeken"
+msgstr "Verzochte handtekeningen"
 
 #. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__responsible_id
 msgid "Responsible"
 msgstr "Verantwoordelijke"
+
+#. module: hr_contract_sign
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_plan_activity_type__responsible_count
+msgid "Responsible Count"
+msgstr "Aantal verantwoordelijken"
 
 #. module: hr_contract_sign
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
@@ -212,26 +274,37 @@ msgstr "Verzenden"
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_employee__sign_request_count
 #: model:ir.model.fields,field_description:hr_contract_sign.field_res_users__sign_request_count
 msgid "Sign Request Count"
-msgstr "Aantal tekenaanvragen"
+msgstr "Aantal handtekeningsverzoeken"
+
+#. module: hr_contract_sign
+#: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
+msgid "Sign Request Options"
+msgstr "Handtekeningsverzoek opties"
 
 #. module: hr_contract_sign
 #: model:ir.model.fields,field_description:hr_contract_sign.field_hr_contract_sign_document_wizard__sign_template_responsible_ids
+#: model:ir.model.fields,field_description:hr_contract_sign.field_hr_plan_activity_type__sign_template_responsible_ids
 msgid "Sign Template Responsible"
 msgstr "Onderteken sjabloon verantwoordelijke"
 
 #. module: hr_contract_sign
 #: model:ir.model,name:hr_contract_sign.model_hr_contract_sign_document_wizard
 msgid "Sign document in contract"
-msgstr "Onderteken document in contract"
+msgstr "Document in contract ondertekenen"
 
 #. module: hr_contract_sign
+#. odoo-python
+#: code:addons/hr_contract_sign/wizard/hr_plan_wizard.py:0
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.hr_contract_history_view_form
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.hr_contract_sign_view_form
+#: model_terms:ir.ui.view,arch_db:hr_contract_sign.hr_employee_sign_view_form
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
+#, python-format
 msgid "Signature Request"
 msgstr "Handtekening verzoek"
 
 #. module: hr_contract_sign
+#. odoo-python
 #: code:addons/hr_contract_sign/wizard/hr_contract_sign_document_wizard.py:0
 #, python-format
 msgid "Signature Request - %s"
@@ -249,8 +322,8 @@ msgstr "Sjabloonwaarschuwing"
 
 #. module: hr_contract_sign
 #: model:ir.model,name:hr_contract_sign.model_res_users
-msgid "Users"
-msgstr "Gebruikers"
+msgid "User"
+msgstr "Gebruiker"
 
 #. module: hr_contract_sign
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.view_hr_contract_sign
@@ -258,13 +331,14 @@ msgid "Write email or search contact..."
 msgstr "Schrijf e-mail of zoek contact..."
 
 #. module: hr_contract_sign
+#. odoo-python
 #: code:addons/hr_contract_sign/models/hr_contract.py:0
 #, python-format
 msgid ""
 "You can't delete a contract linked to a signed document, archive it instead."
 msgstr ""
 "Je kunt een contract dat aan een ondertekend document is gekoppeld, niet "
-"verwijderen, maar archiveren."
+"verwijderen, archiveer het liever."
 
 #. module: hr_contract_sign
 #: model_terms:ir.ui.view,arch_db:hr_contract_sign.hr_contract_history_view_form

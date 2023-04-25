@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*
-from odoo.tests import tagged, Form
+from odoo.tests import tagged
 from .common import TestPeEdiCommon, mocked_l10n_pe_edi_post_invoice_web_service
 from unittest.mock import patch
 

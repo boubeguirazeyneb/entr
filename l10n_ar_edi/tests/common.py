@@ -37,7 +37,7 @@ class TestEdi(TestAr):
         # connection until there is not token error.
         company.l10n_ar_afip_ws_crt = base64.b64encode(file_open("l10n_ar_edi/tests/" + cert_file, 'rb').read())
         company.l10n_ar_afip_ws_key = base64.b64encode(file_open("l10n_ar_edi/tests/private_key.pem", 'rb').read())
-        _logger.log(25, 'Setting homologation private key to company %s' % (company.name))
+        _logger.log(25, 'Setting homologation private key to company %s', company.name)
         company = company.with_context(l10n_ar_invoice_skip_commit=True)
         checked_certificate_token = False
 
@@ -179,7 +179,6 @@ class TestEdi(TestAr):
         self.assertTrue(invoice.l10n_ar_afip_xml_response, error_msg)
 
 
-@tagged('external_l10n', '-at_install', 'post_install', '-standard', 'external')
 class TestFexCommon(TestEdi):
 
     @classmethod

@@ -1,13 +1,9 @@
 /** @odoo-module **/
 
-import MapView from 'web_map.MapView';
-import { ProjectControlPanel } from '@project/js/project_control_panel';
-import viewRegistry from 'web.view_registry';
+import { mapView } from "@web_map/map_view/map_view";
+import { ProjectControlPanel } from "@project/components/project_control_panel/project_control_panel";
+import { registry } from "@web/core/registry";
 
-export const ProjectMapView = MapView.extend({
-    config: Object.assign({}, MapView.prototype.config, {
-        ControlPanel: ProjectControlPanel,
-    }),
-});
+export const projectMapView = {...mapView, ControlPanel: ProjectControlPanel };
 
-viewRegistry.add('project_map', ProjectMapView);
+registry.category("views").add("project_map", projectMapView);

@@ -6,13 +6,15 @@
     'category': 'Services/Helpdesk',
     'summary': 'Project, Tasks, Account',
     'depends': ['helpdesk_sale', 'account'],
-    'auto_install': False,
     'description': """
 Create Credit Notes from Helpdesk tickets
     """,
     'data': [
         'wizard/account_move_reversal_views.xml',
         'views/helpdesk_views.xml',
+    ],
+    'demo': [
+       'data/helpdesk_account_demo.xml'
     ],
     'license': 'OEEL-1',
 }

@@ -6,11 +6,10 @@
     'icon': '/l10n_be/static/description/icon.png',
     'category': 'Human Resources',
     'depends': ['l10n_be_hr_payroll', 'fleet'],
-    'description': """
-    """,
     'version': '1.0',
     'data': [
         'security/ir.model.access.csv',
+        'data/hr_salary_rule_category_data.xml',
         'data/hr_rule_parameter_data.xml',
         'data/cp200_employee_salary_data.xml',
         'views/fleet_views.xml',

@@ -9,13 +9,24 @@ import base64
 import re
 from datetime import datetime
 
+# deprecated, will be removed in master
 def check_valid_SEPA_str(string):
-    if re.search('[^-A-Za-z0-9/?:().,\'+ ]', string) is not None:
+    if re.search('[^-A-Za-z0-9/?:().,\'&<>+ ]', string) is not None:
         raise ValidationError(_("The text used in SEPA files can only contain the following characters :\n\n"
             "a b c d e f g h i j k l m n o p q r s t u v w x y z\n"
             "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z\n"
             "0 1 2 3 4 5 6 7 8 9\n"
-            "/ - ? : ( ) . , ' + (space)"))
+            "/ - ? : ( ) . , ' + & < > (space)"))
+
+# deprecated, will be removed in master
+def _check_sepa_str_validity(*strings):
+    try:
+        for string in strings:
+            if string:
+                check_valid_SEPA_str(string)
+        return True
+    except ValidationError:
+        return False
 
 
 class AccountBatchPayment(models.Model):
@@ -29,8 +40,10 @@ class AccountBatchPayment(models.Model):
 
     @api.depends('payment_ids', 'journal_id')
     def _compute_sct_generic(self):
+        switch_to_generic_warnings = {'no_iban', 'no_eur'}
         for record in self:
-            record.sct_generic = bool(record._get_sct_genericity_warnings()) or any(payment.company_id.account_fiscal_country_id.code == 'CH' for payment in record.payment_ids)
+            sct_warnings = record._get_sct_genericity_warnings()
+            record.sct_generic = any(warning.get('code') in switch_to_generic_warnings for warning in sct_warnings)
 
     def _get_methods_generating_files(self):
         rslt = super(AccountBatchPayment, self)._get_methods_generating_files()
@@ -48,24 +61,25 @@ class AccountBatchPayment(models.Model):
         rslt = []
         no_iban_payments = self.env['account.payment']
         no_eur_payments = self.env['account.payment']
+        invalid_address_payments = self.env['account.payment']
+        invalid_ref_payments = self.env['account.payment']
 
         for payment in self.mapped('payment_ids'):
-            if payment.company_id.account_fiscal_country_id.code in ['CH', 'SE']:
-                #we need swiss/sweden payments as generic, but we should not give warnings (4eabbf1042d38f6c93c99c6a490f37af55303399)
-                continue
             if payment.partner_bank_id.acc_type != 'iban':
                 no_iban_payments += payment
-            if payment.currency_id.name != 'EUR' and (self.journal_id.currency_id or self.journal_id.company_id.currency_id).name == 'EUR':
+            if payment.currency_id.name != 'EUR':
                 no_eur_payments += payment
 
         if no_iban_payments:
             rslt.append({
+                'code': 'no_iban',
                 'title': _("Some payments are not made on an IBAN recipient account. This batch might not be accepted by certain banks because of that."),
                 'records': no_iban_payments,
             })
 
         if no_eur_payments:
             rslt.append({
+                'code': 'no_eur',
                 'title': _("Some payments were instructed in another currency than Euro. This batch might not be accepted by certain banks because of that."),
                 'records': no_eur_payments,
             })
@@ -76,7 +90,10 @@ class AccountBatchPayment(models.Model):
         rslt = super(AccountBatchPayment, self).check_payments_for_warnings()
 
         if self.payment_method_code == 'sepa_ct':
-            rslt += self._get_sct_genericity_warnings()
+            sct_warnings = self._get_sct_genericity_warnings()
+            if (self.journal_id.currency_id or self.journal_id.company_id.currency_id).name != 'EUR':
+                sct_warnings = [warning for warning in sct_warnings if warning.get('code') != 'no_eur']
+            rslt += sct_warnings
 
         return rslt
 

@@ -3,27 +3,29 @@
 # 	* quality_control
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Marc Tormo i Bochaca <mtbochaca@gmail.com>, 2021
-# Carles Antoli <carlesantoli@hotmail.com>, 2021
-# RGB Consulting <odoo@rgbconsulting.com>, 2021
-# Quim - eccit <quim@eccit.com>, 2021
-# Sandra Franch <sandra.franch@upc.edu>, 2021
-# Manel Fernandez Ramirez <manelfera@outlook.com>, 2021
-# M Palau <mpalau@tda.ad>, 2021
-# jabelchi, 2021
-# José Cabrera Lozano <jose.cabrera@edukative.es>, 2021
-# Arnau Ros, 2021
+# Carles Antoli <carlesantoli@hotmail.com>, 2022
+# RGB Consulting <odoo@rgbconsulting.com>, 2022
+# jabelchi, 2022
+# José Cabrera Lozano <jose.cabrera@edukative.es>, 2022
+# M Palau <mpalau@tda.ad>, 2022
+# Sandra Franch <sandra.franch@upc.edu>, 2022
+# Marc Tormo i Bochaca <mtbochaca@gmail.com>, 2022
+# Quim - eccit <quim@eccit.com>, 2022
+# Martin Trigaux, 2022
+# Manel Fernandez Ramirez <manelfera@outlook.com>, 2022
+# Arnau Ros, 2022
 # marcescu, 2022
+# jabiri7, 2022
+# Ivan Espinola, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:42+0000\n"
-"Last-Translator: marcescu, 2022\n"
-"Language-Team: Catalan (https://www.transifex.com/odoo/teams/41243/ca/)\n"
+"POT-Creation-Date: 2022-12-15 13:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Ivan Espinola, 2023\n"
+"Language-Team: Catalan (https://app.transifex.com/odoo/teams/41243/ca/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -44,7 +46,7 @@ msgstr "% de transferències"
 #: model:ir.actions.report,print_report_name:quality_control.quality_check_report
 #: model:ir.actions.report,print_report_name:quality_control.quality_check_report_internal
 msgid "'Worksheet_%s' % object.name"
-msgstr ""
+msgstr "'Full de treball%s' % objecte.name"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_alert_team_dashboard_view_kanban
@@ -373,17 +375,6 @@ msgstr ""
 "             controls de qualitat en l'operació logística correcta: transferències, comandes de fabricació."
 
 #. module: quality_control
-#: model:ir.model.fields,help:quality_control.field_quality_check__measure_on
-#: model:ir.model.fields,help:quality_control.field_quality_check_wizard__measure_on
-#: model:ir.model.fields,help:quality_control.field_quality_point__measure_on
-msgid ""
-"Defines if the Quality Check is done at the Operation level or at a more "
-"granular Lot/SN level"
-msgstr ""
-"Defineix si la comprovació de qualitat es fa a nivell d'operació o a un "
-"nivell més granular de Lot/SN"
-
-#. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__testing_percentage_within_lot
 #: model:ir.model.fields,help:quality_control.field_quality_check_wizard__testing_percentage_within_lot
 #: model:ir.model.fields,help:quality_control.field_quality_point__testing_percentage_within_lot
@@ -444,7 +435,7 @@ msgstr "Falla"
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_view_search
 msgid "Failed"
-msgstr "Fallit"
+msgstr "Fallits"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__failure_message
@@ -487,9 +478,11 @@ msgstr "En curs"
 #. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__move_line_id
 msgid ""
-"In case of Quality Check by Lot/SN, Move Line on which the Quality Check "
+"In case of Quality Check by Quantity, Move Line on which the Quality Check "
 "applies"
 msgstr ""
+"En cas de comprovació de qualitat per quantitat, Mou la línia on s'aplica la"
+" comprovació de qualitat"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_view_form
@@ -527,15 +520,15 @@ msgstr "Línia del lot"
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__is_lot_tested_fractionally
 #: model:ir.model.fields,field_description:quality_control.field_quality_point__is_lot_tested_fractionally
 msgid "Lot Tested Fractionally"
-msgstr ""
+msgstr "Fracció provada del lot"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.view_quality_check_wizard
 msgid "Lot/SN"
-msgstr ""
+msgstr "Lot/SN"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_stock_production_lot
+#: model:ir.model,name:quality_control.model_stock_lot
 msgid "Lot/Serial"
 msgstr "Lot/núm. de sèrie"
 
@@ -600,6 +593,7 @@ msgid "Nb Checks"
 msgstr "Comprovacions Nb"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "New"
@@ -680,6 +674,19 @@ msgid "Operation"
 msgstr "Operació"
 
 #. module: quality_control
+#: model:ir.model.fields,help:quality_control.field_quality_check__measure_on
+#: model:ir.model.fields,help:quality_control.field_quality_check_wizard__measure_on
+#: model:ir.model.fields,help:quality_control.field_quality_point__measure_on
+msgid ""
+"Operation = One quality check is requested at the operation level.\n"
+"                  Product = A quality check is requested per product.\n"
+"                 Quantity = A quality check is requested for each new product quantity registered, with partial quantity checks also possible."
+msgstr ""
+"Operació = Es demana una comprovació de qualitat al nivell de l'operació.\n"
+"                  Producte = Es demana una comprovació de qualitat per producte.\n"
+"                 Quantitat = Es demana una comprovació de qualitat per a cada nova quantitat de producte registrada, amb controls parcials de quantitat també possibles."
+
+#. module: quality_control
 #: model:ir.ui.menu,name:quality_control.menu_quality_dashboard
 msgid "Overview"
 msgstr "Vista general"
@@ -728,6 +735,7 @@ msgid "Picture"
 msgstr "Imatge"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "Picture Uploaded"
@@ -749,7 +757,7 @@ msgid "Previous"
 msgstr "Anterior"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_product_product
+#: model:ir.model,name:quality_control.model_product_template
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__product_id
 #: model:ir.model.fields.selection,name:quality_control.selection__quality_check__measure_on__product
 #: model:ir.model.fields.selection,name:quality_control.selection__quality_point__measure_on__product
@@ -763,15 +771,15 @@ msgid "Product Moves (Stock Move Line)"
 msgstr "Moviment del producte (línia de moviment d'estoc)"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_product_template
-msgid "Product Template"
-msgstr "Plantilla de producte"
-
-#. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__uom_id
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__uom_id
 msgid "Product Unit of Measure"
 msgstr "Unitat de mesura del producte"
+
+#. module: quality_control
+#: model:ir.model,name:quality_control.model_product_product
+msgid "Product Variant"
+msgstr "Variants de producte"
 
 #. module: quality_control
 #: model:ir.ui.menu,name:quality_control.quality_control_menu_product_variant
@@ -790,6 +798,7 @@ msgid "Quality"
 msgstr "Qualitat"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.model,name:quality_control.model_quality_alert
@@ -837,9 +846,11 @@ msgid "Quality Alerts"
 msgstr "Alertes de qualitat"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.actions.act_window,name:quality_control.action_quality_check_wizard
 #: model:ir.model,name:quality_control.model_quality_check
+#: model_terms:ir.ui.view,arch_db:quality_control.view_stock_move_line_detailed_operation_tree_inherit_quality
 #, python-format
 msgid "Quality Check"
 msgstr "Comprovació de qualitat"
@@ -856,6 +867,7 @@ msgid "Quality Check Fail"
 msgstr "Fallida de l'error de la comprovació de qualitat"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/wizard/quality_check_wizard.py:0
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_wizard_form_failure
 #, python-format
@@ -868,7 +880,7 @@ msgid "Quality Check Picture"
 msgstr "Imatge de comprovació de qualitat"
 
 #. module: quality_control
-#: model:ir.model.fields,field_description:quality_control.field_stock_production_lot__quality_check_qty
+#: model:ir.model.fields,field_description:quality_control.field_stock_lot__quality_check_qty
 msgid "Quality Check Qty"
 msgstr "Qualitat comprovació Qty"
 
@@ -878,6 +890,7 @@ msgid "Quality Check:"
 msgstr "Control de qualitat:"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.actions.act_window,name:quality_control.quality_check_action_main
 #: model:ir.actions.act_window,name:quality_control.quality_check_action_picking
@@ -924,7 +937,7 @@ msgstr "Punts de control de qualitat"
 #: model:ir.model.fields,field_description:quality_control.field_product_product__quality_fail_qty
 #: model:ir.model.fields,field_description:quality_control.field_product_template__quality_fail_qty
 msgid "Quality Fail Qty"
-msgstr ""
+msgstr "Falla la qualitat en la quantitat"
 
 #. module: quality_control
 #: model:ir.actions.act_window,name:quality_control.quality_alert_team_action
@@ -935,7 +948,7 @@ msgstr "Vista general de qualitat"
 #: model:ir.model.fields,field_description:quality_control.field_product_product__quality_pass_qty
 #: model:ir.model.fields,field_description:quality_control.field_product_template__quality_pass_qty
 msgid "Quality Pass Qty"
-msgstr ""
+msgstr "Qtat de pas de qualitat"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.product_product_form_view_quality_control
@@ -967,7 +980,7 @@ msgstr ""
 #. module: quality_control
 #: model:ir.model,name:quality_control.model_report_quality_control_quality_worksheet_internal
 msgid "Quality Worksheet Internal Report"
-msgstr ""
+msgstr "Informe intern del full de treball de qualitat"
 
 #. module: quality_control
 #: model:ir.model,name:quality_control.model_report_quality_control_quality_worksheet
@@ -980,10 +993,14 @@ msgid ""
 "Quality control points define the quality checks which should be\n"
 "              performed at each operation, for your different products."
 msgstr ""
+"Els punts de control de qualitat defineixen les comprovacions de qualitat que haurien de ser\n"
+"              realitzat en cada operació, per als diferents productes."
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__qty_line
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__qty_line
+#: model:ir.model.fields.selection,name:quality_control.selection__quality_check__measure_on__move_line
+#: model:ir.model.fields.selection,name:quality_control.selection__quality_point__measure_on__move_line
 msgid "Quantity"
 msgstr "Quantitat"
 
@@ -991,19 +1008,19 @@ msgstr "Quantitat"
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__qty_tested
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__qty_tested
 msgid "Quantity Tested"
-msgstr ""
+msgstr "Quantitat provada"
 
 #. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__qty_tested
 #: model:ir.model.fields,help:quality_control.field_quality_check_wizard__qty_tested
 msgid "Quantity of product tested within the lot"
-msgstr ""
+msgstr "Quantitat del producte provat dins del lot"
 
 #. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__qty_to_test
 #: model:ir.model.fields,help:quality_control.field_quality_check_wizard__qty_to_test
 msgid "Quantity of product to test within the lot"
-msgstr ""
+msgstr "Quantitat de producte a provar dins del lot"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__qty_to_test
@@ -1175,20 +1192,29 @@ msgstr "Assistent per al control de qualitat emergent"
 #. module: quality_control
 #: model:ir.actions.report,name:quality_control.quality_check_report
 msgid "Worksheet Report - External (PDF)"
-msgstr ""
+msgstr "Informe de full de treball - Extern (PDF)"
 
 #. module: quality_control
 #: model:ir.actions.report,name:quality_control.quality_check_report_internal
 msgid "Worksheet Report - Internal (PDF)"
-msgstr ""
+msgstr "Informe de full de treball - Intern (PDF)"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "You measured %.2f %s and it should be between %.2f and %.2f %s."
 msgstr "Has mesurat %.2f %s i hauria de ser entre %.2f i %.2f %s."
 
 #. module: quality_control
+#. odoo-python
+#: code:addons/quality_control/wizard/quality_check_wizard.py:0
+#, python-format
+msgid "You must provide a picture before validating"
+msgstr "Heu de proporcionar una imatge abans de validar"
+
+#. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/stock_picking.py:0
 #, python-format
 msgid "You still need to do the quality checks!"

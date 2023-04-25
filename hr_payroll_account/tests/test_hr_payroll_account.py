@@ -7,7 +7,7 @@ import odoo.tests
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
-from odoo import fields, models, tools
+from odoo import fields, Command
 from odoo.addons.hr_payroll.tests.common import TestPayslipContractBase
 
 
@@ -411,18 +411,31 @@ class TestHrPayrollAccount(TestHrPayrollAccountCommon):
         """Checking if taxes are added on a payslip accounting entry when there is a default tax on the journal"""
 
         # Create a default tax for the account on the salary rule.
+        tax_account = self.env['account.account'].create({
+            'name': 'Rental Tax',
+            'code': '777777',
+            'account_type': 'asset_current',
+        })
         hra_tax = self.env['account.tax'].create({
             'name': "hra_tax",
             'amount_type': 'percent',
             'amount': 10.0,
             'type_tax_use': 'sale',
+            'invoice_repartition_line_ids': [
+                Command.create({'factor_percent': 100, 'repartition_type': 'base'}),
+                Command.create({'factor_percent': 100, 'account_id': tax_account.id}),
+            ],
+            'refund_repartition_line_ids': [
+                Command.create({'factor_percent': 100, 'repartition_type': 'base'}),
+                Command.create({'factor_percent': 100, 'account_id': tax_account.id}),
+            ],
         })
 
         # Create a account for the HRA salary rule.
         self.hra_account = self.env['account.account'].create({
             'name': 'House Rental',
             'code': '654321',
-            'user_type_id': self.env.ref('account.data_account_type_revenue').id,
+            'account_type': 'income',
             'tax_ids': [(4, hra_tax.id)]
         })
 
@@ -440,3 +453,73 @@ class TestHrPayrollAccount(TestHrPayrollAccountCommon):
         for line in self.hr_payslip_john.move_id.line_ids:
             if line.account_id.id == self.hra_account.id:
                 self.assertEqual(line.tax_ids, hra_tax, 'The account default tax is not added to move lines!')
+
+    def test_payslip_refund(self):
+        """ Checking if refunding a payslip creates the correct invoice lines """
+
+        # Create an account for the HRA salary rule
+        self.test_account = self.env['account.account'].create({
+            'name': 'House Rental',
+            'code': '654321',
+            'account_type': 'income',
+        })
+
+        # Assign the account to the salary rule and the rule to the hr structure
+        self.hra_rule.account_credit = self.test_account
+        self.hra_rule.account_debit = self.test_account
+        self.hr_structure_softwaredeveloper.rule_ids = [(4, self.hra_rule.id)]
+
+        # Validate the payslip
+        self.hr_payslip_john.compute_sheet()
+        self.hr_payslip_john.action_payslip_done()
+
+        self.assertEqual(self.hr_payslip_john.state, 'done', 'State not changed!')
+        self.assertTrue(self.hr_payslip_john.move_id, 'Accounting entry has not been created!')
+
+        invoice_lines = self.hr_payslip_john.move_id.line_ids
+
+        # Verify that there are 2 invoice lines
+        # 1. amount = 2000, credit = 0, debit = 2000
+        # 2. amount = -2000, credit = 2000, debit = 0
+        line_amount = self.hra_rule.amount_percentage / 100 * self.hr_payslip_john.normal_wage
+
+        self.assertEqual(len(invoice_lines), 2, 'There should be 2 invoice lines')
+        self.assertEqual(invoice_lines[0].amount_currency, line_amount)
+        self.assertEqual(invoice_lines[0].credit, 0)
+        self.assertEqual(invoice_lines[0].debit, line_amount)
+
+        self.assertEqual(invoice_lines[1].amount_currency, -line_amount)
+        self.assertEqual(invoice_lines[1].credit, line_amount)
+        self.assertEqual(invoice_lines[1].debit, 0)
+
+        # Post the invoice
+        self.hr_payslip_john.move_id.action_post()
+
+        # Refund the payslip
+        self.hr_payslip_john.refund_sheet()
+
+        refund_slip = self.env['hr.payslip'].search([
+            ('employee_id', '=', self.hr_employee_john.id),
+            ('credit_note', '=', True)
+        ])
+
+        refund_slip.action_payslip_done()
+
+        self.assertEqual(refund_slip.state, 'done', 'State not changed!')
+        self.assertTrue(refund_slip.move_id, 'Accounting entry has not been created!')
+
+        invoice_lines = refund_slip.move_id.line_ids
+
+        # Check that there are 2 invoice lines, and they are the inverse of the original payslip
+        # 1. amount = -2000, credit = 2000, debit = 0
+        # 2. amount = 2000, credit = 0, debit = 2000
+        line_amount = self.hra_rule.amount_percentage / 100 * self.hr_payslip_john.normal_wage
+
+        self.assertEqual(len(invoice_lines), 2, 'There should be 2 invoice lines')
+        self.assertEqual(invoice_lines[0].amount_currency, -line_amount)
+        self.assertEqual(invoice_lines[0].credit, line_amount)
+        self.assertEqual(invoice_lines[0].debit, 0)
+
+        self.assertEqual(invoice_lines[1].amount_currency, line_amount)
+        self.assertEqual(invoice_lines[1].credit, 0)
+        self.assertEqual(invoice_lines[1].debit, line_amount)

@@ -1,31 +1,30 @@
-from odoo import api, models, _
-import requests
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+from odoo import models, _
 
 
-class TaxFinancialReport(models.AbstractModel):
-    _inherit = 'account.generic.tax.report'
+class BritishGenericTaxReportCustomHandler(models.AbstractModel):
+    _name = 'l10n_uk.tax.report.handler'
+    _inherit = 'account.generic.tax.report.handler'
+    _description = 'British Tax Report Custom Handler'
 
-    def _get_reports_buttons(self, options):
-        """
-            Add Buttons to Tax Report
-        """
-        rslt = super(TaxFinancialReport, self)._get_reports_buttons(options)
-        if self._get_report_country_code(options) == 'GB':
-            # If token, but no refresh_token, check if you got the refresh_token on the server first
-            # That way, you can see immediately if your login was successful after logging in
-            # and the label of the button will be correct
-            if self.env.user.l10n_uk_user_token and not self.env.user.l10n_uk_hmrc_vat_token:
-                self.env['hmrc.service']._login()
+    def _dynamic_lines_generator(self, report, options, all_column_groups_expression_totals):
+        # Overridden to prevent having unnecessary lines from the generic tax report.
+        return []
 
-            if self.env.user.l10n_uk_hmrc_vat_token:
-                rslt.insert(0, {'name': _('Send to HMRC'), 'action': 'send_hmrc'})
-            else:
-                rslt.insert(0, {'name': _('Connect to HMRC'), 'action': 'send_hmrc'})
-        return rslt
+    def _custom_options_initializer(self, report, options, previous_options=None):
+        super()._custom_options_initializer(report, options)
+        # If token, but no refresh_token, check if you got the refresh_token on the server first
+        # That way, you can see immediately if your login was successful after logging in
+        # and the label of the button will be correct
+        if self.env.user.l10n_uk_user_token and not self.env.user.l10n_uk_hmrc_vat_token:
+            self.env['hmrc.service']._login()
+        button_name = _('Send to HMRC') if self.env.user.l10n_uk_hmrc_vat_token else _('Connect to HMRC')
+        options['buttons'].append({'name': button_name, 'action': 'send_hmrc', 'sequence': 50})
 
     def send_hmrc(self, options):
-        #login if not token
-        if not self.env.user.l10n_uk_hmrc_vat_token: # If button is connect
+        # do the login if there is no token for the current user yet.
+        if not self.env.user.l10n_uk_hmrc_vat_token and not options.get('_running_export_test'):
             return self.env['hmrc.service']._login()
 
         # Show wizard when sending to HMRC

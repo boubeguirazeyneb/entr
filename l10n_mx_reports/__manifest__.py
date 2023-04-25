@@ -18,12 +18,10 @@
     "depends": [
         "account_reports",
         "l10n_mx",
-    ],
-    "demo": [
-        "demo/res_company_demo.xml",
-        "demo/res_partner_demo.xml",
+        "l10n_mx_edi",
     ],
     "data": [
+        "data/account_report_diot.xml",
         "data/account_financial_report_data.xml",
         "data/country_data.xml",
         "data/templates/cfdicoa.xml",
@@ -32,5 +30,5 @@
         "views/res_partner_view.xml",
     ],
     "installable": True,
-    "auto_install": True,
+    "auto_install": ['l10n_mx', 'account_reports'],
 }

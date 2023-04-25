@@ -30,7 +30,7 @@ class HrReferralReward(models.Model):
         help="This field holds the image used as image for the product, limited to 1024x1024px.")
 
     def _compute_awarded_employees(self):
-        data = {d['hr_referral_reward_id'][0]: d['__count'] for d in self.env['hr.referral.points'].read_group(
+        data = {d['hr_referral_reward_id'][0]: d['__count'] for d in self.env['hr.referral.points']._read_group(
             [('hr_referral_reward_id', 'in', self.ids)],
             ['hr_referral_reward_id'],
             ['hr_referral_reward_id'],
@@ -40,7 +40,7 @@ class HrReferralReward(models.Model):
 
     def _compute_points_missing(self):
         available_points_company = dict()
-        for item in self.env['hr.referral.points'].read_group([('ref_user_id', '=', self.env.user.id)], ['company_id', 'points'], ['company_id']):
+        for item in self.env['hr.referral.points']._read_group([('ref_user_id', '=', self.env.user.id)], ['company_id', 'points'], ['company_id']):
             available_points_company[item['company_id'][0]] = item['points']
         for item in self:
             item.points_missing = item.cost - (available_points_company[item.company_id.id] if item.company_id.id in available_points_company else 0)
@@ -82,13 +82,18 @@ class HrReferralReward(models.Model):
             'domain': [('id', 'in', points_ids)]
         }
 
-    @api.model
-    def create(self, values):
-        if 'gift_manager_id' in values:
-            reward_responsible_group = self.env.ref('hr_referral.group_hr_referral_reward_responsible_user', raise_if_not_found=False)
-            if reward_responsible_group and values['gift_manager_id']:
-                reward_responsible_group.sudo().write({'users': [(4, values['gift_manager_id'])]})
-        return super(HrReferralReward, self).create(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        reward_responsible_group = self.env.ref('hr_referral.group_hr_referral_reward_responsible_user', raise_if_not_found=False)
+        if not reward_responsible_group:
+            return super().create(vals_list)
+        users_to_write = []
+        for vals in vals_list:
+            if vals.get('gift_manager_id', False):
+                users_to_write.append((4, vals['gift_manager_id']))
+        if users_to_write:
+            reward_responsible_group.sudo().write({'users': users_to_write})
+        return super().create(vals_list)
 
     def write(self, values):
         old_responsibles = self.env['res.users']

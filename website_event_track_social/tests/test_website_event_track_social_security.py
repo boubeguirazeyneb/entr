@@ -4,17 +4,11 @@
 from dateutil.relativedelta import relativedelta
 
 from odoo import fields
-from odoo.addons.event.tests.common import TestEventCommon
+from odoo.addons.website_event.tests.common import TestEventOnlineCommon
 from odoo.tests.common import users
 
 
-class TestTrackPushSecurity(TestEventCommon):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestTrackPushSecurity, cls).setUpClass()
-        cls.website = cls.env['website'].create({'name': 'Website'})
-        cls.event_0.write({'website_id': cls.website.id})
+class TestTrackPushSecurity(TestEventOnlineCommon):
 
     @users('user_eventmanager')
     def test_track_social_security(self):
@@ -37,7 +31,7 @@ class TestTrackPushSecurity(TestEventCommon):
         # event modifications should be correctly reflected to the push notification even without
         # social groups
         track_1.write({'name': 'New Name'})
-        track_1.flush(['name', 'date'])
+        track_1.flush_recordset(['name', 'date'])
         push_reminder = self.env['social.post'].sudo().search([('event_track_id', '=', track_1.id)])
         self.assertEqual(
             "Your favorite track 'New Name' will start in 10 minutes!",

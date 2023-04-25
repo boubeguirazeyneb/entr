@@ -196,7 +196,7 @@
                             </div>
                             <div class="o_kanban_card_manage_pane dropdown-menu" role="menu">
                                 <div t-if="widget.editable" role="menuitem">
-                                    <a class="dropdown-item pl-0" type="edit">Configuration</a>
+                                    <a class="dropdown-item ps-0" type="edit">Configuration</a>
                                 </div>
                                 <div t-if="widget.editable" role="menuitem" aria-haspopup="true" class="o_no_padding_kanban_colorpicker">
                                     <ul class="oe_kanban_colorpicker" data-field="color" role="popup"/>
@@ -336,11 +336,11 @@
                          <div t-attf-class="{{!selection_mode ? 'oe_kanban_color_' + kanban_getcolor(record.color.raw_value) : ''}} oe_kanban_card oe_kanban_global_click">
                             <span class="oe_kanban_color_help" t-attf-title="In #{kanban_getcolorname(record.color.raw_value)}" role="img" t-attf-aria-label="In #{kanban_getcolorname(record.color.raw_value)}"/>
                             <div class="o_dropdown_kanban dropdown" groups="base.group_user">
-                                <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu">
+                                <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu">
                                     <span class="fa fa-ellipsis-v"/>
                                 </a>
                                 <div class="dropdown-menu" role="menu">
-                                    <t t-if="widget.editable"><a type="set_cover" class="dropdown-item" role="menuitem">Set Cover Image</a></t>
+                                    <t t-if="widget.editable"><a type="set_cover" class="dropdown-item" role="menuitem" data-field="displayed_image_attachment_id">Set Cover Image</a></t>
                                     <t t-if="widget.editable"><a type="edit" class="dropdown-item" role="menuitem">Edit Task</a></t>
                                     <t t-if="widget.deletable"><a type="delete" class="dropdown-item" role="menuitem">Delete</a></t>
                                     <ul class="oe_kanban_colorpicker" data-field="color"/>
@@ -361,6 +361,7 @@
                                 </div>
                                 <div class="text-muted">
                                     <t t-if="record.effectivity_date.raw_value and record.effectivity_date.raw_value lt (new Date())" t-set="red">oe_kanban_text_red</t>
+                                    <!-- REPLACE BY THIS WHEN CONVERTED TO WOWL KANBAN <t t-if="record.effectivity_date.raw_value and luxon.DateTime.fromISO(record.effectivity_date.raw_value) &lt; luxon.DateTime.local()" t-set="red">oe_kanban_text_red</t> -->
                                     <span t-attf-class="#{red || ''}"><i><field name="effectivity_date"/></i></span>
                                 </div>
                             </div>
@@ -369,7 +370,7 @@
                                     <field name="priority" widget="priority"/>
                                 </div>
                                 <div class="oe_kanban_bottom_right">
-                                    <div class="float-left mr4" groups="base.group_user">
+                                    <div class="float-start mr4" groups="base.group_user">
                                         <field name="activity_ids" widget="kanban_activity"/>
                                         <field name="kanban_state" widget="state_selection" attrs="{'readonly': [('allow_change_kanban_state', '=', False)]}"/>
                                     </div>
@@ -721,7 +722,7 @@
                         </group>
                     </group>
                     <group name="approvals" string="Approvals">
-                        <field name="approval_template_ids" nolabel="1">
+                        <field name="approval_template_ids" nolabel="1" colspan="2">
                             <tree editable="bottom">
                                 <field name="sequence" widget="handle"/>
                                 <field name="name" placeholder="e.g. Engineering Department"/>
@@ -808,7 +809,7 @@
     <menuitem
         id="menu_mrp_plm_root"
         name="PLM"
-        web_icon="mrp_plm,static/description/icon.png"
+        web_icon="mrp_plm,static/description/icon.svg"
         sequence="170"
         groups="mrp_plm.group_plm_user"/>
 

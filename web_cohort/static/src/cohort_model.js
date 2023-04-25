@@ -2,8 +2,8 @@
 
 import { _lt } from "@web/core/l10n/translation";
 import { KeepLast, Race } from "@web/core/utils/concurrency";
-import { Model } from "@web/views/helpers/model";
-import { computeReportMeasures, processMeasure } from "@web/views/helpers/utils";
+import { Model } from "@web/views/model";
+import { computeReportMeasures, processMeasure } from "@web/views/utils";
 
 export const MODES = ["retention", "churn"];
 export const TIMELINES = ["forward", "backward"];
@@ -55,8 +55,7 @@ export class CohortModel extends Model {
         this.metaData.measures = computeReportMeasures(
             this.metaData.fields,
             this.metaData.fieldAttrs,
-            [this.metaData.measure],
-            this.metaData.additionalMeasures
+            [this.metaData.measure]
         );
         return this._load(this.metaData);
     }
@@ -89,6 +88,9 @@ export class CohortModel extends Model {
         this.data = await this.keepLast.add(this._fetchData(metaData));
         for (const i in this.data) {
             this.data[i].title = this.searchParams.domains[i].description;
+            this.data[i].rows.forEach((row) => {
+                row.columns = row.columns.filter((col) => col.percentage !== "");
+            });
         }
     }
 

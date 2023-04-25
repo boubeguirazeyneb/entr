@@ -1,34 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo><data>
-    <record id="stock_picking_view_form_inherit_stock_barcode" model="ir.ui.view">
-        <field name="name">stock.picking.form.inherit</field>
-        <field name="model">stock.picking</field>
-        <field name="inherit_id" ref="stock.view_picking_form"/>
-        <field name="arch" type="xml">
-            <form position="inside">
-                <field name="_barcode_scanned" widget="picking_barcode_handler"/>
-            </form>
-            <xpath expr="//button[@name='button_validate']" position="attributes">
-                <attribute name="barcode_trigger">validate</attribute>
-            </xpath>
-            <xpath expr="//button[@name='action_cancel']" position="attributes">
-                <attribute name="barcode_trigger">cancel</attribute>
-            </xpath>
-            <xpath expr="//button[@name='do_print_picking']" position="attributes">
-                <attribute name="barcode_trigger">print-op</attribute>
-            </xpath>
-            <xpath expr="//button[@name='%(stock.action_report_delivery)d']" position="attributes">
-                <attribute name="barcode_trigger">print-slip</attribute>
-            </xpath>
-            <xpath expr="//button[@name='action_put_in_pack']" position="attributes">
-                <attribute name="barcode_trigger">pack</attribute>
-            </xpath>
-            <xpath expr="//button[@name='button_scrap']" position="attributes">
-                <attribute name="barcode_trigger">scrap</attribute>
-            </xpath>
-        </field>
-    </record>
-
     <record id="view_stock_move_line_detailed_operation_tree_inherit_stock_barcode" model="ir.ui.view">
         <field name="name">stock.move.line.operations.tree.inherit</field>
         <field name="model">stock.move.line</field>
@@ -66,8 +37,9 @@
         <field name="arch" type="xml">
             <form string="Picking Details">
                 <field name="show_allocation" invisible="1"/>
+                <field name="company_id" invisible="1"/>
                 <group>
-                    <button name="action_view_reception_report" string="Allocation"
+                    <button name="action_view_reception_report" string="Allocation" type="object"
                         context="{'default_picking_ids': [id]}"
                         class="btn btn-primary o_reception_report" icon="fa-list"
                         attrs="{'invisible': [('show_allocation', '=', False)]}"
@@ -79,16 +51,38 @@
                     <field name="priority" readonly="1" attrs="{'invisible': [('priority', '=', False)]}"/>
                     <field name="owner_id" readonly="1" attrs="{'invisible': [('owner_id', '=', False)]}" groups="stock.group_tracking_owner"/>
                     <field name="company_id" readonly="1" groups="base.group_multi_company"/>
-                    <field name="move_lines" readonly="1" attrs="{'invisible': [('move_lines', '=', False)]}">
-                        <tree>
-                            <field name="product_id"/>
-                            <field name="description_picking" string="Description"/>
-                            <field name="product_uom_qty"/>
-                            <field name="state"/>
-                        </tree>
+                    <field name="move_ids" readonly="1" attrs="{'invisible': [('move_ids', '=', False)]}">
+                        <kanban>
+                            <templates>
+                                <t t-name="kanban-box">
+                                    <div class="oe_kanban_global_click">
+                                        <div class="row">
+                                            <div class="col-6 o_kanban_record_title">
+                                                <field name="product_id"/>
+                                            </div>
+                                            <div class="col-6 text-end">
+                                                <field name="product_uom_qty"/>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <field name="description_picking"/>
+                                            </div>
+                                            <div class="col-6 text-end">
+                                                <field name="state"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
                     </field>
                     <field name="note" readonly="1" attrs="{'invisible': [('note', '=', False)]}"/>
                 </group>
+                <div class="o_barcode_control d-flex fixed-bottom">
+                    <button string="Discard" class="btn btn-secondary o_discard" special="cancel"/>
+                    <button string="Confirm" class="btn btn-primary o_save" special="save"/>
+                </div>
             </form>
         </field>
     </record>
@@ -131,6 +125,56 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='warehouse_id']" position="after">
                 <field name="barcode"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_barcode_view_picking_type_form" model="ir.ui.view">
+        <field name="name">Operation Types</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock.view_picking_type_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet//group[@name='first']" position="before">
+                <notebook>
+                    <page name="general" string="General">
+                    </page>
+                    <page name="barcode_app" string="Barcode App">
+                        <group name="restrict_scan_settings" string="Mandatory Scan">
+                            <field name="restrict_scan_source_location" string="Source Location"
+                                    groups="stock.group_stock_multi_locations"
+                                    attrs="{'invisible': [('code', '=', 'incoming')]}"/>
+                            <field name="restrict_scan_product" string="Product"/>
+                            <field name="restrict_scan_tracking_number" string="Lot/Serial"
+                                    groups="stock.group_production_lot"/>
+                            <field name="restrict_put_in_pack"
+                                    groups="stock.group_tracking_lot" string="Put in Pack"/>
+                            <field name="restrict_scan_dest_location" string="Destination Location"
+                                    groups="stock.group_stock_multi_locations"
+                                    attrs="{'invisible': [('code', '=', 'outgoing')]}"/>
+                        </group>
+                        <field name="show_barcode_validation" invisible="1"/>
+                        <group name="barcode_validation" string="Final Validation" attrs="{'invisible': [('show_barcode_validation', '=', False)]}">
+                            <!-- show_barcode_validation handles combined groups/invisible complexity -->
+                            <field name="barcode_validation_full"
+                                attrs="{'invisible': [('restrict_scan_product', '=', True)]}"/>
+                            <field name="barcode_validation_all_product_packed"
+                                    groups="stock.group_tracking_lot"
+                                    attrs="{'invisible': [('restrict_put_in_pack', '!=', 'optional')]}"/>
+                            <field name="barcode_validation_after_dest_location"
+                                    groups="stock.group_stock_multi_locations"
+                                    attrs="{'invisible': ['|',
+                                        ('code', '=', 'outgoing'),
+                                        ('restrict_scan_dest_location', '!=', 'optional'),
+                                    ]}"/>
+                        </group>
+                    </page>
+                </notebook>
+            </xpath>
+            <xpath expr="//page[@name='general']" position="inside">
+                <xpath expr="//sheet//group[@name='first']" position="move"/>
+            </xpath>
+            <xpath expr="//page[@name='general']" position="inside">
+                <xpath expr="//sheet//group[@name='second']" position="move"/>
             </xpath>
         </field>
     </record>

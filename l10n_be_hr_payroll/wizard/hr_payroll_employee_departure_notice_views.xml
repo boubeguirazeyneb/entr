@@ -11,7 +11,7 @@
                         <field name="oldest_contract_id"/>
                     </group>
                     <group>
-                        <field name="leaving_type_id" widget="radio"/>
+                        <field name="leaving_type_id" options="{'no_open': True, 'no_create': True}"/>
                         <field name="departure_description" widget="text"/>
                         <field name="salary_visibility" invisible="1"/>
                     </group>
@@ -35,7 +35,7 @@
                     </group>
                 </group>
                 <group class="o_label_nowrap">
-                    <field name="notice_respect" attrs="{'invisible': [('departure_reason_code','in', [340, 343])]}"/>
+                    <field name="notice_respect" attrs="{'invisible': [('notice_duration_month_before_2014','=', 0), ('notice_duration_week_after_2014', '=', 0)]}"/>
                 </group>
                 <footer>
                     <button name="validate_termination" string="Validate" type="object" class="oe_highlight" attrs="{'invisible': [('notice_respect','=','without')]}" data-hotkey="q"/>

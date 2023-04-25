@@ -22,7 +22,7 @@
                     <cac:AlternativeConditionPrice>
                         <cbc:PriceAmount
                                 t-att-currencyID="line.currency_id.name"
-                                t-esc="format_float(line_vals['price_total_unit'])"/>
+                                t-esc="format_float(line_vals['price_total_unit'], precision=price_precision)"/>
                         <cbc:PriceTypeCode
                                 t-esc="line_vals['price_unit_type_code']"/>
                     </cac:AlternativeConditionPrice>
@@ -32,16 +32,16 @@
                             t-att-currencyID="line.currency_id.name"
                             t-esc="format_float(line.price_total - line.price_subtotal)"/>
                         <cac:TaxSubtotal
-                            t-foreach="tax_details['invoice_line_tax_details'][line]['tax_details'].values()"
+                            t-foreach="tax_details['tax_details_per_record'][line]['tax_details'].values()"
                             t-as="tax_detail_vals">
                             <t t-set="tax" t-value="tax_detail_vals['tax']"/>
                             <cbc:TaxableAmount
                                     t-if="tax.tax_group_id.l10n_pe_edi_code != 'ICBPER'"
                                     t-att-currencyID="line.currency_id.name"
-                                    t-esc="format_float(balance_multiplicator * tax_detail_vals['base_amount_currency'])"/>
+                                    t-esc="format_float(tax_detail_vals['base_amount_currency'])"/>
                             <cbc:TaxAmount
                                     t-att-currencyID="line.currency_id.name"
-                                    t-esc="format_float(balance_multiplicator * tax_detail_vals['tax_amount_currency'] or 0.0)"/>
+                                    t-esc="format_float(tax_detail_vals['tax_amount_currency'] or 0.0)"/>
                             <cbc:BaseUnitMeasure
                                     t-if="tax.tax_group_id.l10n_pe_edi_code == 'ICBPER'"
                                     t-att-unitCode="line.product_uom_id.l10n_pe_edi_measure_unit_code"
@@ -55,8 +55,11 @@
                                         t-att-currencyID="line.currency_id.name"
                                         t-esc="tax.amount"/>
                                 <cbc:TaxExemptionReasonCode
-                                        t-if="tax.tax_group_id.l10n_pe_edi_code != 'ICBPER' and line.l10n_pe_edi_affectation_reason"
+                                        t-if="tax.tax_group_id.l10n_pe_edi_code not in ('ISC', 'ICBPER') and line.l10n_pe_edi_affectation_reason"
                                         t-esc="line.l10n_pe_edi_affectation_reason"/>
+                                <cbc:TierRange
+                                        t-if="tax.tax_group_id.l10n_pe_edi_code == 'ISC' and tax.l10n_pe_edi_isc_type"
+                                        t-esc="tax.l10n_pe_edi_isc_type or ''"/>
                                 <cac:TaxScheme>
                                     <cbc:ID t-esc="tax.l10n_pe_edi_tax_code"/>
                                     <cbc:Name t-esc="tax.tax_group_id.l10n_pe_edi_code"/>
@@ -74,7 +77,7 @@
                 <cac:Price>
                     <cbc:PriceAmount
                             t-att-currencyID="line.currency_id.name"
-                            t-esc="format_float(line_vals['price_subtotal_unit'])"/>
+                            t-esc="format_float(line_vals['price_subtotal_unit'], precision=price_precision)"/>
                 </cac:Price>
             </t>
         </template>
@@ -143,8 +146,8 @@
                                         t-if="record.company_id.partner_id.street"
                                         t-esc="record.partner_id.street"/>
                                 <cbc:CityName
-                                        t-if="record.company_id.partner_id.city_id.name"
-                                        t-esc="record.partner_id.city_id.name"/>
+                                        t-if="record.company_id.partner_id.city"
+                                        t-esc="record.partner_id.city"/>
                             </cac:RegistrationAddress>
                         </cac:PartyLegalEntity>
                     </cac:Party>
@@ -220,10 +223,10 @@
                         <cac:TaxSubtotal t-foreach="tax_details_grouped['tax_details'].values()" t-as="tax_detail_vals">
                             <cbc:TaxableAmount
                                     t-att-currencyID="record.currency_id.name"
-                                    t-esc="format_float(balance_multiplicator * tax_detail_vals['base_amount_currency'])"/>
+                                    t-esc="format_float(tax_detail_vals['base_amount_currency'] - (isc_tax_amount if tax_detail_vals['l10n_pe_edi_code'] != 'ISC' else 0))"/>
                             <cbc:TaxAmount
                                     t-att-currencyID="record.currency_id.name"
-                                    t-esc="format_float(balance_multiplicator * tax_detail_vals['tax_amount_currency'] or 0.0)"/>
+                                    t-esc="format_float(tax_detail_vals['tax_amount_currency'] or 0.0)"/>
                             <cac:TaxCategory>
                                 <cac:TaxScheme>
                                     <cbc:ID t-esc="tax_detail_vals['l10n_pe_edi_tax_code']"/>

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-import base64
 import requests
 from werkzeug.urls import url_join
 
@@ -13,7 +12,7 @@ class SocialPushNotificationsController(http.Controller):
     @http.route('/social_push_notifications/fetch_push_configuration', type='json', auth='public', website=True)
     def fetch_push_configuration(self):
         """ Fetches the firebase push configuration for the current website (if any). """
-        current_website = request.env['website'].get_current_website()
+        current_website = request.website
         if not current_website or not current_website.firebase_enable_push_notifications:
             return {}
 
@@ -77,41 +76,21 @@ class SocialPushNotificationsController(http.Controller):
 
         Visitor = request.env['website.visitor'].sudo()
         visitor_sudo = Visitor._get_visitor_from_request(force_create=True)
-        if request.httprequest.cookies.get('visitor_uuid', '') != visitor_sudo.access_token:
-            res['visitor_uuid'] = visitor_sudo.access_token
-
-        visitor_sudo.write({'push_token': token})
-
-        # check if other visitors already had this token
-        other_visitors_sudo = Visitor.search([('push_token', '=', token), ('id', '!=', visitor_sudo.id)])
-        # If yes, clean other visitors
-        if other_visitors_sudo:
-            other_visitors_sudo.write({'push_token': False})
+        visitor_sudo._register_push_subscription(token)
 
         return res
 
     @http.route('/social_push_notifications/unregister', type='json', auth='public')
     def unregister(self, token):
         if token:
-            request.env['website.visitor'].sudo().search([('push_token', '=', token)]).write({'push_token': False})
+            visitor_sudo = request.env['website.visitor'].sudo()._get_visitor_from_request()
+            subscription_sudo = visitor_sudo.push_subscription_ids.filtered(lambda subscription:
+                subscription.push_token == token)
+            subscription_sudo.unlink()
 
     @http.route('/social_push_notifications/social_post/<int:post_id>/push_notification_image', type='http', auth='public')
     def social_push_get_notification_image(self, post_id):
         social_post = request.env['social.post'].sudo().search([('id', '=', post_id), ('state', 'in', ['posting', 'posted'])], limit=1)
-
-        if not social_post:
-            status = 200
-            headers = []
-            image_base64 = base64.b64encode(request.env['ir.http']._placeholder())
-        else:
-            status, headers, image_base64 = request.env['ir.http'].sudo().binary_content(model='social.post', id=post_id, field='push_notification_image', default_mimetype='image/png')
-            if status in [301, 304]:
-                return request.env['ir.http']._response_by_status(status, headers, image_base64)
-
-        image_base64 = tools.image_process(image_base64, size=(64, 64))
-
-        content = base64.b64decode(image_base64)
-        headers = http.set_safe_image_headers(headers, content)
-        response = request.make_response(content, headers)
-        response.status_code = status
-        return response
+        return request.env['ir.binary']._get_image_stream_from(
+            social_post, 'push_notification_image', width=64, height=64
+        ).get_response()

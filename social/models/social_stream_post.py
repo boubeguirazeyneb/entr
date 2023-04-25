@@ -39,8 +39,8 @@ class SocialStreamPost(models.Model):
 
     stream_post_image_ids = fields.One2many('social.stream.post.image', 'stream_post_id', string="Stream Post Images",
         help="Images that were shared with this post.")
+    # JSON array capturing the URLs of the images to make it easy to display them in the kanban view
     stream_post_image_urls = fields.Text("Stream Post Images URLs",
-        help="JSON array capturing the URLs of the images to make it easy to display them in the kanban view",
         compute='_compute_stream_post_image_urls')
 
     # Some social.medias (ex: Facebook) provide information on the link shared with the post.
@@ -84,3 +84,14 @@ class SocialStreamPost(models.Model):
             return _format_time_ago(self.env, (datetime.now() - published_date), add_direction=False)
         else:
             return format_date(self.env, published_date)
+
+    def _fetch_matching_post(self):
+        """ This method is meant to be overridden by underlying social implementations.
+        It returns the social.post linked to this social.stream.post if any, by matching
+        the social media specific ID of the social.stream.post to its social.live.post counterpart.
+
+        This can't be easily built dinamically since all social media implementations have their own
+        specific IDs, that we don't want to mix. """
+
+        self.ensure_one()
+        return self.env['social.post']

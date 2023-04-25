@@ -3,21 +3,22 @@
 # 	* documents_hr
 # 
 # Translators:
+# Triine Aavik <triine@avalah.ee>, 2022
 # Eneli Õigus <enelioigus@gmail.com>, 2022
 # Martin Trigaux, 2022
 # Arma Gedonsky <armagedonsky@hot.ee>, 2022
 # Piia Paurson <piia@avalah.ee>, 2022
 # Andre Roomet <andreroomet@gmail.com>, 2022
-# Triine Aavik <triine@avalah.ee>, 2022
+# Leaanika Randmets, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:39+0000\n"
-"Last-Translator: Triine Aavik <triine@avalah.ee>, 2022\n"
-"Language-Team: Estonian (https://www.transifex.com/odoo/teams/41243/et/)\n"
+"POT-Creation-Date: 2022-10-04 09:42+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Leaanika Randmets, 2022\n"
+"Language-Team: Estonian (https://app.transifex.com/odoo/teams/41243/et/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -42,6 +43,44 @@ msgid ""
 "                                    Default tags\n"
 "                                </span>"
 msgstr ""
+"<span name=\"documents_hr_tags\" class=\"o_form_label\" invisible=\"1\" attrs=\"{'invisible' : [('documents_hr_settings', '=', False)]}\">\n"
+"                                    Vaikimisi sildid\n"
+"                                </span>"
+
+#. module: documents_hr
+#: model:mail.template,body_html:documents_hr.mail_template_document_folder_link
+msgid ""
+"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%; margin:0px auto;\"><tbody>\n"
+"        <tr><td valign=\"top\" style=\"text-align: left; font-size: 14px;\">\n"
+"            Dear <t t-esc=\"object.name\"/>, your personal documents access link is available for you.<br/><br/>\n"
+"            You'll find all your personal HR documents in this folder.<br/><br/>\n"
+"            Please keep this link secure.<br/><br/>\n"
+"            <div style=\"text-align: center; padding: 16px 0px 16px 0px; font-size: 14px;\">\n"
+"                <a t-attf-href=\"{{ object.documents_share_id.full_url }}\" target=\"_blank\" style=\"background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;\">\n"
+"                    Your Documents\n"
+"                </a>\n"
+"            </div>\n"
+"            Have a nice day,<br/>\n"
+"            The HR Team\n"
+"        </td></tr>\n"
+"    </tbody></table>\n"
+"                "
+msgstr ""
+"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%; margin:0px auto;\"><tbody>\n"
+"        <tr><td valign=\"top\" style=\"text-align: left; font-size: 14px;\">\n"
+"            Hea <t t-esc=\"object.name\"/>, Teie isiklike dokumentide juurdepääsulink on saadaval.<br/><br/>\n"
+"            Kõik Teie isiklikud personnaliosakonnaga seotud dokumendid leiate sellest kaustast<br/><br/>\n"
+"            Palun hoidke seda linki turvaliselt!<br/><br/>\n"
+"            <div style=\"text-align: center; padding: 16px 0px 16px 0px; font-size: 14px;\">\n"
+"                <a t-attf-href=\"{{ object.documents_share_id.full_url }}\" target=\"_blank\" style=\"background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;\">\n"
+"                    Teie dokumendid\n"
+"                </a>\n"
+"            </div>\n"
+"            Parimate soovidega<br/>\n"
+"            Personaliosakond\n"
+"        </td></tr>\n"
+"    </tbody></table>\n"
+"                "
 
 #. module: documents_hr
 #: model:documents.tag,name:documents_hr.documents_hr_documents_absences
@@ -69,6 +108,11 @@ msgid "Config Settings"
 msgstr "Seadistused"
 
 #. module: documents_hr
+#: model:ir.model,name:documents_hr.model_hr_departure_wizard
+msgid "Departure Wizard"
+msgstr "Lahkumise wizard"
+
+#. module: documents_hr
 #: model:ir.model.fields,field_description:documents_hr.field_res_users__document_ids
 msgid "Document"
 msgstr "Dokument"
@@ -79,10 +123,12 @@ msgid "Document Count"
 msgstr "Dokumendi arv"
 
 #. module: documents_hr
+#: code:addons/documents_hr/models/res_users.py:0
 #: model:documents.facet,name:documents_hr.documents_hr_documents
 #: model:ir.model.fields,field_description:documents_hr.field_res_users__document_count
 #: model_terms:ir.ui.view,arch_db:documents_hr.hr_employee_view_form
 #: model_terms:ir.ui.view,arch_db:documents_hr.res_users_view_form
+#, python-format
 msgid "Documents"
 msgstr "Dokumendid"
 
@@ -92,9 +138,24 @@ msgid "Documents Hr Settings"
 msgstr "Dokumendid HR Seaded"
 
 #. module: documents_hr
+#: model:ir.model.fields,field_description:documents_hr.field_hr_employee__documents_share_id
+msgid "Documents Share"
+msgstr "Dokumentide jagamine"
+
+#. module: documents_hr
 #: model:ir.model,name:documents_hr.model_hr_employee
 msgid "Employee"
 msgstr "Töötaja"
+
+#. module: documents_hr
+#: code:addons/documents_hr/models/hr_employee.py:0
+#, python-format
+msgid ""
+"Employee's private email must be set to use \"Send Access Link\" function:\n"
+"%s"
+msgstr ""
+"Töötaja isiklik e-posti aadress peab olema määratud, et kasutada \"Saada juurdepääsulink\" funktsiooni:\n"
+"%s"
 
 #. module: documents_hr
 #: model:documents.tag,name:documents_hr.documents_hr_documents_employees
@@ -107,14 +168,54 @@ msgid "HR"
 msgstr "Personal"
 
 #. module: documents_hr
+#: code:addons/documents_hr/models/hr_employee.py:0
+#, python-format
+msgid "HR Documents: %s"
+msgstr "Personali dokumendid: %s"
+
+#. module: documents_hr
+#: model:mail.template,name:documents_hr.mail_template_document_folder_link
+msgid "HR: Document Access Link"
+msgstr "Personal: Dokumendite juurdepääsulink"
+
+#. module: documents_hr
 #: model:ir.model.fields,field_description:documents_hr.field_res_config_settings__documents_hr_settings
 msgid "Human Resources"
 msgstr "Inimressursid"
 
 #. module: documents_hr
+#: model:ir.model.fields,field_description:documents_hr.field_hr_departure_wizard__send_hr_documents_access_link
+msgid "Send Access Link"
+msgstr "Saada juurdepääsulink"
+
+#. module: documents_hr
+#: model:ir.actions.server,name:documents_hr.ir_actions_server_send_access_link
+msgid "Send HR Documents Access Link"
+msgstr "Saada personali dokumentide juurdepääsulink"
+
+#. module: documents_hr
+#: model:ir.model.fields,help:documents_hr.field_hr_departure_wizard__send_hr_documents_access_link
+msgid ""
+"Send an email to the user with a share link to all the documents he owns."
+msgstr ""
+"Saatke kasutajale e-kiri koos kõigi talle kuuluvate dokumentide "
+"jagamislingiga."
+
+#. module: documents_hr
+#: model:mail.template,description:documents_hr.mail_template_document_folder_link
+msgid "Sent manually when recording an employee departure"
+msgstr "Saadetakse käsitsi töötaja lahkumise salvestamisel"
+
+#. module: documents_hr
+#: code:addons/documents_hr/models/hr_employee.py:0
+#, python-format
+msgid "The access link has been sent to the employee."
+msgstr "Töötajale on saadetud juurdepääsulink"
+
+#. module: documents_hr
 #: model:ir.model,name:documents_hr.model_res_users
-msgid "Users"
-msgstr "Kasutajad"
+msgid "User"
+msgstr "Kasutaja"
 
 #. module: documents_hr
 #: model_terms:ir.ui.view,arch_db:documents_hr.res_config_settings_view_form
@@ -124,7 +225,9 @@ msgstr "Tööala"
 #. module: documents_hr
 #: code:addons/documents_hr/models/hr_employee.py:0
 #, python-format
-msgid "You must set an address on the employee to use Documents features."
+msgid ""
+"You must set a private address on the Employee in order to use Document's "
+"features."
 msgstr ""
 
 #. module: documents_hr
@@ -136,3 +239,9 @@ msgstr "hr Töölaud"
 #: model:ir.model.fields,field_description:documents_hr.field_res_config_settings__documents_hr_folder
 msgid "hr default workspace"
 msgstr "hr vaikimisi töölaud"
+
+#. module: documents_hr
+#: model:mail.template,subject:documents_hr.mail_template_document_folder_link
+msgid "{{ object.name }}, your personal documents access link is available"
+msgstr ""
+"{{ object.name }}, teie isiklike dokumentide juurdepääsulink on saadaval"

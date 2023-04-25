@@ -20,7 +20,7 @@ class SocialPostTemplate(models.Model):
     # Visitor
     use_visitor_timezone = fields.Boolean("Send at Visitors' Timezone",
         help="e.g: If you post at 15:00 your time, all visitors will receive the post at 15:00 their time.")
-    visitor_domain = fields.Char(string="Visitor Domain", default=[['push_token', '!=', False]], help="Domain to send push notifications to visitors.")
+    visitor_domain = fields.Char(string="Visitor Domain", default=[['has_push_notifications', '!=', False]], help="Domain to send push notifications to visitors.")
 
     @api.depends('message', 'account_ids.media_id.media_type')
     def _compute_display_push_notifications_preview(self):
@@ -41,7 +41,7 @@ class SocialPostTemplate(models.Model):
                     if post.id or (post._origin and post._origin.id):
                         icon_url = '/web/image/social.post/%s/push_notification_image' % (post.id if post.id else post._origin.id)
 
-            post.push_notifications_preview = self.env.ref('social_push_notifications.push_notifications_preview')._render({
+            post.push_notifications_preview = self.env['ir.qweb']._render('social_push_notifications.push_notifications_preview', {
                 'title': post.push_notification_title or _('New Message'),
                 'icon': icon,
                 'icon_url': icon_url,

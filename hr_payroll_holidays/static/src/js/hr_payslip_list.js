@@ -1,16 +1,12 @@
-odoo.define('hr_payroll_holidays.payslip.tree', function (require) {
-"use strict";
-    var core = require('web.core');
+/** @odoo-module **/
 
-    var PayslipListController = require("hr_payroll.payslip.tree");
-    var QWeb = core.qweb;
-    var WorkEntryPayrollHolidaysControllerMixin = require('hr_payroll_holidays.WorkEntryPayrollHolidaysControllerMixin');
+import { patch } from "@web/core/utils/patch";
+import { PayslipListController } from "@hr_payroll/js/payslip_list";
+import { useTimeOffToDefer } from '@hr_payroll_holidays/views/hooks';
 
-    var PayslipHolidaysListController = PayslipListController.include(_.extend({}, WorkEntryPayrollHolidaysControllerMixin, {
-        _displayWarning: function ($warning) {
-            this.$('.o_list_view').before($warning);
-        },
-    }));
-
-    return PayslipHolidaysListController;
+patch(PayslipListController.prototype, 'hr_payroll_holidays_payslip_holidays_list_controller', {
+    setup() {
+        this._super.apply(this, arguments);
+        useTimeOffToDefer('.o_list_renderer', "first-child");
+    }
 });

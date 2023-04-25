@@ -24,6 +24,7 @@ GANTT_VALID_ATTRIBUTES = set([
     'delete',
     'plan',
     'default_group_by',
+    'permanent_group_by',
     'dynamic_range',
     'display_unavailability',
     'disable_drag_drop',
@@ -39,27 +40,15 @@ GANTT_VALID_ATTRIBUTES = set([
     'decoration-info',
     'decoration-warning',
     'decoration-danger',
-    'sample'
+    'sample',
+    'progress_bar',
+    'dependency_field',
+    'dependency_inverted_field',
+    'pill_label',
 ])
 
 class View(models.Model):
     _inherit = 'ir.ui.view'
-
-    def _postprocess_access_rights(self, node, model):
-        """ Compute and set on node access rights based on view type. Specific
-        views can add additional specific rights like creating columns for
-        many2one-based grouping views. """
-        super(View, self)._postprocess_access_rights(node, model)
-
-        # testing ACL as real user
-        is_base_model = self.env.context.get('base_model_name', model._name) == model._name
-
-        if node.tag in ('gantt'):
-            for action, operation in (('create', 'create'), ('delete', 'unlink'), ('edit', 'write')):
-                if (not node.get(action) and
-                        not model.check_access_rights(operation, raise_exception=False) or
-                        not self._context.get(action, True) and is_base_model):
-                    node.set(action, 'false')
 
     def _validate_tag_gantt(self, node, name_manager, node_info):
         if not node_info['validate']:
@@ -88,6 +77,10 @@ class View(models.Model):
 
         if 'date_stop' not in attrs:
             msg = _("Gantt must have a 'date_stop' attribute")
+            self._raise_view_error(msg, node)
+
+        if 'dependency_field' in attrs and 'dependency_inverted_field' not in attrs:
+            msg = _("Gantt must have a 'dependency_inverted_field' attribute once the 'dependency_field' is specified")
             self._raise_view_error(msg, node)
 
         remaining = attrs - GANTT_VALID_ATTRIBUTES

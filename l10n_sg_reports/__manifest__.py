@@ -10,8 +10,7 @@
     'description': """
 Accounting reports for Singapore
 ================================
-This module allow to generate the GST Return (F5) and the IRAS Audit File.
- - To generate the GST Return, go to Accounting -> Reporting -> GST Return
+This module allow to generate the IRAS Audit File.
  - To generate the IRAS Audit File, go to Accounting -> Reporting -> IRAS Audit File
     """,
     'depends': [
@@ -23,6 +22,6 @@ This module allow to generate the GST Return (F5) and the IRAS Audit File.
         'views/iaf_template.xml'
     ],
     'installable': True,
-    'auto_install': True,
+    'auto_install': ['l10n_sg', 'account_reports'],
     'license': 'OEEL-1',
 }

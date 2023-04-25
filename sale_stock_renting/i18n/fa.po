@@ -3,21 +3,21 @@
 # 	* sale_stock_renting
 # 
 # Translators:
-# Arash Sardari <arashss77@gmail.com>, 2022
-# Faraz Sadri Alamdari <ifarazir@gmail.com>, 2022
-# Hamid Darabi, 2022
-# Mohsen Mohammadi <iammohsen.123@gmail.com>, 2022
-# Martin Trigaux, 2022
-# Hamed Mohammadi <hamed@dehongi.com>, 2022
+# Mohammad Tahmasebi <hit.tah75@gmail.com>, 2023
+# Hamid Darabi, 2023
+# Arash Sardari <arashss77@gmail.com>, 2023
+# Hamed Mohammadi <hamed@dehongi.com>, 2023
+# Martin Trigaux, 2023
+# Hanna Kheradroosta, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:01+0000\n"
-"PO-Revision-Date: 2021-09-14 12:43+0000\n"
-"Last-Translator: Hamed Mohammadi <hamed@dehongi.com>, 2022\n"
-"Language-Team: Persian (https://www.transifex.com/odoo/teams/41243/fa/)\n"
+"POT-Creation-Date: 2022-12-15 13:30+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Hanna Kheradroosta, 2023\n"
+"Language-Team: Persian (https://app.transifex.com/odoo/teams/41243/fa/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -25,22 +25,31 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #. module: sale_stock_renting
-#: model_terms:ir.ui.view,arch_db:sale_stock_renting.product_template_inherit_view_form_stock_rental
-#: model_terms:ir.ui.view,arch_db:sale_stock_renting.rental_configurator_view_form
-msgid "&amp;#032;"
-msgstr "&amp;#032;"
+#. odoo-python
+#: code:addons/sale_stock_renting/models/product_product.py:0
+#, python-format
+msgid "%(product)s (%(qty)s item)"
+msgstr ""
 
 #. module: sale_stock_renting
-#: model_terms:ir.ui.view,arch_db:sale_stock_renting.res_config_settings_inherit_view_form
-msgid "<span class=\"o_form_label\">Default Padding Time</span>"
+#. odoo-python
+#: code:addons/sale_stock_renting/models/product_product.py:0
+#, python-format
+msgid "%(product)s (%(qty)s items)"
 msgstr ""
 
 #. module: sale_stock_renting
 #: model_terms:ir.ui.view,arch_db:sale_stock_renting.rental_order_wizard_view_form
 msgid ""
-"<span>\n"
-"                    Some products don't have the requested qty available for pickup\n"
-"                  </span>"
+"<i class=\"fa fa-warning\"/>\n"
+"                        <span>\n"
+"                            Some products don't have the requested qty available for pickup\n"
+"                        </span>"
+msgstr ""
+
+#. module: sale_stock_renting
+#: model_terms:ir.ui.view,arch_db:sale_stock_renting.res_config_settings_inherit_view_form
+msgid "<span class=\"o_form_label\">Default Padding Time</span>"
 msgstr ""
 
 #. module: sale_stock_renting
@@ -52,13 +61,20 @@ msgid ""
 msgstr ""
 
 #. module: sale_stock_renting
-#: model:ir.model.fields,field_description:sale_stock_renting.field_rental_order_wizard_line__qty_available
-msgid "Available"
-msgstr "موجود"
+#. odoo-javascript
+#: code:addons/sale_stock_renting/static/src/widgets/qty_at_date_widget.xml:0
+#, python-format
+msgid "Availability"
+msgstr "دسترسی"
 
 #. module: sale_stock_renting
-#. openerp-web
-#: code:addons/sale_stock_renting/static/src/xml/qty_at_date_rental.xml:0
+#: model:ir.model.fields,field_description:sale_stock_renting.field_rental_order_wizard_line__qty_available
+msgid "Available"
+msgstr "در دسترس"
+
+#. module: sale_stock_renting
+#. odoo-javascript
+#: code:addons/sale_stock_renting/static/src/widgets/qty_at_date_widget.xml:0
 #, python-format
 msgid "Available for Rent"
 msgstr ""
@@ -71,7 +87,7 @@ msgstr ""
 #. module: sale_stock_renting
 #: model:ir.model,name:sale_stock_renting.model_res_company
 msgid "Companies"
-msgstr "شرکت‌ها"
+msgstr "شرکت"
 
 #. module: sale_stock_renting
 #: model:ir.model,name:sale_stock_renting.model_res_config_settings
@@ -89,10 +105,11 @@ msgstr ""
 #: model:ir.model.fields,help:sale_stock_renting.field_sale_order_line__tracking
 msgid "Ensure the traceability of a storable product in your warehouse."
 msgstr ""
+"از قابلیت ردیابی یک محصول قابل نگهداری در انبار خود اطمینان حاصل کنید."
 
 #. module: sale_stock_renting
 #: model:ir.model.fields,field_description:sale_stock_renting.field_rental_order_wizard__has_lines_missing_stock
-msgid "Has lines whose products have unsufficient stock"
+msgid "Has lines whose products have insufficient stock"
 msgstr ""
 
 #. module: sale_stock_renting
@@ -119,12 +136,12 @@ msgstr ""
 #. module: sale_stock_renting
 #: model:ir.model,name:sale_stock_renting.model_account_move
 msgid "Journal Entry"
-msgstr "ورودی روزنامه"
+msgstr "داده روزنامه"
 
 #. module: sale_stock_renting
-#: model:ir.model,name:sale_stock_renting.model_stock_production_lot
+#: model:ir.model,name:sale_stock_renting.model_stock_lot
 msgid "Lot/Serial"
-msgstr "لات/سریال"
+msgstr "سری/سریال"
 
 #. module: sale_stock_renting
 #: model_terms:ir.ui.view,arch_db:sale_stock_renting.res_config_settings_inherit_view_form
@@ -132,7 +149,8 @@ msgid "Minimum amount of time between two rentals"
 msgstr ""
 
 #. module: sale_stock_renting
-#: code:addons/sale_stock_renting/models/sale_rental.py:0
+#. odoo-python
+#: code:addons/sale_stock_renting/models/sale_order_line.py:0
 #, python-format
 msgid "No valid quant has been found in location %s for serial number %s !"
 msgstr ""
@@ -174,37 +192,38 @@ msgid "Pickedup Lot"
 msgstr ""
 
 #. module: sale_stock_renting
+#. odoo-python
 #: code:addons/sale_stock_renting/wizard/rental_processing.py:0
 #, python-format
 msgid "Please specify the serial numbers picked up for the tracked products."
 msgstr ""
 
 #. module: sale_stock_renting
+#. odoo-python
 #: code:addons/sale_stock_renting/wizard/rental_processing.py:0
 #, python-format
 msgid "Please specify the serial numbers returned for the tracked products."
 msgstr ""
 
 #. module: sale_stock_renting
-#: model:product.product,name:sale_stock_renting.rental_stock_product_1
 #: model:product.template,name:sale_stock_renting.rental_stock_product_1_product_template
 msgid "Printer"
 msgstr "چاپگر"
 
 #. module: sale_stock_renting
-#: model:ir.model,name:sale_stock_renting.model_product_product
+#: model:ir.model,name:sale_stock_renting.model_product_template
 msgid "Product"
 msgstr "محصول"
 
 #. module: sale_stock_renting
-#: model:ir.model,name:sale_stock_renting.model_product_template
-msgid "Product Template"
-msgstr "قالب محصول"
-
-#. module: sale_stock_renting
 #: model:ir.model.fields,field_description:sale_stock_renting.field_rental_wizard__product_uom_id
 msgid "Product UoM"
-msgstr ""
+msgstr "واحد اندازه گیری محصول"
+
+#. module: sale_stock_renting
+#: model:ir.model,name:sale_stock_renting.model_product_product
+msgid "Product Variant"
+msgstr "گونه محصول"
 
 #. module: sale_stock_renting
 #: model:ir.model.fields,field_description:sale_stock_renting.field_rental_wizard__qty_available_during_period
@@ -237,8 +256,9 @@ msgid "Rental Schedule"
 msgstr ""
 
 #. module: sale_stock_renting
-#: code:addons/sale_stock_renting/models/sale_rental.py:0
-#: code:addons/sale_stock_renting/models/sale_rental.py:0
+#. odoo-python
+#: code:addons/sale_stock_renting/models/sale_order_line.py:0
+#: code:addons/sale_stock_renting/models/sale_order_line.py:0
 #, python-format
 msgid "Rental move :"
 msgstr ""
@@ -293,7 +313,7 @@ msgstr "شماره سریال"
 #: model_terms:ir.ui.view,arch_db:sale_stock_renting.rental_order_wizard_view_form
 #: model_terms:ir.ui.view,arch_db:sale_stock_renting.report_rental_order_document
 msgid "Serial Numbers"
-msgstr ""
+msgstr "شماره های سریال"
 
 #. module: sale_stock_renting
 #: model_terms:ir.ui.view,arch_db:sale_stock_renting.rental_configurator_view_form
@@ -334,7 +354,16 @@ msgstr ""
 #: model:ir.model.fields,field_description:sale_stock_renting.field_rental_wizard__tracking
 #: model:ir.model.fields,field_description:sale_stock_renting.field_sale_order_line__tracking
 msgid "Tracking"
-msgstr "رهگیری"
+msgstr "ره گیری"
+
+#. module: sale_stock_renting
+#. odoo-python
+#: code:addons/sale_stock_renting/models/product_template.py:0
+#, python-format
+msgid ""
+"Tracking by lots isn't supported for rental products.\n"
+"You should rather change the tracking mode to unique serial numbers."
+msgstr ""
 
 #. module: sale_stock_renting
 #: model:ir.model.fields,field_description:sale_stock_renting.field_sale_order_line__unavailable_lot_ids
@@ -342,14 +371,8 @@ msgid "Unavailable Lot"
 msgstr ""
 
 #. module: sale_stock_renting
-#: model:product.product,uom_name:sale_stock_renting.rental_stock_product_1
-#: model:product.template,uom_name:sale_stock_renting.rental_stock_product_1_product_template
-msgid "Units"
-msgstr "واحد ها"
-
-#. module: sale_stock_renting
-#. openerp-web
-#: code:addons/sale_stock_renting/static/src/xml/qty_at_date_rental.xml:0
+#. odoo-javascript
+#: code:addons/sale_stock_renting/static/src/widgets/qty_at_date_widget.xml:0
 #, python-format
 msgid "View Rentals"
 msgstr ""
@@ -361,9 +384,17 @@ msgid "Warehouse"
 msgstr "انبار"
 
 #. module: sale_stock_renting
+#. odoo-python
 #: code:addons/sale_stock_renting/wizard/rental_configurator.py:0
 #, python-format
 msgid "You cannot change the product of a picked-up line."
+msgstr ""
+
+#. module: sale_stock_renting
+#. odoo-python
+#: code:addons/sale_stock_renting/models/sale_order_line.py:0
+#, python-format
+msgid "You cannot change the product of lines linked to stock moves."
 msgstr ""
 
 #. module: sale_stock_renting
@@ -377,8 +408,8 @@ msgid "hours before orders"
 msgstr ""
 
 #. module: sale_stock_renting
-#. openerp-web
-#: code:addons/sale_stock_renting/static/src/xml/qty_at_date_rental.xml:0
+#. odoo-javascript
+#: code:addons/sale_stock_renting/static/src/widgets/qty_at_date_widget.xml:0
 #, python-format
 msgid "to"
 msgstr "به"

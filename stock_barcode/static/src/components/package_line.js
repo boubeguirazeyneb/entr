@@ -1,16 +1,23 @@
 /** @odoo-module **/
 
-export default class PackageLineComponent extends owl.Component {
-    get isSelected() {
-        return this.line.package_id.id === this.env.model.lastScannedPackage;
+import { bus } from 'web.core';
+import LineComponent from './line';
+
+export default class PackageLineComponent extends LineComponent {
+    get isComplete() {
+        return this.qtyDone == this.qtyDemand;
     }
 
-    get line() {
-        return this.props.line;
+    get isSelected() {
+        return this.line.package_id.id === this.env.model.lastScanned.packageId;
+    }
+
+    get qtyDemand() {
+        return this.props.line.reservedPackage ? 1 : false;
     }
 
     get qtyDone() {
-        const reservedQuantity = this.line.lines.reduce((r, l) => r + l.product_uom_qty, 0);
+        const reservedQuantity = this.line.lines.reduce((r, l) => r + l.reserved_uom_qty, 0);
         const doneQuantity = this.line.lines.reduce((r, l) => r + l.qty_done, 0);
         if (reservedQuantity > 0) {
             return doneQuantity / reservedQuantity;
@@ -19,12 +26,12 @@ export default class PackageLineComponent extends owl.Component {
     }
 
     openPackage() {
-        this.trigger('open-package', { packageId: this.line.package_id.id });
+        bus.trigger('open-package', this.line.package_id.id);
     }
 
     select(ev) {
         ev.stopPropagation();
-        this.env.model.selectPackageLine(this.line.package_id.id);
+        this.env.model.selectPackageLine(this.line);
         this.env.model.trigger('update');
     }
 }

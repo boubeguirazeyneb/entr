@@ -3,22 +3,26 @@
 # 	* partner_commission
 # 
 # Translators:
-# Martin Trigaux, 2021
-# ExcaliberX <excaliberx@gmail.com>, 2021
-# Yihya Hugirat <hugirat@gmail.com>, 2021
-# דודי מלכה <Dudimalka6@gmail.com>, 2021
-# ZVI BLONDER <ZVIBLONDER@gmail.com>, 2021
-# Jonathan Spier, 2021
 # Lilach Gilliam <lilach.gilliam@gmail.com>, 2022
+# Jonathan Spier, 2022
+# Martin Trigaux, 2022
+# דודי מלכה <Dudimalka6@gmail.com>, 2022
+# ZVI BLONDER <ZVIBLONDER@gmail.com>, 2022
+# Yihya Hugirat <hugirat@gmail.com>, 2022
+# ExcaliberX <excaliberx@gmail.com>, 2022
+# NoaFarkash, 2022
+# Ha Ketem <haketem@gmail.com>, 2022
+# Roy Sayag, 2022
+# Sagi Ahiel, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: Lilach Gilliam <lilach.gilliam@gmail.com>, 2022\n"
-"Language-Team: Hebrew (https://www.transifex.com/odoo/teams/41243/he/)\n"
+"POT-Creation-Date: 2023-04-14 06:18+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Sagi Ahiel, 2022\n"
+"Language-Team: Hebrew (https://app.transifex.com/odoo/teams/41243/he/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -26,11 +30,29 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % 1 == 0) ? 1: (n % 10 == 0 && n % 1 == 0 && n > 10) ? 2 : 3;\n"
 
 #. module: partner_commission
+#. odoo-python
+#: code:addons/partner_commission/models/account_move.py:0
+#, python-format
+msgid ""
+"\n"
+"%s: from %s to %s"
+msgstr ""
+
+#. module: partner_commission
+#. odoo-python
+#: code:addons/partner_commission/models/account_move.py:0
+#, python-format
+msgid " (%d month(s))"
+msgstr ""
+
+#. module: partner_commission
 #: model_terms:ir.ui.view,arch_db:partner_commission.res_config_settings_view_form
 msgid ""
 "<span class=\"o_form_label\">Automatic PO frequency</span>\n"
 "                            <span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-specific.\" role=\"img\" aria-label=\"Values set here are company-specific.\" groups=\"base.group_multi_company\"/>"
 msgstr ""
+"<span class=\"o_form_label\">אישור תעודות משלוח באופן אוטומטי ע\"פ תקופה</span>\n"
+"<span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-specific.\" role=\"img\" aria-label=\"Values set here are company-specific.\" groups=\"base.group_multi_company\"/>"
 
 #. module: partner_commission
 #: model_terms:ir.ui.view,arch_db:partner_commission.res_config_settings_view_form
@@ -38,6 +60,8 @@ msgid ""
 "<span class=\"o_form_label\">Minimum PO amount total</span>\n"
 "                            <span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-specific.\" role=\"img\" aria-label=\"Values set here are company-specific.\" groups=\"base.group_multi_company\"/>"
 msgstr ""
+"<span class=\"o_form_label\">סכום מינימלי לאישור הזמנת רכש באופן אוטומטי</span>\n"
+"<span class=\"fa fa-lg fa-building-o\" title=\"Values set here are company-specific.\" role=\"img\" aria-label=\"Values set here are company-specific.\" groups=\"base.group_multi_company\"/>"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__active
@@ -55,25 +79,12 @@ msgid "Archived"
 msgstr "בארכיון"
 
 #. module: partner_commission
-#: model:ir.model.fields.selection,name:partner_commission.selection__sale_subscription__commission_plan_assignation__auto
-msgid "Based On Referrer"
-msgstr ""
-
-#. module: partner_commission
-#: model:ir.model.fields,help:partner_commission.field_sale_subscription__commission_plan_assignation
-msgid ""
-"Based on Referrer: the commission plan of this subscription will change automatically whenever the commission plan of the Referrer is changed.\n"
-"Manual: the commission plan of this subscription is set manually here and will never change automatically. Keep Commission Plan empty to avoid paying any commissions."
-msgstr ""
-
-#. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_rule__is_capped
 msgid "Capped"
 msgstr ""
 
 #. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__purchase_order__purchase_type__commission
-#: model:product.product,name:partner_commission.product_commission
 #: model:product.template,name:partner_commission.product_commission_product_template
 msgid "Commission"
 msgstr "עמלה"
@@ -89,21 +100,14 @@ msgstr ""
 #: model:ir.model.fields,field_description:partner_commission.field_res_partner__commission_plan_id
 #: model:ir.model.fields,field_description:partner_commission.field_res_users__commission_plan_id
 #: model:ir.model.fields,field_description:partner_commission.field_sale_order__commission_plan_id
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission_plan_id
-#: model_terms:ir.ui.view,arch_db:partner_commission.sale_subscription_view_form_inherit_partner_commission
 msgid "Commission Plan"
-msgstr ""
-
-#. module: partner_commission
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission_plan_assignation
-msgid "Commission Plan Assignation"
-msgstr ""
+msgstr "תכנית עמלות"
 
 #. module: partner_commission
 #: model:ir.actions.act_window,name:partner_commission.action_commission_plans
 #: model:ir.ui.menu,name:partner_commission.menu_commission_plans
 msgid "Commission Plans"
-msgstr ""
+msgstr "תכניות עמלות"
 
 #. module: partner_commission
 #: model:ir.model,name:partner_commission.model_commission_plan
@@ -133,7 +137,7 @@ msgstr "הגדר הגדרות"
 #. module: partner_commission
 #: model:ir.model,name:partner_commission.model_res_partner
 msgid "Contact"
-msgstr "צור קשר"
+msgstr "איש קשר"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__create_uid
@@ -155,7 +159,7 @@ msgstr "חשבוניות לקוח"
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_res_partner_grade__default_commission_plan_id
 msgid "Default Commission Plan"
-msgstr ""
+msgstr "תכנית עמלות ברירת מחדל"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__display_name
@@ -164,20 +168,20 @@ msgid "Display Name"
 msgstr "שם לתצוגה"
 
 #. module: partner_commission
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission_plan_frozen
-msgid "Freeze Commission Plan"
-msgstr ""
+#: model:ir.model.fields,field_description:partner_commission.field_sale_order__commission_plan_frozen
+msgid "Freeze Plan"
+msgstr "תכנית הקפאה"
 
 #. module: partner_commission
 #: model_terms:ir.ui.view,arch_db:partner_commission.res_config_settings_view_form
 msgid "Frequency at which purchase orders will be automatically confirmed"
-msgstr ""
+msgstr "תקופה בה הזמנות רכש יאושרו באופן אוטומטי"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__id
 #: model:ir.model.fields,field_description:partner_commission.field_commission_rule__id
 msgid "ID"
-msgstr "תעודה מזהה"
+msgstr "מזהה"
 
 #. module: partner_commission
 #: model:ir.model.fields,help:partner_commission.field_commission_rule__product_id
@@ -200,7 +204,7 @@ msgstr "פקודת יומן"
 #. module: partner_commission
 #: model:ir.model,name:partner_commission.model_account_move_line
 msgid "Journal Item"
-msgstr "פקודת יומן"
+msgstr "תנועת יומן"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan____last_update
@@ -224,11 +228,6 @@ msgstr "עדכון אחרון ב"
 #: model:ir.model,name:partner_commission.model_crm_lead
 msgid "Lead/Opportunity"
 msgstr "ליד/הזדמנות"
-
-#. module: partner_commission
-#: model:ir.model.fields.selection,name:partner_commission.selection__sale_subscription__commission_plan_assignation__fixed
-msgid "Manual"
-msgstr "ידני"
 
 #. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__res_company__commission_automatic_po_frequency__manually
@@ -269,7 +268,6 @@ msgstr "מסמכים בבעלות בלבד"
 #. module: partner_commission
 #: model:ir.actions.server,name:partner_commission.cron_confirm_purchase_orders_ir_actions_server
 #: model:ir.cron,cron_name:partner_commission.cron_confirm_purchase_orders
-#: model:ir.cron,name:partner_commission.cron_confirm_purchase_orders
 msgid "Partner Commission: confirm purchase orders"
 msgstr ""
 
@@ -299,6 +297,7 @@ msgid "Product"
 msgstr "מוצר"
 
 #. module: partner_commission
+#. odoo-python
 #: code:addons/partner_commission/models/commission_plan.py:0
 #, python-format
 msgid "Product %s does not belong to category %s"
@@ -322,7 +321,7 @@ msgstr "הזמנת רכש"
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_purchase_order__purchase_type
 msgid "Purchase Type"
-msgstr ""
+msgstr "סוג רכש"
 
 #. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__res_company__commission_automatic_po_frequency__quarterly
@@ -344,13 +343,15 @@ msgstr ""
 #: model:ir.model.fields,field_description:partner_commission.field_account_move__referrer_id
 #: model:ir.model.fields,field_description:partner_commission.field_account_payment__referrer_id
 #: model:ir.model.fields,field_description:partner_commission.field_sale_order__referrer_id
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__referrer_id
+#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription_report__referrer_id
+#: model_terms:ir.ui.view,arch_db:partner_commission.account_move_view_search_inherit_partner_commission
+#: model_terms:ir.ui.view,arch_db:partner_commission.sale_order_subsciption_view_search_inherit_partner_commission
+#: model_terms:ir.ui.view,arch_db:partner_commission.sale_order_view_search_inherit_partner_commission
 msgid "Referrer"
 msgstr ""
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_sale_order__commission
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission
 msgid "Referrer Commission"
 msgstr ""
 
@@ -359,13 +360,18 @@ msgstr ""
 #: model:ir.model.fields,field_description:partner_commission.field_account_move__commission_po_line_id
 #: model:ir.model.fields,field_description:partner_commission.field_account_payment__commission_po_line_id
 msgid "Referrer Purchase Order line"
-msgstr ""
+msgstr "שורת הזמנת רכש משויכת"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__commission_rule_ids
 #: model_terms:ir.ui.view,arch_db:partner_commission.commission_plan_form_view
 msgid "Rules"
 msgstr "כללים"
+
+#. module: partner_commission
+#: model:ir.model.fields,field_description:partner_commission.field_commission_rule__template_id
+msgid "Sale Order Template"
+msgstr "תבנית הזמנת לקוח"
 
 #. module: partner_commission
 #: model:ir.model,name:partner_commission.model_sale_order
@@ -381,21 +387,15 @@ msgstr "רצף"
 #: model:ir.model.fields,field_description:partner_commission.field_purchase_order__invoice_commission_count
 #: model_terms:ir.ui.view,arch_db:partner_commission.purchase_order_form_inherit_partner_commission
 msgid "Source Invoices"
-msgstr ""
+msgstr "חשבוניות מקור"
 
 #. module: partner_commission
-#: model:ir.model,name:partner_commission.model_sale_subscription
-msgid "Subscription"
-msgstr "מנוי"
-
-#. module: partner_commission
-#: model:ir.model.fields,field_description:partner_commission.field_commission_rule__template_id
-msgid "Subscription Template"
-msgstr "תבנית מנוי"
+#: model:ir.model,name:partner_commission.model_sale_subscription_report
+msgid "Subscription Analysis"
+msgstr "ניתוח מנויים"
 
 #. module: partner_commission
 #: model:ir.model.fields,help:partner_commission.field_sale_order__commission_plan_id
-#: model:ir.model.fields,help:partner_commission.field_sale_subscription__commission_plan_id
 msgid "Takes precedence over the Referrer's commission plan."
 msgstr ""
 
@@ -411,13 +411,7 @@ msgstr ""
 msgid ""
 "The required minimum amount total needed to automatically confirm purchase "
 "orders"
-msgstr ""
-
-#. module: partner_commission
-#: model:product.product,uom_name:partner_commission.product_commission
-#: model:product.template,uom_name:partner_commission.product_commission_product_template
-msgid "Units"
-msgstr "יחידה"
+msgstr "הסכום המינימלי הדרוש לאישור אוטומטי של הזמנות רכש"
 
 #. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__res_company__commission_automatic_po_frequency__weekly
@@ -430,7 +424,7 @@ msgid "Whether the commission is capped."
 msgstr ""
 
 #. module: partner_commission
-#: model:ir.model.fields,help:partner_commission.field_sale_subscription__commission_plan_frozen
+#: model:ir.model.fields,help:partner_commission.field_sale_order__commission_plan_frozen
 msgid ""
 "Whether the commission plan is frozen. When checked, the commission plan "
 "won't automatically be updated according to the partner level."

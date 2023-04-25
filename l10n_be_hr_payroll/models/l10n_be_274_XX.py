@@ -122,13 +122,11 @@ class L10nBe274XX(models.Model):
                     sheet.error_message = str(err)
 
     def _get_valid_payslips(self):
-        warrant_structure = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_structure_warrant')
         domain = [
             ('state', 'in', ['paid', 'done']),
             ('company_id', '=', self.company_id.id),
             ('date_from', '>=', self.date_start),
             ('date_to', '<=', self.date_end),
-            ('struct_id', '!=', warrant_structure.id),
         ]
         if self.env.context.get('wizard_274xx_force_employee_ids'):
             domain += expression.AND([domain, [('employee_id', 'in', self.env.context['wizard_274xx_force_employee_ids'])]])
@@ -147,7 +145,7 @@ class L10nBe274XX(models.Model):
         for sheet in self:
             mapped_pp = defaultdict(lambda: 0)
             mapped_taxable_amount = defaultdict(lambda: 0)
-            payslips = self._get_valid_payslips()
+            payslips = sheet._get_valid_payslips()
 
             line_values = payslips._get_line_values([
                 'GROSS', 'PPTOTAL',
@@ -157,7 +155,7 @@ class L10nBe274XX(models.Model):
 
             # Total
             sheet.taxable_amount = line_values['GROSS']['sum']['total'] + line_values['DOUBLE.DECEMBER.GROSS']['sum']['total']
-            sheet.pp_amount = line_values['PPTOTAL']['sum']['total'] + line_values['DOUBLE.DECEMBER.P.P']['sum']['total']
+            sheet.pp_amount = line_values['PPTOTAL']['sum']['total'] - line_values['DOUBLE.DECEMBER.P.P']['sum']['total']
             # Valid payslips for exemption
             payslips = payslips.filtered(lambda p: p.contract_id.rd_percentage and p.struct_id == monthly_pay)
             # 32 : Civil Engineers / Doctors
@@ -173,7 +171,7 @@ class L10nBe274XX(models.Model):
             payslips_34 = payslips.filtered(lambda p: p.employee_id.certificate in ['bachelor'])
             sheet.taxable_amount_34 = sum(line_values['GROSS'][p.id]['total'] for p in payslips_34)
             sheet.pp_amount_34 = sum(line_values['PPTOTAL'][p.id]['total'] for p in payslips_34)
-            sheet.write({
+            sheet.update({
                 'deducted_amount': 0,
                 'deducted_amount_32': 0,
                 'deducted_amount_33': 0,
@@ -224,7 +222,9 @@ class L10nBe274XX(models.Model):
         }
 
         filename = '%s-%s-274_XX.pdf' % (self.date_start.strftime("%d%B%Y"), self.date_end.strftime("%d%B%Y"))
-        export_274_sheet_pdf, _ = self.env.ref('l10n_be_hr_payroll.action_report_employee_274_10').sudo()._render_qweb_pdf(res_ids=self.ids, data=report_data)
+        export_274_sheet_pdf, _ = self.env["ir.actions.report"].sudo()._render_qweb_pdf(
+            self.env.ref('l10n_be_hr_payroll.action_report_employee_274_10'),
+            res_ids=self.ids, data=report_data)
 
         self.sheet_274_10_filename = filename
         self.sheet_274_10 = base64.encodebytes(export_274_sheet_pdf)
@@ -256,7 +256,7 @@ class L10nBe274XX(models.Model):
 
         year_period_code = {
             2022: '6',
-            2019: '7',
+            2023: '7',
             2020: '8',
             2021: '9',
         }
@@ -340,7 +340,8 @@ class L10nBe274XX(models.Model):
             'DOUBLE.DECEMBER.GROSS', 'DOUBLE.DECEMBER.P.P'])
 
         for payslip in payslips:
-            pp_total = line_values['PPTOTAL'][payslip.id]['total'] + line_values['DOUBLE.DECEMBER.P.P'][payslip.id]['total']
+            pp_total = line_values['PPTOTAL'][payslip.id]['total'] \
+                     - line_values['DOUBLE.DECEMBER.P.P'][payslip.id]['total']
             if pp_total:
                 pp_total_eurocent = pp_total
                 taxable_eurocent = line_values['GROSS'][payslip.id]['total'] + line_values['DOUBLE.DECEMBER.GROSS'][payslip.id]['total']
@@ -393,7 +394,7 @@ class L10nBe274XX(models.Model):
         filename = '%s-%s-finprof.xml' % (self.date_start.strftime("%d%B%Y"), self.date_end.strftime("%d%B%Y"))
         self.xml_filename = filename
 
-        xml_str = self.env.ref('l10n_be_hr_payroll.finprof_xml_report')._render(
+        xml_str = self.env['ir.qweb']._render('l10n_be_hr_payroll.finprof_xml_report',
             self._get_rendering_data())
 
         # Prettify xml string

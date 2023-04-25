@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from hashlib import sha256
@@ -44,14 +43,18 @@ class SignLog(models.Model):
             ('open', 'View/Download'),
             ('save', 'Save'),
             ('sign', 'Signature'),
+            ('refuse', 'Refuse'),
+            ('cancel', 'Cancel'),
             ('update_mail', 'Mail Update'),
             ('update', 'Update')
         ], required=True,
     )
 
     request_state = fields.Selection([
+        ("shared", "Shared"),
         ("sent", "Before Signature"),
         ("signed", "After Signature"),
+        ("refused", "Refused Signature"),
         ("canceled", "Canceled")
     ], required=True, string="State of the request on action log", groups="sign.group_sign_manager")
 
@@ -70,11 +73,25 @@ class SignLog(models.Model):
         1/ if action=='create': get initial shasign from template (checksum pdf)
         2/ if action == 'sign': search for logs with hash for the same request and use that to compute new hash
         """
+        vals_list_request_item = [vals for vals in vals_list if vals.get('sign_request_item_id')]
+        sign_request_items = self.env['sign.request.item'].browse([vals['sign_request_item_id'] for vals in vals_list_request_item])
+        vals_list_request = [vals for vals in vals_list if not vals.get('sign_request_item_id') and vals.get('sign_request_id')]
+        sign_requests = self.env['sign.request'].browse([vals['sign_request_id'] for vals in vals_list_request])
+        for vals, sign_request_item in zip(vals_list_request_item, sign_request_items):
+            vals.update(self._prepare_vals_from_item(sign_request_item))
+        for vals, sign_request in zip(vals_list_request, sign_requests):
+            vals.update(self._prepare_vals_from_request(sign_request))
+        user_id = self.env.user.id if not self.env.user._is_public() else None
+        ip = request.httprequest.remote_addr if request else '0.0.0.0'
         now = datetime.utcnow()
         for vals in vals_list:
-            vals['log_date'] = now
+            vals.update({
+                'user_id': user_id,
+                'ip': ip,
+                'log_date': now,
+            })
             vals['log_hash'] = self._get_or_check_hash(vals)
-        return super(SignLog, self).create(vals_list)
+        return super().create(vals_list)
 
     def _get_or_check_hash(self, vals):
         """ Returns the hash to write on sign log entries """
@@ -122,45 +139,30 @@ class SignLog(models.Model):
 
 
     def _prepare_vals_from_item(self, request_item):
-        request = request_item.sign_request_id
+        sign_request = request_item.sign_request_id
+        # NOTE: We update request_item.latitude/longitude when the request_item is opened and not 'completed'/'refused'
+        # And If the signer accepted the browser geolocation request, the coordinates will be more precise.
+        # We should forcely use the GeoIP ones only if the request_item is 'completed'/'refused'
+        latitude = 0.0
+        longitude = 0.0
+        if request:
+            latitude = request.geoip.get('latitude', 0.0) if request_item.state != 'sent' else request_item.latitude
+            longitude = request.geoip.get('longitude', 0.0) if request_item.state != 'sent' else request_item.longitude
         return dict(
             sign_request_item_id=request_item.id,
-            sign_request_id=request.id,
-            request_state=request.state,
-            latitude=request_item.latitude or 0.0,
-            longitude=request_item.longitude or 0.0,
-            partner_id=request_item.partner_id.id)
+            sign_request_id=sign_request.id,
+            request_state=sign_request.state,
+            latitude=latitude,
+            longitude=longitude,
+            partner_id=request_item.partner_id.id,
+            token=request_item.access_token,
+        )
 
     def _prepare_vals_from_request(self, sign_request):
         return dict(
             sign_request_id=sign_request.id,
             request_state=sign_request.state,
+            latitude=request.geoip.get('latitude', 0.0) if request else 0.0,
+            longitude=request.geoip.get('longitude', 0.0) if request else 0.0,
+            partner_id=self.env.user.partner_id.id if not self.env.user._is_public() else None,
         )
-
-    def _update_vals_with_http_request(self, vals):
-        vals.update({
-            'user_id': self.env.user.id if not self.env.user._is_public() else None,
-            'ip': request.httprequest.remote_addr,
-        })
-        if not vals.get('partner_id', False):
-            vals.update({
-                'partner_id': self.env.user.partner_id.id if not self.env.user._is_public() else None
-            })
-        # NOTE: during signing, this method is always called after the log is generated based on the
-        # request item. This means that if the signer accepted the browser geolocation request, the `vals`
-        # will already contain much more precise coordinates. We should use the GeoIP ones only if the
-        # browser did not send anything
-        if 'geoip' in request.session and not (vals.get('latitude') and vals.get('longitude')):
-            vals.update({
-                'latitude': request.session['geoip'].get('latitude') or 0.0,
-                'longitude': request.session['geoip'].get('longitude') or 0.0,
-            })
-        return vals
-
-    def _create_log(self, record, action, is_request=False, **kwargs):
-        Log = self.env['sign.log'].sudo()
-        vals = Log._prepare_vals_from_request(record) if is_request else Log._prepare_vals_from_item(record)
-        vals['action'] = action
-        vals.update(kwargs)
-        vals = Log._update_vals_with_http_request(vals)
-        Log.create(vals)

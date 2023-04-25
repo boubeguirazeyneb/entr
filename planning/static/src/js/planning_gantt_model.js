@@ -1,8 +1,14 @@
 /** @odoo-module alias=planning.PlanningGanttModel **/
 
-import GanttModel from 'web_gantt.GanttModel';
 import { _t } from 'web.core';
-import { PlanningModelMixin } from './planning_mixins';
+import { formatPercentage } from "@web/views/fields/formatters";
+import { deserializeDateTime } from "@web/core/l10n/dates";
+
+import GanttModel from 'web_gantt.GanttModel';
+import { getIntervalStepAccordingToScaleInterval, serializeDateTimeAccordingToScale } from "./planning_gantt_utils";
+
+const { DateTime } = luxon;
+
 
 const GROUPBY_COMBINATIONS = [
     "role_id",
@@ -14,44 +20,320 @@ const GROUPBY_COMBINATIONS = [
     "project_id,department_id",
     "project_id,resource_id",
     "project_id,role_id",
-    "project_id,task_id,resource_id",
-    "project_id,task_id,role_id",
-    "task_id",
-    "task_id,department_id",
-    "task_id,resource_id",
-    "task_id,role_id",
 ];
 
-const PlanningGanttModel = GanttModel.extend(PlanningModelMixin, {
+/**
+ * DateTime Cache mapping luxon datetime to serialized luxon datetime
+ */
+
+class PlanningLuxonDateTimeCache {
+    /**
+     *
+     * @param {PlanningGanttModel} model Planning Model instantiating cache
+     */
+    constructor(model) {
+        this.model = model;
+        this.cache = {};
+    }
+    /**
+     * @param dt a Luxon DateTime
+     * @param utc True if dt has been forced to utc
+     * @returns {string} serialized DateTime
+     */
+    get(dt, utc = false) {
+        const dateTimeCache = this.cache[dt] || {};
+        if (utc) {
+            return dateTimeCache.serializedUTCDateTime;
+        }
+        return dateTimeCache.serializedDateTime;
+    }
+    /**
+     *
+     * @param dt a Luxon DateTime
+     * @param utc Force timezone to UTC
+     * @returns {PlanningLuxonDateTimeCache} this
+     */
+    update(dt, utc = false) {
+        this.cache[dt] = this.cache[dt] || {};
+        const serializedDT = this.get(dt, utc) || this.model._serializeDateTimeAccordingToScale(dt, utc);
+        if (utc) {
+            this.cache[dt].serializedUTCDateTime = serializedDT;
+        } else {
+            this.cache[dt].serializedDateTime = serializedDT;
+        }
+        return this;
+    }
+}
+
+const PlanningGanttModel = GanttModel.extend({
+
+    /**
+     * @public
+     * @returns {moment} startDate
+     */
+    getStartDate() {
+        return this.convertToServerTime(this.get().startDate);
+    },
+    /**
+     * @public
+     * @returns {moment} endDate
+     */
+    getEndDate() {
+        return this.convertToServerTime(this.get().stopDate);
+    },
+    /**
+     * @public
+     * @param {Object} ctx
+     * @returns {Object} context
+     */
+    getAdditionalContext(ctx) {
+        const state = this.get();
+        return Object.assign({}, ctx, {
+            'default_start_datetime': this.convertToServerTime(state.startDate),
+            'default_end_datetime': this.convertToServerTime(state.stopDate),
+            'default_slot_ids': state.records.map(record => record.id),
+            'scale': state.scale,
+            'active_domain': this.domain,
+            'active_ids': state.records,
+            'default_employee_ids': state.rows.map(row => row.resId).filter(resId => !!resId),
+        });
+    },
+    /**
+     * Return a step according to scale interval.
+     *
+     * @throws Error if the scale or the scale interval is unknown.
+     * @return {*} Object that can be passed to Luxon DateTime plus() method.
+     * @private
+     */
+    _getIntervalStepAccordingToScaleInterval() {
+        return getIntervalStepAccordingToScaleInterval(this.ganttData.scale, this.SCALES);
+    },
+    /**
+     * Serialize the provided Luxon DateTime according to the provided timezone.
+     *
+     * @param date a Luxon DateTime.
+     * @param utc force timezone to UTC instead of using browser timezone.
+     * @return {*} Luxon DateTime.
+     * @private
+     */
+    _serializeDateTimeAccordingToScale(date, utc = false) {
+        const tz = utc ? "UTC" : Intl.DateTimeFormat().resolvedOptions().timeZone;
+        return serializeDateTimeAccordingToScale(date, this.ganttData.scale, this.SCALES, tz);
+    },
+    /**
+     * Generate and store (into `ganttData.resourceWorkIntervalsDict`) work intervals according to Gantt scale.
+     *
+     * @param workIntervals the work intervals returned by `gantt_resource_work_interval` rpc call.
+     * @private
+     */
+    _generateAndStoreWorkIntervals(workIntervals) {
+        const data = {};
+        const intervalStep = this._getIntervalStepAccordingToScaleInterval();
+        for (const resourceId of Object.keys(workIntervals)) {
+            for (const [start, end] of workIntervals[resourceId]) {
+                // Calculate interval start, stop and step that will be used to compute the allocated hours' dict.
+                const startDate = deserializeDateTime(start);
+                const endDate = deserializeDateTime(end);
+                if (!(resourceId in data)) {
+                    data[resourceId] = {};
+                }
+                const intervalStartDate = deserializeDateTime(
+                    this.luxonDateTimeCache.update(startDate, true).get(startDate, true)
+                );
+                const intervalStopDate = deserializeDateTime(
+                    this.luxonDateTimeCache.update(endDate.plus(intervalStep), true).get(endDate.plus(intervalStep), true)
+                );
+
+                for (let currentDate = intervalStartDate; currentDate < intervalStopDate; currentDate = currentDate.plus(intervalStep)) {
+                    if (currentDate >= endDate) {
+                        break;
+                    }
+                    // Compute start and end date of current interval.
+                    let periodStart = currentDate;
+                    if (currentDate < startDate) {
+                        periodStart = startDate;
+                    }
+                    let periodEnd = periodStart.plus(intervalStep);
+                    periodEnd = periodEnd > endDate ? endDate : periodEnd;
+
+                    // Populate dict with associated work interval.
+                    const dateKey = this.luxonDateTimeCache.update(periodStart).get(periodStart);
+                    if (!(dateKey in data[resourceId])) {
+                        data[resourceId][dateKey] = [];
+                    }
+                    data[resourceId][dateKey].push([periodStart, periodEnd]);
+                }
+            }
+        }
+        this.ganttData.resourceWorkIntervalsDict = data;
+    },
+    /**
+     * Generate and store the flexible hours per resource into `ganttData.resourceFlexibleHoursDict` coming from the rpc call.
+     * @param flexibleHours dictionary {resource_id: true|false} if the resource has flexible hours
+     * @private
+     */
+    _generateAndStoreFlexibleHours(flexibleHours) {
+        const data = {};
+        for (const resourceId of Object.keys(flexibleHours)) {
+            data[resourceId] = flexibleHours[resourceId] || false
+        }
+        this.ganttData.resourceFlexibleHoursDict = data;
+    },
+    /**
+     * Fetch resources' work intervals.
+     *
+     * @returns {Deferred}
+     * @private
+     */
+    _fetchResourceWorkInterval() {
+        return this._rpc({
+            model: this.modelName,
+            method: 'gantt_resource_work_interval',
+            args: [
+                this._getSlotIdsFromRows(this.ganttData.rows),
+            ],
+            context: Object.assign({}, this.context, {
+                'default_start_datetime': this.getStartDate(),
+                'default_end_datetime': this.getEndDate(),
+            }),
+        }).then((result) => {
+            this._generateAndStoreWorkIntervals(result[0]);
+            this._generateAndStoreFlexibleHours(result[1]);
+        });
+    },
+    /**
+     * Get the ids from the provided rows.
+     *
+     * @param {Object} rows in the format of ganttData.rows.
+     * @returns {Array} the slot ids.
+     * @private
+     */
+    _getSlotIdsFromRows(rows) {
+        const result = rows.reduce(
+            (accumulator, current) => {
+                if (current.rows) {
+                    for (const slotId in this._getSlotIdsFromRows(current.rows)) {
+                        accumulator.add(slotId);
+                    }
+                }
+                for (const record of Object.values(current.records)) {
+                    if (record.id) {
+                        accumulator.add(record.id);
+                    }
+                }
+                return accumulator;
+            },
+            new Set()
+        );
+        return [...result];
+    },
+    /**
+     * @override
+     */
+    _fetchDataPostProcess() {
+        const proms = this._super.apply(this, arguments);
+        if (!this.isSampleModel && this.ganttData.records.length) {
+            proms.push(this._fetchResourceWorkInterval());
+            proms.push(this._fetchCompanyHoursPerDay());
+        }
+        return proms;
+    },
+    /**
+     * Populate the provided record with its related allocated hours per date according to the Gantt scale.
+     *
+     * @param record the record to populate
+     * @private
+     */
+    _populateAllocatedHours(record) {
+        record.allocatedHoursDict = {};
+
+        // Convert moment date into Luxon
+        const startDate = DateTime.fromSeconds(record.start_datetime.unix());
+        const endDate = DateTime.fromSeconds(record.end_datetime.unix());
+
+        // Calculate interval start, stop and step that will be used to compute the allocated hours' dict.
+        const intervalStep = this._getIntervalStepAccordingToScaleInterval();
+        const intervalStartDate = deserializeDateTime(this.luxonDateTimeCache.update(startDate, true).get(startDate, true));
+        const intervalStopDate = deserializeDateTime(
+            this.luxonDateTimeCache.update(endDate.plus(intervalStep), true).get(endDate.plus(intervalStep), true)
+        );
+
+        for (let currentDate = intervalStartDate; currentDate < intervalStopDate; currentDate = currentDate.plus(intervalStep)) {
+            if (currentDate >= endDate) {
+                break;
+            }
+            // Compute start and end date of current interval.
+            let periodStart = currentDate;
+            if (currentDate < startDate) {
+                periodStart = startDate;
+            }
+            let periodEnd = periodStart.plus(intervalStep);
+            periodEnd = periodEnd > endDate ? endDate : periodEnd;
+
+            // Populate record with associated allocated hours.
+            const dateKey = this.luxonDateTimeCache.update(periodStart).get(periodStart);
+            if (!record.resource_id ||
+                (this.ganttData.resourceFlexibleHoursDict &&
+                this.ganttData.resourceFlexibleHoursDict[record.resource_id[0]])) {
+                record.allocatedHoursDict[dateKey] = Math.min(
+                    (endDate - startDate) / (1000 * 60 * 60),
+                    this.ganttData.companyHoursPerDay
+                ) * record.allocated_percentage / 100;
+                continue;
+            }
+            const workIntervals = this.ganttData.resourceWorkIntervalsDict
+                                  && this.ganttData.resourceWorkIntervalsDict[record.resource_id && record.resource_id[0]]
+                                  && this.ganttData.resourceWorkIntervalsDict[record.resource_id && record.resource_id[0]][dateKey]
+                                  || [];
+            for (const workInterval of workIntervals) {
+                if (!(workInterval[1] <= periodStart || workInterval[0] >= periodEnd)) {
+                    const overlapDuration = Math.min(
+                        workInterval[1].diff(workInterval[0], 'hours').toObject().hours,
+                        workInterval[1].diff(periodStart, 'hours').toObject().hours,
+                        periodEnd.diff(periodStart, 'hours').toObject().hours,
+                        periodEnd.diff(workInterval[0], 'hours').toObject().hours,
+                    );
+                    if (!(dateKey in record.allocatedHoursDict)) {
+                        record.allocatedHoursDict[dateKey] = 0;
+                    }
+                    record.allocatedHoursDict[dateKey] += overlapDuration * record.allocated_percentage / 100;
+                }
+            }
+        }
+    },
+    /**
+     * @override
+     */
+    _fetchData: function () {
+        this.context.show_job_title = true;
+        this.luxonDateTimeCache = new PlanningLuxonDateTimeCache(this);
+        return this._super.apply(this, arguments).then(result => {
+            for (const record of Object.values(this.ganttData.records)) {
+                this._populateAllocatedHours(record);
+            }
+        });
+    },
+
+    async _fetchCompanyHoursPerDay() {
+        this.ganttData.companyHoursPerDay = await this._rpc({
+            model: this.modelName,
+            method: 'gantt_company_hours_per_day',
+            context: this.context,
+        });
+    },
+
     /**
      * @override
      */
     __reload(handle, params) {
-        if ("context" in params && params.context.planning_groupby_role && !params.groupBy.length) {
-            params.groupBy.unshift('resource_id');
-            params.groupBy.unshift('role_id');
+        if ("context" in params) {
+            params.context.show_job_title = true;
+            if (params.context.planning_groupby_role && !params.groupBy.length) {
+                params.groupBy.unshift('resource_id');
+                params.groupBy.unshift('role_id');
+            }
         }
         return this._super(handle, params);
-    },
-    _fetchData: function () {
-        this.context.planning_gantt_view = true;
-        return this._super(...arguments).then((result) => {
-            if (!this.isSampleModel && this.ganttData.groupedBy.includes('resource_id')) {
-                const employeeIds = this._getResourceResIds(this.ganttData.rows);
-                if (employeeIds.length) {
-                    return this._rpc({
-                        model: 'resource.resource',
-                        method: 'get_planning_hours_info',
-                        args: [employeeIds,
-                            this.convertToServerTime(this.ganttData.startDate),
-                            this.convertToServerTime(this.ganttData.endDate || this.ganttData.startDate.clone().add(1, this.ganttData.scale)),
-                        ],
-                    }).then((planningHoursInfo) => {
-                        this._addPlanningHoursInfo(this.ganttData.rows, planningHoursInfo);
-                    });
-                }
-            }
-        });
     },
     /**
      * Check if the given groupedBy includes fields for which an empty fake group will be created
@@ -106,8 +388,13 @@ const PlanningGanttModel = GanttModel.extend(PlanningModelMixin, {
             }
         }
         const rows = this._super(params);
-        // always move an empty row to the head
+        // always move an empty row to the head and sort rows alphabetically
         if (groupedBy && groupedBy.length && rows.length > 1 && rows[0].resId) {
+            rows.sort((curr, next) => {
+                if (curr.resId && !next.resId) return 1;
+                if (!curr.resId && next.resId) return -1;
+                return curr.name.toLowerCase() > next.name.toLowerCase() ? 1 : -1;
+            });
             this._reorderEmptyRow(rows);
         }
         return rows;
@@ -146,40 +433,17 @@ const PlanningGanttModel = GanttModel.extend(PlanningModelMixin, {
             rows.unshift(emptyRow);
         }
     },
-
     /**
-     * Utils
-     */
-    /**
-     * Recursive function to get resIds of employee
+     * Recursive function to add progressBar info to rows grouped by the field.
      *
      * @private
+     * @override
      */
-    _getResourceResIds(rows) {
-        const resIds = [];
-        for (let row of rows) {
-            if (row.groupedByField === "resource_id") {
-                if (row.resId !== false) {
-                    resIds.push(row.resId);
-                }
-            } else {
-                resIds.push(...this._getResourceResIds(row.rows));
-            }
-        }
-        return [...new Set(resIds)];
-    },
-    /**
-     * Recursive function to add planningHours to employee
-     *
-     * @private
-     */
-    _addPlanningHoursInfo(rows, planningHoursInfo) {
-        for (let row of rows) {
-            if (row.groupedByField === "resource_id") {
-                row.planningHoursInfo = planningHoursInfo[row.resId];
-            } else {
-                this._addPlanningHoursInfo(row.rows, planningHoursInfo);
-            }
+    _addProgressBarInfo(field, rows, progressBarInfo) {
+        this._super(...arguments);
+        const rowsWithProgressBar = rows.filter((row) => row.progressBar && row.progressBar.max_value_formatted);
+        for (const row of rowsWithProgressBar) {
+            row.progressBar.percentage = formatPercentage(row.progressBar.ratio / 100);
         }
     },
 });

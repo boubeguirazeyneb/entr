@@ -6,7 +6,7 @@
     'category': 'Productivity/Documents',
     'summary': 'Documents Spreadsheet',
     'description': 'Documents Spreadsheet',
-    'depends': ['documents'],
+    'depends': ['documents', 'spreadsheet_edition'],
     'data': [
         'data/documents_data.xml',
         'security/ir.model.access.csv',
@@ -20,27 +20,32 @@
         'demo/documents_demo_data.xml'
     ],
 
-    'application': False,
     'installable': True,
-    'auto_install': True,
+    'auto_install': ['documents'],
     'license': 'OEEL-1',
     'assets': {
-        'web.assets_backend': [
-            'documents_spreadsheet/static/src/**/*.js',
-            'documents_spreadsheet/static/src/scss/**/*',
-            ('remove', 'documents_spreadsheet/static/src/legacy/**/*.js')
+        'spreadsheet.o_spreadsheet': [
+            'documents_spreadsheet/static/src/bundle/**/*.js',
+            'documents_spreadsheet/static/src/bundle/**/*.xml',
+            ('remove', 'documents_spreadsheet/static/src/bundle/components/control_panel/spreadsheet_breadcrumbs.xml'),
         ],
-        'web.assets_backend_prod_only': [
-            'documents_spreadsheet/static/src/legacy/**/*.js',
+        'web.assets_backend': [
+            'documents_spreadsheet/static/src/bundle/**/*.scss',
+            'documents_spreadsheet/static/src/documents_view/**/*',
+            'documents_spreadsheet/static/src/spreadsheet_selector_dialog/**/*',
+            'documents_spreadsheet/static/src/spreadsheet_template/**/*',
+            'documents_spreadsheet/static/src/helpers.js',
+            'documents_spreadsheet/static/src/spreadsheet_action_loader.js',
+            'documents_spreadsheet/static/src/view_insertion.js',
+            'documents_spreadsheet/static/src/bundle/components/control_panel/spreadsheet_breadcrumbs.xml',
+        ],
+        'web.assets_tests': [
+            'documents_spreadsheet/static/tests/utils/tour.js',
+            'documents_spreadsheet/static/tests/tours/*',
         ],
         'web.qunit_suite_tests': [
             'documents_spreadsheet/static/tests/**/*',
-        ],
-        'web.assets_tests': [
-            'documents_spreadsheet/static/tests/tours/**/*',
-        ],
-        'web.assets_qweb': [
-            'documents_spreadsheet/static/src/**/*.xml',
-        ],
+            'spreadsheet/static/lib/chartjs-gauge/chartjs-gauge.js',
+        ]
     }
 }

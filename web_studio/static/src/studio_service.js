@@ -1,8 +1,10 @@
 /** @odoo-module **/
 import { registry } from "@web/core/registry";
+import { delay } from "web.concurrency";
 import legacyBus from "web_studio.bus";
+import { resetViewCompilerCache } from "@web/views/view_compiler";
 
-const { core } = owl;
+import { EventBus } from "@odoo/owl";
 
 const URL_VIEW_KEY = "_view_type";
 const URL_ACTION_KEY = "_action";
@@ -21,7 +23,6 @@ export const SUPPORTED_VIEW_TYPES = [
     "activity",
     "calendar",
     "cohort",
-    "dashboard",
     "form",
     "gantt",
     "graph",
@@ -33,8 +34,8 @@ export const SUPPORTED_VIEW_TYPES = [
 ];
 
 export const studioService = {
-    dependencies: ["action", "home_menu", "router", "user"],
-    async start(env, { user }) {
+    dependencies: ["action", "cookie", "color_scheme", "home_menu", "router", "user"],
+    async start(env, { user, cookie, color_scheme }) {
         function _getCurrentAction() {
             const currentController = env.services.action.currentController;
             return currentController ? currentController.action : null;
@@ -61,6 +62,12 @@ export const studioService = {
                     // but not editable by studio
                     return false;
                 }
+                if (action.res_model === "knowledge.article") {
+                    // The knowledge form view is very specific and custom, it doesn't make sense
+                    // to edit it. Editing the list and kanban is more debatable, but for simplicity's sake
+                    // we set them to not editable too.
+                    return false;
+                }
                 return action.res_model ? true : false;
             }
             return false;
@@ -70,7 +77,7 @@ export const studioService = {
             return view && SUPPORTED_VIEW_TYPES.includes(view);
         }
 
-        const bus = new core.EventBus();
+        const bus = new EventBus();
         let inStudio = false;
 
         const state = {
@@ -96,10 +103,13 @@ export const studioService = {
                 const additionalContext = {};
                 if (state.studioMode === MODES.EDITOR) {
                     if (currentHash.active_id) {
-                        additionalContext.active_id = currentHash.active_id
+                        additionalContext.active_id = currentHash.active_id;
                     }
                     if (editedActionId) {
-                        state.editedAction = await env.services.action.loadAction(editedActionId, additionalContext);
+                        state.editedAction = await env.services.action.loadAction(
+                            editedActionId,
+                            additionalContext
+                        );
                     } else {
                         state.editedAction = null;
                     }
@@ -123,6 +133,7 @@ export const studioService = {
                 throw new Error("mode is mandatory");
             }
 
+            const previousState = { ...state };
             const options = {};
             if (targetMode === MODES.EDITOR) {
                 let controllerState;
@@ -134,9 +145,7 @@ export const studioService = {
                         viewType = currentController.view.type;
                         controllerState = Object.assign({}, currentController.getLocalState());
                         const { resIds } = currentController.getGlobalState() || {};
-                        if (resIds) {
-                            controllerState.resIds = resIds;
-                        }
+                        controllerState.resIds = resIds || [controllerState.resId];
                     }
                 }
                 if (!_isStudioEditable(action)) {
@@ -156,8 +165,22 @@ export const studioService = {
             }
             state.studioMode = targetMode;
             user.updateContext({ studio: 1 });
-            // LPE: we don't manage errors during do action.....
-            return env.services.action.doAction("studio", options);
+
+            let res;
+            try {
+                res = await env.services.action.doAction("studio", options);
+            } catch (e) {
+                user.removeFromContext("studio");
+                Object.assign(state, previousState);
+                throw e;
+            }
+            // force color_scheme light
+            if (cookie.current.color_scheme === "dark") {
+                // ensure studio is fully loaded
+                await delay(0);
+                color_scheme.switchToColorScheme("light");
+            }
+            return res;
         }
 
         async function open(mode = false, actionId = false) {
@@ -171,6 +194,7 @@ export const studioService = {
             if (actionId) {
                 action = await env.services.action.loadAction(actionId);
             }
+            resetViewCompilerCache();
             return _openStudio(mode, action);
         }
 
@@ -178,6 +202,7 @@ export const studioService = {
             if (!inStudio) {
                 throw new Error("leave when not in studio???");
             }
+            resetViewCompilerCache();
             env.bus.trigger("CLEAR-CACHES");
             const options = {
                 stackPosition: "replacePreviousAction", // If target is menu, then replaceCurrent, see comment above why we cannot do this
@@ -202,8 +227,22 @@ export const studioService = {
         }
 
         async function reload(params = {}) {
+            resetViewCompilerCache();
             env.bus.trigger("CLEAR-CACHES");
-            const action = await env.services.action.loadAction(state.editedAction.id);
+            const actionContext = state.editedAction.context;
+            let additionalContext;
+            if (actionContext.active_id) {
+                additionalContext = { active_id: actionContext.active_id };
+            }
+            if (actionContext.active_ids) {
+                additionalContext = Object.assign(additionalContext || {}, {
+                    active_ids: actionContext.active_ids,
+                });
+            }
+            const action = await env.services.action.loadAction(
+                state.editedAction.id,
+                additionalContext
+            );
             setParams({ action, ...params });
         }
 
@@ -236,7 +275,11 @@ export const studioService = {
                 hash[URL_VIEW_KEY] = state.editedViewType || undefined;
                 hash[URL_TAB_KEY] = state.editorTab;
             }
-            if (state.editedAction && state.editedAction.context && state.editedAction.context.active_id) {
+            if (
+                state.editedAction &&
+                state.editedAction.context &&
+                state.editedAction.context.active_id
+            ) {
                 hash.active_id = state.editedAction.context.active_id;
             }
             env.services.router.pushState(hash, { replace: true });
@@ -251,6 +294,9 @@ export const studioService = {
                 state.x2mEditorPath = [];
             }
             if ("action" in params) {
+                if ((state.editedAction && state.editedAction.id) !== params.action.id) {
+                    state.editedControllerState = null;
+                }
                 state.editedAction = params.action || null;
             }
             if ("editorTab" in params) {

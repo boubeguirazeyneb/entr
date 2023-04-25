@@ -44,9 +44,10 @@ class MarketingCampaignTest(TestMACommon):
         self.assertEqual(campaign2.state, 'draft')
         self.assertEqual(campaign2.participant_ids, self.env['marketing.participant'])
 
-        # Two activities with the same name but not related to the same campaign
-        activities = self.env['marketing.activity'].search([('name', '=', "ShouldDuplicate")])
-        activities2 = self.env['marketing.activity'].search([('name', '=', "ShouldDuplicate2")])
+        # activities: Two activities with similar name (one with an counter, the other without) but not related to the same campaign
+        # see utm.mixin#_get_unique_names
+        activities = self.env['marketing.activity'].search([('name', 'in', ('ShouldDuplicate', 'ShouldDuplicate [2]'))])
+        activities2 = self.env['marketing.activity'].search([('name', 'in', ('ShouldDuplicate2', 'ShouldDuplicate2 [2]'))])
         activity_dup = campaign2.marketing_activity_ids.filtered(lambda activity: not activity.parent_id)
         activity2_dup = campaign2.marketing_activity_ids.filtered(lambda activity: activity.parent_id)
         self.assertEqual(activities, activity | activity_dup)
@@ -130,3 +131,24 @@ class MarketingCampaignTest(TestMACommon):
 
         self.assertEqual(campaign.running_participant_count, 4)
         self.assertEqual(campaign.participant_ids.mapped('res_id'), (test_records[0:3] | test_records[-1]).ids)
+
+    @users('user_markauto')
+    @mute_logger('odoo.addons.base.ir.ir_model', 'odoo.models')
+    def test_archive_ma_campaign(self):
+        """
+        Ensures that campaigns are stopped when archived.
+        """
+        campaign = self.env['marketing.campaign'].create({
+            'name': 'Test Campaign',
+            'model_id': self.env['ir.model']._get('marketing.test.sms').id,
+            'domain': '%s' % [('id', 'in', self.test_records[0].ids)],
+        })
+
+        mailing = self._create_mailing()
+        self._create_activity(campaign, mailing=mailing, interval_number=0)
+
+        campaign.action_start_campaign()
+        self.assertEqual(campaign.state, 'running')
+
+        campaign.active = False
+        self.assertEqual(campaign.state, 'stopped')

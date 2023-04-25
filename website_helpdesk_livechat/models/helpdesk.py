@@ -17,7 +17,7 @@ class HelpdeskTeam(models.Model):
         LiveChat = self.env['im_livechat.channel']
         for team in self:
             if team.name and team.use_website_helpdesk_livechat:
-                channel = LiveChat.search([('name', '=', team.name)])
+                channel = LiveChat.search([('name', '=', team.name)], limit=1)
                 if not channel:
                     if team.member_ids:
                         channel = LiveChat.create({'name': team.name, 'user_ids': [(6, _, team.member_ids.ids)]})
@@ -38,23 +38,24 @@ class MailChannel(models.Model):
     def execute_command_helpdesk(self, **kwargs):
         key = kwargs.get('body').split()
         msg = _('Something is missing or wrong in command')
-        channel_partners = self.channel_partner_ids.filtered(lambda partner: partner != self.env.user.partner_id)
+        partners = self.with_context(active_test=False).channel_partner_ids.filtered(lambda partner: partner != self.env.user.partner_id)
         if key[0].lower() == '/helpdesk':
             if len(key) == 1:
                 if self.channel_type == 'channel':
-                    msg = _("You are in channel <b>#%s</b>.", self.name)
+                    msg = _("You are in channel <b>#%s</b>.", html_escape(self.name))
                     if self.public == 'private':
                         msg += _(" This channel is private. People must be invited to join it.")
                 else:
+                    partners = partners or self.env.user.partner_id
                     msg = _("You are in a private conversation with <b>%(mentions)s</b>.",
-                            mentions=", ".join(html_escape("@%s" % p.name) for p in channel_partners)
+                            mentions=", ".join(html_escape("@%s" % p.name) for p in partners)
                            )
                 msg += _("""<br><br>
-                    You can create a new ticket by typing <b>/helpdesk "ticket title"</b>.<br>
-                    You can search ticket by typing <b>/helpdesk_search "Keywords1 Keywords2 etc"</b><br>
+                    You can create a new ticket by typing <b>/helpdesk <i>ticket title</i></b>.<br>
+                    You can search tickets by typing <b>/helpdesk_search <i>keyword</i></b> or <b><i>ticket number</i></b><br>
                     """)
             else:
-                customer = channel_partners[:1]
+                customer = partners[:1]
                 list_value = key[1:]
                 description = ''
                 for message in self.message_ids.sorted(key=lambda r: r.id):
@@ -70,8 +71,7 @@ class MailChannel(models.Model):
                     'partner_id': customer.id if customer else False,
                     'team_id': team_id,
                 })
-                link_ticket = '<a href="#" data-oe-id="%d" data-oe-model="helpdesk.ticket">%s</a>' % (helpdesk_ticket.id, html_escape(helpdesk_ticket.name))
-                msg = _("Created a new ticket and request: %s", link_ticket)
+                msg = _("Created a new ticket: %s", helpdesk_ticket._get_html_link())
         return self._send_transient_message(self.env.user.partner_id, msg)
 
     def execute_command_helpdesk_search(self, **kwargs):
@@ -80,7 +80,7 @@ class MailChannel(models.Model):
         msg = _('Something is missing or wrong in command')
         if key[0].lower() == '/helpdesk_search':
             if len(key) == 1:
-                msg = _('You can search ticket by typing <b>/helpdesk_search "Keywords1 Keywords2 etc"</b><br>')
+                msg = _('You can search tickets by typing <b>/helpdesk_search <i>keyword</i></b> or <i><b>ticket number</b></i><br>')
             else:
                 list_value = key[1:]
                 Keywords = re.findall('\w+', ' '.join(list_value))
@@ -90,12 +90,12 @@ class MailChannel(models.Model):
                 tickets = self.env['helpdesk.ticket'].search([('tag_ids', 'in', HelpdeskTag.ids)], limit=10)
                 if not tickets:
                     for Keyword in Keywords:
-                        tickets |= self.env['helpdesk.ticket'].search([('name', 'ilike', Keyword)], order="id desc", limit=10)
+                        tickets |= self.env['helpdesk.ticket'].search(['|', ('name', 'ilike', Keyword), ('ticket_ref', 'ilike', Keyword)], order="id desc", limit=10)
                         if len(tickets) > 10:
                             break
                 if tickets:
-                    link_tickets = [f'<br/><a href="#" data-oe-id={str(ticket.id)} data-oe-model="helpdesk.ticket">#{html_escape(ticket.name)}</a>' for ticket in tickets]
-                    msg = _('We found some matched ticket(s) related to the search query: %s') % ''.join(link_tickets)
+                    link_tickets = [f'<br/>{ticket._get_html_link()}' for ticket in tickets]
+                    msg = _('We found some matched ticket(s) related to the search query: %s', ''.join(link_tickets))
                 else:
-                    msg = _('No tickets found related to the search query. <br> make sure to use the right format: (/helpdesk_search Keyword1 Keyword2 etc...)')
+                    msg = _('No tickets found for <b>%s</b>. <br> Make sure you are using the right format:<br> <b>/helpdesk_search <i>keyword</i></b> or <b>/helpdesk_search <i>ticket number</i></b>', ''.join(list_value))
         return self._send_transient_message(partner, msg)

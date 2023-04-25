@@ -17,9 +17,8 @@ Create Reports for Field Service
         'views/project_views.xml',
         'views/project_portal_templates.xml',
         'views/project_sharing_views.xml',
-        'report/worksheet_custom_reports.xml',
         'report/worksheet_custom_report_templates.xml',
-        'data/mail_template_data.xml',
+        'report/project_report_views.xml',
         'data/fsm_report_data.xml',
     ],
     'demo': ['data/fsm_report_demo.xml'],
@@ -27,11 +26,10 @@ Create Reports for Field Service
     'auto_install': ['industry_fsm', 'web_studio'],
     'assets': {
         'web.assets_backend': [
-            'industry_fsm_report/static/**/*',
+            'industry_fsm_report/static/src/js/tours/industry_fsm_report_tour.js',
         ],
         'web.assets_frontend': [
-            'industry_fsm/static/src/js/tours/industry_fsm_tour.js',
-            'industry_fsm_report/static/src/js/tours/industry_fsm_report.js',
+            'industry_fsm_report/static/src/js/tours/industry_fsm_report_tour.js',
         ],
     },
     'license': 'OEEL-1',

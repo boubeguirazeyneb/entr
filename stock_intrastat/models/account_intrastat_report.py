@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 
-from odoo import api, exceptions, fields, models
+from odoo import api, models
 
 
-class IntrastatReport(models.AbstractModel):
-    _inherit = 'account.intrastat.report'
+class StockIntrastatReportCustomHandler(models.AbstractModel):
+    _name = 'stock.intrastat.report.handler'
+    _inherit = 'account.intrastat.report.handler'
+    _description = 'Intrastat Report Custom Handler (Stock)'
 
     @api.model
     def _fill_missing_values(self, vals_list):
-        vals_list = super(IntrastatReport, self)._fill_missing_values(vals_list)
+        vals_list = super()._fill_missing_values(vals_list)
 
         # Erase the company region code by the warehouse region code, if any
         invoice_ids = [vals['invoice_id'] for vals in vals_list]

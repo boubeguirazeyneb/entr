@@ -1,3 +1,5 @@
+import json
+
 import odoo
 from odoo import api
 from odoo.tools import DotDict
@@ -13,7 +15,7 @@ class TestStudioController(TransactionCase):
         super().setUp()
         self.env = api.Environment(self.cr, odoo.SUPERUSER_ID, {'load_all_views': True})
         _request_stack.push(self)
-        self.session = DotDict({'debug': False})
+        self.session = DotDict({'debug': ''})
         self.studio_controller = WebStudioController()
 
     def tearDown(self):
@@ -322,3 +324,209 @@ class TestEditView(TestStudioController):
         </form>"""
 
         self.assertViewArchEqual(base_view.get_combined_arch(), expected_arch)
+
+    def test_edit_attribute_studio_groups(self):
+        """ Tests the behavior of setting the attribute `studio_groups` on field view nodes having a `groups=` attribute
+        A second goal is to test the behavior of a field node having a `groups=` attribute set on the node
+        and another `groups=` on the field definition in the model.
+        e.g.
+        `code = fields.Text(string='Python Code', groups='base.group_system',`
+        `<field name="code" groups="base.group_no_one"/>`
+        For this above case, a temporary technical node is created during the view postprocessing,
+        wrapping the `<field groups="..."` node,
+        to simulate a AND between the two groups: you must have BOTH groups in order to see the given field node,
+        and the technical node should not remain in the end.
+        """
+        # Ensure there is a group on the `code` field, as the goal of this test is to test the behavior
+        # of a field having a group in the model definition in addition to another group on the field node in the view.
+        self.assertEqual(self.env['ir.actions.server']._fields['code'].groups, 'base.group_system')
+        view = self.env['ir.ui.view'].create({
+            'name': 'foo',
+            'type': 'tree',
+            'model': 'ir.actions.server',
+            'arch': """
+                <tree>
+                    <field name="name"/>
+                    <field name="state" groups="base.group_no_one"/>
+                    <field name="code" groups="base.group_no_one"/>
+                </tree>"""
+        })
+        with self.debug_mode():
+            arch = self.env['ir.actions.server'].with_context(studio=True).get_view(view.id)['arch']
+            tree = etree.fromstring(arch)
+            children = list(tree.iterdescendants())
+            self.assertEqual(len(children), 3, 'The tree view must have only 3 descendants in total, the 3 fields')
+            name, state, code = children
+            self.assertFalse(name.get('studio_groups'))
+            self.assertTrue(state.get('studio_groups'))
+            self.assertTrue(code.get('studio_groups'))
+            for node in (state, code):
+                self.assertEqual(json.loads(node.get('studio_groups'))[0]['name'], 'Technical Features')
+
+    def test_edit_field_present_in_multiple_views(self):
+        """ a use case where the hack before this fix doesn't work.
+        We try to edit a field that is present in two views, and studio
+        must modify the field in the correct view and do not confuse it
+        with the other one.
+        """
+        IrModelFields = self.env["ir.model.fields"].with_context(studio=True)
+        source_model = self.env["ir.model"].search([("model", "=", "res.partner")])
+        destination_model = self.env["ir.model"].search(
+            [("model", "=", "res.currency")]
+        )
+        IrModelFields.create(
+            {
+                "ttype": "many2many",
+                "model_id": source_model.id,
+                "relation": destination_model.model,
+                "name": "x_test_field_x",
+                "relation_table": IrModelFields._get_next_relation(
+                    source_model.model, destination_model.model
+                ),
+            }
+        )
+        arch = """ <form>
+            <field name="user_ids">
+                <form>
+                    <field name="x_test_field_x"/>
+                </form>
+                <tree>
+                    <field name="x_test_field_x"/>
+                </tree>
+            </field>
+        </form>"""
+
+        base_view = self.env['ir.ui.view'].create({
+            'name': 'TestForm',
+            'type': 'form',
+            'model': 'res.partner',
+            'arch': arch
+        })
+
+        operation = {
+            'type': 'attributes',
+            'target': {
+                'tag': 'field',
+                    'attrs': {
+                        'name': 'x_test_field_x'
+                    },
+                    'xpath_info': [
+                        {'tag': 'tree', 'indice': 1},
+                        {'tag': 'field', 'indice': 1}
+                    ],
+                    'subview_xpath': "//field[@name='user_ids']/tree"
+                },
+                'position': 'attributes',
+                'node': {
+                    'tag': 'field',
+                    'attrs': {
+                        'name': 'x_test_field_x',
+                        'id': 'x_test_field_x'
+                    },
+                },
+                'new_attrs': {
+                    'options': "{\"no_create\": true}"
+                }
+            }
+
+        self.edit_view(base_view, operations=[operation])
+
+        expected_arch = """ <form>
+            <field name="user_ids">
+                <form>
+                    <field name="x_test_field_x"/>
+                </form>
+                <tree>
+                    <field name="x_test_field_x" options="{&quot;no_create&quot;: true}"/>
+                </tree>
+            </field>
+        </form>"""
+        self.assertViewArchEqual(base_view.get_combined_arch(), expected_arch)
+
+    def test_edit_attribute_studio_groups_tree_column_invisible(self):
+        for view_type, arch, expected_modifiers in [
+            ('tree', """
+                <tree>
+                    <field name="name" groups="base.group_no_one"/>
+                </tree>
+            """, {'column_invisible': True}),
+            ('tree', """
+                <tree>
+                    <header>
+                        <button name="name" groups="base.group_no_one"/>
+                    </header>
+                </tree>
+            """, {'invisible': True}),
+            ('form', """
+                <form>
+                    <field name="child_ids">
+                        <tree>
+                            <field name="name" groups="base.group_no_one"/>
+                        </tree>
+                    </field>
+                </form>
+            """, {'column_invisible': True}),
+            ('tree', """
+                <tree>
+                    <field name="child_ids">
+                        <form>
+                            <field name="name" groups="base.group_no_one"/>
+                        </form>
+                    </field>
+                </tree>
+            """, {'invisible': True}),
+        ]:
+            view = self.env['ir.ui.view'].create({
+                'name': 'foo',
+                'type': view_type,
+                'model': 'res.partner',
+                'arch': arch,
+            })
+            arch = self.env['res.partner'].with_context(studio=True).get_view(view.id)['arch']
+            tree = etree.fromstring(arch)
+            modifiers = json.loads(tree.xpath('//*[@name="name"]')[0].get('modifiers'))
+            for modifier, value in expected_modifiers.items():
+                self.assertEqual(modifiers.get(modifier), value)
+
+    def test_get_view_t_groups(self):
+        """Tests the behavior of <t groups="..."></t> blocks with Studio."""
+        for view_type, arch, expected_modifiers in [
+            # The user has the group of the `<t>` node, the `<t>` node **must remain**, and be visible.
+            ('form', """
+                <form>
+                    <t groups="base.group_user">
+                        <field name="name"/>
+                    </t>
+                </form>
+            """, {}),
+            # The user doesn't have the group of the `<t>` node, the `<t>` node **must remain**, and be invisible.
+            ('form', """
+                <form>
+                    <t groups="base.group_no_one">
+                        <field name="name"/>
+                    </t>
+                </form>
+            """, {'invisible': True}),
+        ]:
+            view = self.env['ir.ui.view'].create({
+                'name': 'foo',
+                'type': view_type,
+                'model': 'res.partner',
+                'arch': arch,
+            })
+            arch = self.env['res.partner'].with_context(studio=True).get_view(view.id)['arch']
+            tree = etree.fromstring(arch)
+            self.assertTrue(tree.xpath('//t'))
+            modifiers = json.loads(tree.xpath('//t')[0].get('modifiers', '{}'))
+            for modifier, value in expected_modifiers.items():
+                self.assertEqual(modifiers.get(modifier), value)
+
+    def test_open_users_form_with_studio(self):
+        """Tests the res.users form view can be loaded with Studio.
+
+        The res.users form is an edge case, because it uses fake fields in its view, which do not exist in the model.
+        Make sure the Studio overrides regarding the loading of the views, including the postprocessing,
+        are able to handle these non-existing fields.
+        """
+        arch = self.env['res.users'].with_context(studio=True).get_view(self.env.ref('base.view_users_form').id)['arch']
+        self.assertTrue(arch)

@@ -73,11 +73,12 @@ class QualityPoint(models.Model):
         for point in self:
             point.check_count = result.get(point.id, 0)
 
-    @api.model
-    def create(self, vals):
-        if 'name' not in vals or vals['name'] == _('New'):
-            vals['name'] = self.env['ir.sequence'].next_by_code('quality.point') or _('New')
-        return super(QualityPoint, self).create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if 'name' not in vals or vals['name'] == _('New'):
+                vals['name'] = self.env['ir.sequence'].next_by_code('quality.point') or _('New')
+        return super().create(vals_list)
 
     def check_execute_now(self):
         # TDE FIXME: make true multi
@@ -113,6 +114,7 @@ class QualityPoint(models.Model):
                     continue
                 point_values.append({
                     'point_id': point.id,
+                    'measure_on': point.measure_on,
                     'team_id': point.team_id.id,
                     'product_id': product.id,
                 })
@@ -121,7 +123,7 @@ class QualityPoint(models.Model):
         return point_values
 
     @api.model
-    def _get_domain(self, product_ids, picking_type_id, measure_on='operation'):
+    def _get_domain(self, product_ids, picking_type_id, measure_on='product'):
         """ Helper that returns a domain for quality.point based on the products and picking type
         pass as arguments. It will search for quality point having:
         - No product_ids and no product_category_id
@@ -188,6 +190,7 @@ class QualityAlertTeam(models.Model):
         if self.id:
             values['alias_defaults'] = defaults = ast.literal_eval(self.alias_defaults or "{}")
             defaults['team_id'] = self.id
+            defaults['company_id'] = self.company_id.id
         return values
 
 
@@ -225,10 +228,10 @@ class QualityCheck(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _check_company_auto = True
 
-    name = fields.Char('Reference', default=lambda self: _('New'))
+    name = fields.Char('Reference')
     point_id = fields.Many2one(
         'quality.point', 'Control Point', check_company=True)
-    title = fields.Char('Title', compute='_compute_title')
+    title = fields.Char('Title', compute='_compute_title', store=True, precompute=True, readonly=False)
     quality_state = fields.Selection([
         ('none', 'To do'),
         ('pass', 'Passed'),
@@ -236,13 +239,13 @@ class QualityCheck(models.Model):
         default='none', copy=False)
     control_date = fields.Datetime('Control Date', tracking=True)
     product_id = fields.Many2one(
-        'product.product', 'Product', check_company=True, required=True,
+        'product.product', 'Product', check_company=True,
         domain="[('type', 'in', ['consu', 'product']), '|', ('company_id', '=', False), ('company_id', '=', company_id)]")
     picking_id = fields.Many2one('stock.picking', 'Picking', check_company=True)
     partner_id = fields.Many2one(
         related='picking_id.partner_id', string='Partner')
     lot_id = fields.Many2one(
-        'stock.production.lot', 'Lot/Serial',
+        'stock.lot', 'Lot/Serial',
         domain="[('product_id', '=', product_id), '|', ('company_id', '=', False), ('company_id', '=', company_id)]")
     user_id = fields.Many2one('res.users', 'Responsible', tracking=True)
     team_id = fields.Many2one(
@@ -252,7 +255,7 @@ class QualityCheck(models.Model):
         default=lambda self: self.env.company)
     alert_ids = fields.One2many('quality.alert', 'check_id', string='Alerts')
     alert_count = fields.Integer('# Quality Alerts', compute="_compute_alert_count")
-    note = fields.Html(related='point_id.note', readonly=True)
+    note = fields.Html('Note')
     test_type_id = fields.Many2one(
         'quality.point.test_type', 'Test Type',
         required=True)
@@ -282,13 +285,16 @@ class QualityCheck(models.Model):
         """ Return true if do_fail and do_pass can be applied."""
         return False
 
-    @api.model
-    def create(self, vals):
-        if 'name' not in vals or vals['name'] == _('New'):
-            vals['name'] = self.env['ir.sequence'].next_by_code('quality.check') or _('New')
-        if 'point_id' in vals and not vals.get('test_type_id'):
-            vals['test_type_id'] = self.env['quality.point'].browse(vals['point_id']).test_type_id.id
-        return super(QualityCheck, self).create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if 'name' not in vals or vals['name'] == _('New'):
+                vals['name'] = self.env['ir.sequence'].next_by_code('quality.check') or _('New')
+            if 'point_id' in vals and not vals.get('test_type_id'):
+                vals['test_type_id'] = self.env['quality.point'].browse(vals['point_id']).test_type_id.id
+            if 'point_id' in vals and not vals.get('note'):
+                vals['note'] = self.env['quality.point'].browse(vals['point_id']).note
+        return super().create(vals_list)
 
     def do_fail(self):
         self.write({
@@ -354,8 +360,8 @@ class QualityAlert(models.Model):
         'product.product', 'Product Variant',
         domain="[('product_tmpl_id', '=', product_tmpl_id)]")
     lot_id = fields.Many2one(
-        'stock.production.lot', 'Lot', check_company=True,
-        domain="['|', ('product_id', '=', product_id), ('product_id.product_tmpl_id.id', '=', product_tmpl_id), '|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+        'stock.lot', 'Lot', check_company=True,
+        domain="['|', ('product_id', '=', product_id), ('product_id.product_tmpl_id', '=', product_tmpl_id), '|', ('company_id', '=', False), ('company_id', '=', company_id)]")
     priority = fields.Selection([
         ('0', 'Normal'),
         ('1', 'Low'),
@@ -363,11 +369,12 @@ class QualityAlert(models.Model):
         ('3', 'Very High')], string='Priority',
         index=True)
 
-    @api.model
-    def create(self, vals):
-        if 'name' not in vals or vals['name'] == _('New'):
-            vals['name'] = self.env['ir.sequence'].next_by_code('quality.alert') or _('New')
-        return super(QualityAlert, self).create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if 'name' not in vals or vals['name'] == _('New'):
+                vals['name'] = self.env['ir.sequence'].next_by_code('quality.alert') or _('New')
+        return super().create(vals_list)
 
     def write(self, vals):
         res = super(QualityAlert, self).write(vals)

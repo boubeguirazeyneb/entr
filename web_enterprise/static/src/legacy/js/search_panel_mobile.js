@@ -1,4 +1,4 @@
-odoo.define("web.SearchPanelMobile", function (require) {
+odoo.define("web.SearchPanel.Small", function (require) {
     "use strict";
 
     const SearchPanel = require("web.searchPanel");
@@ -8,8 +8,6 @@ odoo.define("web.SearchPanelMobile", function (require) {
     if (!device.isMobile) {
         return;
     }
-
-    const { Portal } = owl.misc;
 
     //-------------------------------------------------------------------------
     // Helpers
@@ -23,7 +21,7 @@ odoo.define("web.SearchPanelMobile", function (require) {
      */
     function nameOfCheckedValues(values) {
         const names = [];
-        for (const [_, value] of values) {
+        for (const [ , value] of values) {
             if (value.checked) {
                 names.push(value.display_name);
             }
@@ -102,9 +100,5 @@ odoo.define("web.SearchPanelMobile", function (require) {
 
     patch(SearchPanel, "web_enterprise.SearchPanel.Mobile", {
         template: "web_enterprise.Legacy.SearchPanel.Mobile",
-        components: {
-            ...SearchPanel.components,
-            Portal,
-        },
     });
 });

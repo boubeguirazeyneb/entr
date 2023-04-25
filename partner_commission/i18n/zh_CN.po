@@ -3,22 +3,41 @@
 # 	* partner_commission
 # 
 # Translators:
-# Martin Trigaux, 2021
-# 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022
+# Jeffery CHEN <jeffery9@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Raymond Yu <cl_yu@hotmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022\n"
-"Language-Team: Chinese (China) (https://www.transifex.com/odoo/teams/41243/zh_CN/)\n"
+"POT-Creation-Date: 2023-04-14 06:18+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Raymond Yu <cl_yu@hotmail.com>, 2022\n"
+"Language-Team: Chinese (China) (https://app.transifex.com/odoo/teams/41243/zh_CN/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: zh_CN\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: partner_commission
+#. odoo-python
+#: code:addons/partner_commission/models/account_move.py:0
+#, python-format
+msgid ""
+"\n"
+"%s: from %s to %s"
+msgstr ""
+"\n"
+"%s：从%s到%s"
+
+#. module: partner_commission
+#. odoo-python
+#: code:addons/partner_commission/models/account_move.py:0
+#, python-format
+msgid " (%d month(s))"
+msgstr "(%d 月)"
 
 #. module: partner_commission
 #: model_terms:ir.ui.view,arch_db:partner_commission.res_config_settings_view_form
@@ -51,21 +70,7 @@ msgstr "所有文档"
 #. module: partner_commission
 #: model_terms:ir.ui.view,arch_db:partner_commission.commission_plan_search_view
 msgid "Archived"
-msgstr "已存档"
-
-#. module: partner_commission
-#: model:ir.model.fields.selection,name:partner_commission.selection__sale_subscription__commission_plan_assignation__auto
-msgid "Based On Referrer"
-msgstr "基于推荐人"
-
-#. module: partner_commission
-#: model:ir.model.fields,help:partner_commission.field_sale_subscription__commission_plan_assignation
-msgid ""
-"Based on Referrer: the commission plan of this subscription will change automatically whenever the commission plan of the Referrer is changed.\n"
-"Manual: the commission plan of this subscription is set manually here and will never change automatically. Keep Commission Plan empty to avoid paying any commissions."
-msgstr ""
-"基于推荐人：只要推荐人的佣金计划发生变化，该订阅的佣金计划就会自动改变。\n"
-"手动：此订阅的佣金计划在此手动设置，不会自动改变。保持佣金计划为空以避免支付任何佣金。"
+msgstr "已归档"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_rule__is_capped
@@ -74,7 +79,6 @@ msgstr "封顶"
 
 #. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__purchase_order__purchase_type__commission
-#: model:product.product,name:partner_commission.product_commission
 #: model:product.template,name:partner_commission.product_commission_product_template
 msgid "Commission"
 msgstr "佣金"
@@ -90,15 +94,8 @@ msgstr "佣金自动PO频率"
 #: model:ir.model.fields,field_description:partner_commission.field_res_partner__commission_plan_id
 #: model:ir.model.fields,field_description:partner_commission.field_res_users__commission_plan_id
 #: model:ir.model.fields,field_description:partner_commission.field_sale_order__commission_plan_id
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission_plan_id
-#: model_terms:ir.ui.view,arch_db:partner_commission.sale_subscription_view_form_inherit_partner_commission
 msgid "Commission Plan"
 msgstr "佣金计划"
-
-#. module: partner_commission
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission_plan_assignation
-msgid "Commission Plan Assignation"
-msgstr "佣金计划的分配"
 
 #. module: partner_commission
 #: model:ir.actions.act_window,name:partner_commission.action_commission_plans
@@ -165,9 +162,9 @@ msgid "Display Name"
 msgstr "显示名称"
 
 #. module: partner_commission
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission_plan_frozen
-msgid "Freeze Commission Plan"
-msgstr "冻结佣金计划"
+#: model:ir.model.fields,field_description:partner_commission.field_sale_order__commission_plan_frozen
+msgid "Freeze Plan"
+msgstr "冻结计划"
 
 #. module: partner_commission
 #: model_terms:ir.ui.view,arch_db:partner_commission.res_config_settings_view_form
@@ -187,14 +184,14 @@ msgid ""
 "The product must belong to the selected category.\n"
 "Use several rules if you need to match multiple products within a category."
 msgstr ""
-"如果设置，该规则不适用于整个类别，只适用于给定的产品。\n"
+"如果设置，该规则不应用于整个类别，只应用于给定的产品。\n"
 "该产品必须属于选定的类别。\n"
-"如果你需要匹配一个类别中的多个产品，请使用多个规则。"
+"如果您需要匹配一个类别中的多个产品，请应用多个规则。"
 
 #. module: partner_commission
 #: model:ir.model.fields,help:partner_commission.field_purchase_order__invoice_commission_count
 msgid "Invoices that have generated commissions included in this order"
-msgstr "本订单中包含的已产生佣金的发票"
+msgstr "本订单中包含的已产生佣金的结算单"
 
 #. module: partner_commission
 #: model:ir.model,name:partner_commission.model_account_move
@@ -210,7 +207,7 @@ msgstr "会计分录"
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan____last_update
 #: model:ir.model.fields,field_description:partner_commission.field_commission_rule____last_update
 msgid "Last Modified on"
-msgstr "最后修改日"
+msgstr "最后修改时间"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__write_uid
@@ -230,14 +227,9 @@ msgid "Lead/Opportunity"
 msgstr "线索/商机"
 
 #. module: partner_commission
-#: model:ir.model.fields.selection,name:partner_commission.selection__sale_subscription__commission_plan_assignation__fixed
-msgid "Manual"
-msgstr "手动"
-
-#. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__res_company__commission_automatic_po_frequency__manually
 msgid "Manually"
-msgstr "手工"
+msgstr "手动"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_rule__max_commission
@@ -273,7 +265,6 @@ msgstr "仅限自己的单据"
 #. module: partner_commission
 #: model:ir.actions.server,name:partner_commission.cron_confirm_purchase_orders_ir_actions_server
 #: model:ir.cron,cron_name:partner_commission.cron_confirm_purchase_orders
-#: model:ir.cron,name:partner_commission.cron_confirm_purchase_orders
 msgid "Partner Commission: confirm purchase orders"
 msgstr "合作伙伴佣金：确认采购订单"
 
@@ -303,6 +294,7 @@ msgid "Product"
 msgstr "产品"
 
 #. module: partner_commission
+#. odoo-python
 #: code:addons/partner_commission/models/commission_plan.py:0
 #, python-format
 msgid "Product %s does not belong to category %s"
@@ -316,7 +308,7 @@ msgstr "产品类别"
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_plan__product_id
 msgid "Purchase Default Product"
-msgstr "该价格购买产品"
+msgstr "采购默认产品"
 
 #. module: partner_commission
 #: model:ir.model,name:partner_commission.model_purchase_order
@@ -348,13 +340,15 @@ msgstr "费率应该在0和100之间。"
 #: model:ir.model.fields,field_description:partner_commission.field_account_move__referrer_id
 #: model:ir.model.fields,field_description:partner_commission.field_account_payment__referrer_id
 #: model:ir.model.fields,field_description:partner_commission.field_sale_order__referrer_id
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__referrer_id
+#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription_report__referrer_id
+#: model_terms:ir.ui.view,arch_db:partner_commission.account_move_view_search_inherit_partner_commission
+#: model_terms:ir.ui.view,arch_db:partner_commission.sale_order_subsciption_view_search_inherit_partner_commission
+#: model_terms:ir.ui.view,arch_db:partner_commission.sale_order_view_search_inherit_partner_commission
 msgid "Referrer"
 msgstr "推荐人"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_sale_order__commission
-#: model:ir.model.fields,field_description:partner_commission.field_sale_subscription__commission
 msgid "Referrer Commission"
 msgstr "推荐人佣金"
 
@@ -372,6 +366,11 @@ msgid "Rules"
 msgstr "规则"
 
 #. module: partner_commission
+#: model:ir.model.fields,field_description:partner_commission.field_commission_rule__template_id
+msgid "Sale Order Template"
+msgstr "销售订单模板"
+
+#. module: partner_commission
 #: model:ir.model,name:partner_commission.model_sale_order
 msgid "Sales Order"
 msgstr "销售订单"
@@ -379,27 +378,21 @@ msgstr "销售订单"
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_commission_rule__sequence
 msgid "Sequence"
-msgstr "单号规则"
+msgstr "序号"
 
 #. module: partner_commission
 #: model:ir.model.fields,field_description:partner_commission.field_purchase_order__invoice_commission_count
 #: model_terms:ir.ui.view,arch_db:partner_commission.purchase_order_form_inherit_partner_commission
 msgid "Source Invoices"
-msgstr "来源发票"
+msgstr "来源结算单"
 
 #. module: partner_commission
-#: model:ir.model,name:partner_commission.model_sale_subscription
-msgid "Subscription"
-msgstr "订阅"
-
-#. module: partner_commission
-#: model:ir.model.fields,field_description:partner_commission.field_commission_rule__template_id
-msgid "Subscription Template"
-msgstr "订阅模板"
+#: model:ir.model,name:partner_commission.model_sale_subscription_report
+msgid "Subscription Analysis"
+msgstr "订阅分析"
 
 #. module: partner_commission
 #: model:ir.model.fields,help:partner_commission.field_sale_order__commission_plan_id
-#: model:ir.model.fields,help:partner_commission.field_sale_subscription__commission_plan_id
 msgid "Takes precedence over the Referrer's commission plan."
 msgstr "优先于推荐人的佣金计划。"
 
@@ -418,12 +411,6 @@ msgid ""
 msgstr "自动确认采购订单所需的最低总金额"
 
 #. module: partner_commission
-#: model:product.product,uom_name:partner_commission.product_commission
-#: model:product.template,uom_name:partner_commission.product_commission_product_template
-msgid "Units"
-msgstr "件"
-
-#. module: partner_commission
 #: model:ir.model.fields.selection,name:partner_commission.selection__res_company__commission_automatic_po_frequency__weekly
 msgid "Weekly"
 msgstr "每周"
@@ -434,7 +421,7 @@ msgid "Whether the commission is capped."
 msgstr "佣金是否有上限。"
 
 #. module: partner_commission
-#: model:ir.model.fields,help:partner_commission.field_sale_subscription__commission_plan_frozen
+#: model:ir.model.fields,help:partner_commission.field_sale_order__commission_plan_frozen
 msgid ""
 "Whether the commission plan is frozen. When checked, the commission plan "
 "won't automatically be updated according to the partner level."

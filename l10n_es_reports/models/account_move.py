@@ -58,10 +58,10 @@ class AccountMove(models.Model):
 
     @api.depends('partner_id.country_id')
     def _compute_l10n_es_reports_mod349_available(self):
-        # Mod 349 is required for all european countries, except Spain
+        # Mod 349 is required for all EU operations with companies, except Spain
         mod349_countries = self.env.ref('base.europe').country_ids.filtered_domain([('code', '!=', 'ES')])
         for record in self:
-            record.l10n_es_reports_mod349_available = record.partner_id.country_id in mod349_countries
+            record.l10n_es_reports_mod349_available = record.commercial_partner_id.is_company and record.partner_id.country_id in mod349_countries
 
     def _get_refund_copy_fields(self):
         rslt = super(AccountMove, self)._get_refund_copy_fields()
@@ -92,9 +92,11 @@ class AccountMove(models.Model):
                 raise UserError(_("Please select a Spanish invoice type for this invoice."))
         return posted
 
-    @api.model
-    def create(self, vals):
-        res = super(AccountMove, self).create(vals)
-        if not res.l10n_es_reports_mod349_invoice_type:
-            res.l10n_es_reports_mod349_invoice_type = res.with_context(move_type=res.move_type)._default_mod_349_invoice_type()
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        for move in moves:
+            if not move.l10n_es_reports_mod349_invoice_type:
+                move.l10n_es_reports_mod349_invoice_type = move.with_context(
+                    move_type=move.move_type)._default_mod_349_invoice_type()
+        return moves

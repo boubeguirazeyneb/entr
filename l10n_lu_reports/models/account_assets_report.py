@@ -6,24 +6,23 @@ from odoo.exceptions import ValidationError
 from odoo.tools import parse_date
 from odoo.tools.float_utils import float_round
 
-class AssetsReport(models.AbstractModel):
-    _inherit = 'account.assets.report'
+class AssetsReport(models.Model):
+    _inherit = 'account.report'
+    def assets_init_custom_options(self, options, previous_options=None):
+        super().assets_init_custom_options(options, previous_options)
+        if self.env.company.country_id.code == 'LU':
+            options.setdefault('buttons', []).append({
+                'name': _('XML'), 'sequence': 30, 'action': 'l10n_lu_export_asset_report_to_xml', 'file_export_type': _('XML')
+            })
 
-    def _get_reports_buttons(self, options):
-        res = super()._get_reports_buttons(options)
-        if self._get_report_country_code(options) == 'LU':
-            res.append({'name': _('XML'), 'sequence': 3, 'action': 'print_xml', 'file_export_type': _('XML')})
-        return res
+    def l10n_lu_export_asset_report_to_xml(self, options):
+        new_context = self.env.context.copy()
+        new_context['report_generation_options'] = options
+        new_context['report_generation_options']['report_id'] = self.id
+        generate_xml = self.env['l10n_lu.generate.asset.report'].with_context(new_context).create({})
+        return generate_xml.get_xml()
 
-    def print_xml(self, options):
-        if self._get_report_country_code(options) == 'LU':
-            new_context = self.env.context.copy()
-            new_context['account_report_generation_options'] = options
-            generate_xml = self.env['l10n_lu.generate.xml'].with_context(new_context).create({})
-            return generate_xml.get_xml()
-        return super().print_xml(options)
-
-    def _get_lu_xml_2_0_report_values(self, options):
+    def l10n_lu_asset_report_get_xml_2_0_report_values(self, options):
         """
         Returns the formatted values for the LU eCDF declaration "Tables of acquisitions / amortisable expenditures".
         (https://ecdf-developer.b2g.etat.lu/ecdf/forms/popup/AN_TABACAM_TYPE/2020/en/1/preview)
@@ -41,7 +40,11 @@ class AssetsReport(models.AbstractModel):
                 * 'depreciable_values': The depreciable value of each asset
             """
             # ids of asset lines are in the form <account_group>_<asset_id>
-            asset_ids = {self._get_model_info_from_id(line['id'])[1]: line['id'] for line in lines if '|' in line['id']}
+            asset_ids = {}
+            for line in lines:
+                res_model, model_id = self._get_model_info_from_id(line['id'])
+                if res_model == 'account.asset':
+                    asset_ids[model_id] = line['id']
             assets = self.env['account.asset'].search([('id', 'in', list(asset_ids.keys()))])
             # Check that all assets are in EUR and that the company has EUR as its currency;
             asset_currencies = assets.mapped('currency_id')
@@ -70,7 +73,7 @@ class AssetsReport(models.AbstractModel):
                     tax_amounts[asset_ids.get(asset['id'])] = total_tax
             return depreciable_values, tax_amounts
 
-        lu_template_values = self._get_lu_electronic_report_values(options)
+        lu_template_values = self.env['l10n_lu.report.handler'].get_electronic_report_values(options)
 
         date_from = fields.Date.from_string(options['date'].get('date_from'))
         date_to = fields.Date.from_string(options['date'].get('date_to'))
@@ -80,8 +83,8 @@ class AssetsReport(models.AbstractModel):
             '235': {'field_type': 'number', 'value': date_to.day},
             '236': {'field_type': 'number', 'value': date_to.month}
         }
-
-        lines = self.with_context(self._set_context(options))._get_lines(options)
+        options.update({'filter_unfolded_lines': True})
+        lines = self._get_lines(options)
         # get additional data not shown in the assets report (tax paid, depreciable value)
         depreciable_values, tax_amounts = _get_assets_data(lines)
         # format the values for XML report
@@ -109,7 +112,7 @@ class AssetsReport(models.AbstractModel):
         """
         Returns the table to fill in the LU declaration "Tables of acquisitions / amortisable expenditures".
 
-        :param lines: the lines from account.asset.report's _get_lines
+        :param lines: the lines from account.report's _get_lines
         :param tax_amounts: dict containing the total tax paid on each asset
         :param depreciable_values: dict containing the depreciable amounts for each asset
         :return the formatted "Table of acquisitions", "Table of amortisable expenditures", and the table totals
@@ -118,25 +121,27 @@ class AssetsReport(models.AbstractModel):
         expenditures_table = []
         depreciations_table = []
 
-        N_expenditure = 0
+        n_expenditure = 0
         for line in lines:
-            if line['level'] != 1:  # only 2 levels are possible, level 0 are totals
+            acquisition_date = parse_date(self.env, parse_date(self.env, line['columns'][0].get('name', '')))
+            if self._get_model_info_from_id(line['id'])[0] != 'account.asset' or isinstance(acquisition_date, (str, type(None))):
+                # only 2 levels are  possible, level 0 are totals
                 continue
+            acquisition_date = acquisition_date.strftime('%d%m%Y')
             # Update expenditures table
-            N_expenditure += 1
-            acquisition_date = parse_date(self.env, line['columns'][0]['name']).strftime("%d/%m/%Y")
+            n_expenditure += 1
             name = line['name']
-            acquisition_cost_no_vat = float(line['columns'][4]['no_format_name']) + float(line['columns'][5]['no_format_name'])
-            vat = tax_amounts.get(line['id'])
-            value_to_be_depreciated = depreciable_values.get(line['id'])
+            acquisition_cost_no_vat = float(line['columns'][4].get('no_format', 0)) + float(line['columns'][5].get('no_format', 0))
+            vat = float(tax_amounts.get(line['id'], 0.))
+            value_to_be_depreciated = float(depreciable_values.get(line['id'], 0))
             expenditures_line = {
-                '501': {'field_type': 'number', 'value': str(N_expenditure)},
+                '501': {'field_type': 'number', 'value': str(n_expenditure)},
                 '502': {'field_type': 'char', 'value': acquisition_date},
                 '503': {'field_type': 'char', 'value': name}
             }
             if vat:
                 expenditures_line.update({
-                    '504': {'field_type': 'float', 'value': float_round(acquisition_cost_no_vat + vat, 2)},
+                    '504': {'field_type': 'float', 'value': float_round((acquisition_cost_no_vat + vat), 2)},
                     '505': {'field_type': 'float', 'value': float_round(vat, 2)},
                 })
             expenditures_line['506'] = {'field_type': 'float', 'value': float_round(acquisition_cost_no_vat, 2)}
@@ -144,19 +149,19 @@ class AssetsReport(models.AbstractModel):
             expenditures_table.append(expenditures_line)
 
             # Update Depreciation/amortisation table
-            depreciation_or_amortisation = float(line['columns'][3]['name'][:-2])  # remove ' %' sign
+            depreciation_or_amortisation = float(line['columns'][3].get('name', '')[:-2] or 0)  # remove ' %' sign
             # Book value at the beginning of the reported accounting period (not reported by super's _get_lines)
             # asset_opening (acquisition price at the beginning of the accounting period)
             #  - depreciation_opening (depreciated value at the beginning of the accounting period)
-            book_value_beginning = float(line['columns'][4]['no_format_name']) - float(line['columns'][8]['no_format_name'])
-            acquisitions = float(line['columns'][5]['no_format_name'])
-            sales = float(line['columns'][6]['no_format_name'])
+            book_value_beginning = float(line['columns'][4].get('no_format', 0)) - float(line['columns'][8].get('no_format', 0))
+            acquisitions = float(line['columns'][5].get('no_format', 0))
+            sales = float(line['columns'][6].get('no_format', 0))
             # Depreciation reported from _get_lines divided in value decrease (+) and value increase (-);
             # depreciation is the net difference
-            depreciation = float(line['columns'][9]['no_format_name']) - float(line['columns'][10]['no_format_name'])
-            book_value_end = float(line['columns'][12]['no_format_name'])
+            depreciation = float(line['columns'][9].get('no_format', 0)) - float(line['columns'][10].get('no_format', 0))
+            book_value_end = float(line['columns'][12].get('no_format', 0))
             depreciations_line = {
-                '617': {'field_type': 'number', 'value': str(N_expenditure)},
+                '617': {'field_type': 'number', 'value': str(n_expenditure)},
                 '602': {'field_type': 'char', 'value': acquisition_date},
                 '601': {'field_type': 'char', 'value': name},
                 '603': {'field_type': 'float', 'value': float_round(value_to_be_depreciated, 2)},

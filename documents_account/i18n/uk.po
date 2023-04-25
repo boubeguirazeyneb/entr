@@ -3,17 +3,17 @@
 # 	* documents_account
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:39+0000\n"
-"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022\n"
-"Language-Team: Ukrainian (https://www.transifex.com/odoo/teams/41243/uk/)\n"
+"POT-Creation-Date: 2023-04-14 06:17+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022\n"
+"Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -21,7 +21,7 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid "<b>Deselect this page</b> as we plan to process all bills first."
@@ -55,11 +55,6 @@ msgid "A setting already exists for this journal"
 msgstr "Для цього журналу вже існує параметр"
 
 #. module: documents_account
-#: model:ir.model,name:documents_account.model_account_reconciliation_widget
-msgid "Account Reconciliation widget"
-msgstr "Віджет узгодження рахунку"
-
-#. module: documents_account
 #: model:ir.model.fields,field_description:documents_account.field_res_config_settings__documents_account_settings
 msgid "Accounting "
 msgstr "Бухоблік"
@@ -70,18 +65,13 @@ msgid "Accounting Workspace"
 msgstr "Папка бухобліку"
 
 #. module: documents_account
-#: model:ir.model.fields,field_description:documents_account.field_account_reconcile_model__activity_type_id
-msgid "Activity type"
-msgstr "Тип дії"
-
-#. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid ""
 "As this PDF contains multiple documents, let's split and process in bulk."
 msgstr ""
-"Оскільки цей PDF містить кілька документі, давайте розділимо їх і обробимо "
+"Оскільки цей PDF містить кілька документів, давайте розділимо їх і обробимо "
 "групою."
 
 #. module: documents_account
@@ -95,21 +85,26 @@ msgid "Centralize accounting files and documents"
 msgstr "Централізуйте бухгалтерські файли та документи"
 
 #. module: documents_account
-#. openerp-web
+#: model_terms:ir.ui.view,arch_db:documents_account.view_account_move_form_inherit_documents_account
+msgid "Check them"
+msgstr "Перевірте їх"
+
+#. module: documents_account
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid "Click on a card to <b>select the document</b>."
 msgstr "Натисніть на картку, щоб <b>обрати документ</b>."
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid "Click on a thumbnail to <b>preview the document</b>."
 msgstr "Клікніть на мініатюру, щоби <b>переглянути попередньо документ</b>."
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid ""
@@ -162,7 +157,7 @@ msgstr "Створив"
 #. module: documents_account
 #: model:ir.model.fields,field_description:documents_account.field_documents_account_folder_setting__create_date
 msgid "Created on"
-msgstr "Створено на"
+msgstr "Створено"
 
 #. module: documents_account
 #: model:ir.model.fields.selection,name:documents_account.selection__documents_workflow_rule__create_model__account_move_out_refund
@@ -185,6 +180,11 @@ msgid "Documents Account Settings"
 msgstr "Налаштування обліку документів"
 
 #. module: documents_account
+#: model:ir.model,name:documents_account.model_account_reports_export_wizard_format
+msgid "Export format for accounting's reports"
+msgstr "Експортувати формат для бухгалтерських звітів"
+
+#. module: documents_account
 #: model:ir.model,name:documents_account.model_account_reports_export_wizard
 msgid "Export wizard for accounting's reports"
 msgstr "Помічник експорту для бухгалтерських звітів"
@@ -205,6 +205,7 @@ msgid "Folder where to save the generated file"
 msgstr "Папка для зберігання створеного файлу"
 
 #. module: documents_account
+#. odoo-python
 #: code:addons/documents_account/wizard/report_export_wizard.py:0
 #, python-format
 msgid "Generated Documents"
@@ -226,11 +227,6 @@ msgid "Journal Entry"
 msgstr "Запис у журналі"
 
 #. module: documents_account
-#: model:ir.model,name:documents_account.model_account_move_line
-msgid "Journal Item"
-msgstr "Елемент журналу"
-
-#. module: documents_account
 #: model:ir.model,name:documents_account.model_documents_account_folder_setting
 msgid "Journal and Folder settings"
 msgstr "Налаштування журналу та папки"
@@ -248,7 +244,7 @@ msgstr "Журнали для синхронізації"
 #. module: documents_account
 #: model:ir.model.fields,field_description:documents_account.field_documents_account_folder_setting____last_update
 msgid "Last Modified on"
-msgstr "Останні зміни на"
+msgstr "Остання модифікація"
 
 #. module: documents_account
 #: model:ir.model.fields,field_description:documents_account.field_documents_account_folder_setting__write_uid
@@ -261,7 +257,7 @@ msgid "Last Updated on"
 msgstr "Останнє оновлення"
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid ""
@@ -273,21 +269,21 @@ msgstr ""
 "процес.</i>"
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid "Let's process these bills: turn them into vendor bills."
-msgstr "Давайте обробимо ці рахунки: перетворіть їх на рахунки постачальника."
+msgstr "Давайте обробимо ці рахунки: перетворіть їх на рахунки посатчальника."
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid "Let's process this document, coming from our scanner."
 msgstr "Давайте обробимо цей документ, що надійшов з нашого сканера."
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid ""
@@ -298,38 +294,19 @@ msgstr ""
 "вашого процесу, відповідно до папки.</i>"
 
 #. module: documents_account
-#: model:ir.model,name:documents_account.model_account_reconcile_model
-msgid ""
-"Preset to create journal entries during a invoices and payments matching"
-msgstr ""
-"Заздалегідь встановлюйте записи журналу під час виставлення рахунків-фактур "
-"та відповідних платежів"
-
-#. module: documents_account
-#: model:ir.model.fields,field_description:documents_account.field_account_move_line__reconciliation_invoice_id
-msgid "Reconciliation Invoice"
-msgstr "Узгодження рахунку"
-
-#. module: documents_account
-#: model:ir.model.fields,field_description:documents_account.field_account_bank_statement_line__document_request_line_id
-#: model:ir.model.fields,field_description:documents_account.field_account_move__document_request_line_id
-#: model:ir.model.fields,field_description:documents_account.field_account_payment__document_request_line_id
-msgid "Reconciliation Journal Entry Line"
-msgstr "Узгодження рядка запису журналу"
-
-#. module: documents_account
 #: model:mail.activity.type,name:documents_account.mail_documents_activity_data_md
 msgid "Reconciliation request"
 msgstr "Запит на узгодження"
 
 #. module: documents_account
-#: code:addons/documents_account/models/account_move.py:0
-#, python-format
-msgid "Request Document for %s"
-msgstr "Запитати документ %s"
+#: model:ir.model.fields,field_description:documents_account.field_account_bank_statement_line__suspense_statement_line_id
+#: model:ir.model.fields,field_description:documents_account.field_account_move__suspense_statement_line_id
+#: model:ir.model.fields,field_description:documents_account.field_account_payment__suspense_statement_line_id
+msgid "Request document from a bank statement line"
+msgstr "Запитати документ з рядка банківської виписки"
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid "Send this letter to the legal department, by assigning the right tags."
@@ -339,7 +316,7 @@ msgstr "Надішліть цей лист до юридичного відді�
 #: model:ir.model.fields,field_description:documents_account.field_account_reports_export_wizard__tag_ids
 #: model:ir.model.fields,field_description:documents_account.field_documents_account_folder_setting__tag_ids
 msgid "Tags"
-msgstr "Теги"
+msgstr "Мітки"
 
 #. module: documents_account
 #: model:mail.activity.type,name:documents_account.mail_documents_activity_data_vat
@@ -347,9 +324,14 @@ msgid "Tax Statement"
 msgstr "Податкова виписка"
 
 #. module: documents_account
+#: model_terms:ir.ui.view,arch_db:documents_account.view_account_move_form_inherit_documents_account
+msgid "This invoice has been initiated by a bank transaction."
+msgstr "Цей рахунок було ініційовано банківською транзакцією."
+
+#. module: documents_account
 #: model:ir.model.fields.selection,name:documents_account.selection__documents_workflow_rule__create_model__account_move_in_refund
 msgid "Vendor Credit Note"
-msgstr "Сторно постачальника"
+msgstr "Сторно продавця"
 
 #. module: documents_account
 #: model:ir.model.fields.selection,name:documents_account.selection__documents_workflow_rule__create_model__account_move_in_invoice
@@ -357,7 +339,7 @@ msgid "Vendor bill"
 msgstr "Рахунок постачальника"
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid ""
@@ -373,7 +355,7 @@ msgid "Workspace"
 msgstr "Папка"
 
 #. module: documents_account
-#. openerp-web
+#. odoo-javascript
 #: code:addons/documents_account/static/src/js/tour.js:0
 #, python-format
 msgid ""
@@ -387,3 +369,8 @@ msgstr ""
 #: model:ir.model.fields,field_description:documents_account.field_res_config_settings__account_folder
 msgid "account default folder"
 msgstr "типова папка для бухобліку"
+
+#. module: documents_account
+#: model_terms:ir.ui.view,arch_db:documents_account.view_account_move_form_inherit_documents_account
+msgid "to mark this invoice as paid."
+msgstr "позначити цей рахунок, як оплачений."

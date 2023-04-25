@@ -12,6 +12,7 @@ from odoo.exceptions import UserError
 from odoo.tools.float_utils import float_repr
 from odoo.tools.xml_utils import create_xml_node, create_xml_node_chain
 from odoo.tools.misc import remove_accents
+from odoo.addons.account_batch_payment.models.sepa_mapping import _replace_characters_SEPA
 
 from lxml import etree
 
@@ -21,13 +22,14 @@ import re
 class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
+    # used to inform the end user there is a SDD mandate that could be used to register that payment
     sdd_mandate_usable = fields.Boolean(string="Could a SDD mandate be used?",
-        help="Technical field used to inform the end user there is a SDD mandate that could be used to register that payment",
-        compute='_compute_usable_mandate',)
+        compute='_compute_usable_mandate')
 
     @api.model
     def split_node(self, string_node, max_size):
         # Split a string node according to its max_size in byte
+        string_node = self._sanitize_communication(string_node)
         byte_node = string_node.encode()
         if len(byte_node) <= max_size:
             return string_node, ''
@@ -56,17 +58,15 @@ class AccountPayment(models.Model):
                 - it contains only latin characters
                 - it does not contain any //
                 - it does not start or end with /
-                - it is maximum 140 characters long
             (these are the SEPA compliance criteria)
         """
-        communication = self.split_node(communication, 140)[0]
         while '//' in communication:
             communication = communication.replace('//', '/')
         if communication.startswith('/'):
             communication = communication[1:]
         if communication.endswith('/'):
             communication = communication[:-1]
-        communication = re.sub('[^-A-Za-z0-9/?:().,\'+ ]', '', remove_accents(communication))
+        communication = _replace_characters_SEPA(communication)
         return communication
 
     def generate_xml(self, company_id, required_collection_date, askBatchBooking):
@@ -116,17 +116,17 @@ class AccountPayment(models.Model):
         """ Generates a group of payments in the same PmtInfo node, provided
         that they share the same journal."""
         PmtInf = create_xml_node(CstmrDrctDbtInitn, 'PmtInf')
-        create_xml_node(PmtInf, 'PmtInfId', str(payment_info_counter))
+        create_xml_node(PmtInf, 'PmtInfId', CstmrDrctDbtInitn.find('GrpHdr/MsgId').text + '/' + str(payment_info_counter))
         create_xml_node(PmtInf, 'PmtMtd', 'DD')
         create_xml_node(PmtInf, 'BtchBookg',askBatchBooking and 'true' or 'false')
         create_xml_node(PmtInf, 'NbOfTxs', str(len(self)))
         create_xml_node(PmtInf, 'CtrlSum', float_repr(sum(x.amount for x in self), precision_digits=2))  # This sum ignores the currency, it is used as a checksum (see SEPA rulebook)
 
         PmtTpInf = create_xml_node_chain(PmtInf, ['PmtTpInf','SvcLvl','Cd'], 'SEPA')[0]
-        
+
         sdd_scheme = self[0].sdd_mandate_id.sdd_scheme or 'CORE'
         create_xml_node_chain(PmtTpInf, ['LclInstrm','Cd'], sdd_scheme)
-        
+
         create_xml_node(PmtTpInf, 'SeqTp', 'RCUR')
         #Note: RCUR refers to the COLLECTION of payments, not the type of mandate used
         #This value is only used for informatory purpose.
@@ -154,7 +154,7 @@ class AccountPayment(models.Model):
         if self.company_id != company_id:
             raise UserError(_("Trying to generate a Direct Debit XML file containing payments from another company than that file's creditor."))
 
-        if self.payment_method_line_id.code != 'sdd':
+        if self.payment_method_line_id.code not in self.payment_method_id._get_sdd_payment_method_code():
             raise UserError(_("Trying to generate a Direct Debit XML for payments coming from another payment method than SEPA Direct Debit."))
 
         if not self.sdd_mandate_id:
@@ -173,15 +173,18 @@ class AccountPayment(models.Model):
         if self.sdd_mandate_id.partner_bank_id.bank_id.bic:
             create_xml_node_chain(DrctDbtTxInf, ['DbtrAgt', 'FinInstnId', 'BIC'], self.sdd_mandate_id.partner_bank_id.bank_id.bic.replace(' ', '').upper())
         else:
-            create_xml_node_chain(DrctDbtTxInf, ['DbtrAgt', 'FinInstnId', 'Othr', 'Id'], "NOTPROVIDED")
-        Dbtr = create_xml_node_chain(DrctDbtTxInf, ['Dbtr', 'Nm'], self.sdd_mandate_id.partner_bank_id.acc_holder_name or partner.name or partner.parent_id.name)[0]
+            create_xml_node_chain(DrctDbtTxInf, ['DbtrAgt', 'FinInstnId', 'Othr', 'Id'], 'NOTPROVIDED')
 
-        if partner.contact_address:
+        debtor_name = self.sdd_mandate_id.partner_bank_id.acc_holder_name or partner.name or partner.parent_id.name
+        Dbtr = create_xml_node_chain(DrctDbtTxInf, ['Dbtr', 'Nm'], self.split_node(debtor_name, 70)[0])[0]
+
+        contact_address = partner._display_address(without_company=True)
+        if contact_address:
             PstlAdr = create_xml_node(Dbtr, 'PstlAdr')
             if partner.country_id and partner.country_id.code:
                 create_xml_node(PstlAdr, 'Ctry', partner.country_id.code)
             n_line = 0
-            contact_address = partner.contact_address.replace('\n', ' ').strip()
+            contact_address = contact_address.replace('\n', ' ').strip()
             while contact_address and n_line < 2:
                 create_xml_node(PstlAdr, 'AdrLine', self.split_node(contact_address, 70)[0])
                 contact_address = self.split_node(contact_address, 70)[1]
@@ -196,7 +199,7 @@ class AccountPayment(models.Model):
         create_xml_node_chain(DrctDbtTxInf, ['DbtrAcct','Id','IBAN'], self.sdd_mandate_id.partner_bank_id.sanitized_acc_number)
 
         if self.ref:
-            create_xml_node_chain(DrctDbtTxInf, ['RmtInf', 'Ustrd'], self._sanitize_communication(self.ref))
+            create_xml_node_chain(DrctDbtTxInf, ['RmtInf', 'Ustrd'], self.split_node(self.ref, 140)[0])
 
     def _group_payments_per_bank_journal(self):
         """ Groups the payments of this recordset per associated journal, in a dictionnary of recordsets.

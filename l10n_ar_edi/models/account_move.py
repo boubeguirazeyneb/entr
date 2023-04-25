@@ -69,9 +69,10 @@ class AccountMove(models.Model):
     def _compute_l10n_ar_fce_transmission_type(self):
         """ Automatically set the default value on the l10n_ar_fce_transmission_type field if the invoice is a mipyme
         one with the default value set in the company """
-        mipyme_fce_docs = self.filtered(lambda x: x._is_mipyme_fce() or x._is_mipyme_fce_refund())
-        for rec in mipyme_fce_docs:
-            rec.l10n_ar_fce_transmission_type = rec.company_id.l10n_ar_fce_transmission_type
+        mipyme_fce_docs = self.filtered(lambda x: x.country_code == 'AR' and x._is_mipyme_fce())
+        for rec in mipyme_fce_docs.filtered(lambda x: not x.l10n_ar_fce_transmission_type):
+            if rec.company_id.l10n_ar_fce_transmission_type:
+                rec.l10n_ar_fce_transmission_type = rec.company_id.l10n_ar_fce_transmission_type
         remaining = self - mipyme_fce_docs
         remaining.l10n_ar_fce_transmission_type = False
 
@@ -103,8 +104,7 @@ class AccountMove(models.Model):
             else:
                 nro_doc_rec = commercial_partner_id._get_id_number_sanitize() or False
 
-            if nro_doc_rec:
-                data.update({'nroDocRec': nro_doc_rec})
+            data.update({'nroDocRec': nro_doc_rec or 0})
             if commercial_partner_id.l10n_latam_identification_type_id:
                 data.update({'tipoDocRec': int(rec._get_partner_code_id(commercial_partner_id))})
             # For more info go to https://www.afip.gob.ar/fe/qr/especificaciones.asp
@@ -445,7 +445,7 @@ class AccountMove(models.Model):
                         'Alic': 0,
                         'Desc': tribute.tax_line_id.tax_group_id.name,
                         'BaseImp': float_repr(base_imp, precision_digits=2),
-                        'Importe': float_repr(tribute.price_subtotal, precision_digits=2)})
+                        'Importe': float_repr(abs(tribute.amount_currency), precision_digits=2)})
         return res if res else None
 
     def _get_related_invoice_data(self):
@@ -507,8 +507,10 @@ class AccountMove(models.Model):
                     raise UserError(_('No AFIP code in %s UOM', line.product_id.uom_id.name))
 
                 vat_tax = line.tax_ids.filtered(lambda x: x.tax_group_id.l10n_ar_vat_afip_code)
-                vat_taxes_amounts = vat_tax.with_context(force_sign=line.move_id._get_tax_force_sign()).compute_all(
-                    line.price_unit, self.currency_id, line.quantity, product=line.product_id, partner=self.partner_id)
+                vat_taxes_amounts = vat_tax.compute_all(
+                    line.price_unit, self.currency_id, line.quantity, product=line.product_id, partner=self.partner_id,
+                    fixed_multiplicator=line.move_id.direction_sign,
+                )
 
                 line.product_id.product_tmpl_id._check_l10n_ar_ncm_code()
                 values.update({'Pro_codigo_ncm': line.product_id.l10n_ar_ncm_code or '',
@@ -749,10 +751,10 @@ class AccountMove(models.Model):
             else self.journal_id._l10n_ar_get_afip_last_invoice_number(self.l10n_latam_document_type_id)
         return "%s %05d-%08d" % (self.l10n_latam_document_type_id.doc_code_prefix, self.journal_id.l10n_ar_afip_pos_number, last_number)
 
-    def _get_last_sequence(self, relaxed=False, with_prefix=None):
+    def _get_last_sequence(self, relaxed=False, with_prefix=None, lock=True):
         """ For argentina electronic invoice, if there is not sequence already then consult the last number from AFIP
         @return: string with the sequence, something like 'FA-A 00001-00000011' """
-        res = super()._get_last_sequence(relaxed=relaxed, with_prefix=with_prefix)
+        res = super()._get_last_sequence(relaxed=relaxed, with_prefix=with_prefix, lock=lock)
         if not res and self._is_argentina_electronic_invoice() and self.l10n_latam_document_type_id:
             res = self._get_last_sequence_from_afip()
         return res

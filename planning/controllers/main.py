@@ -66,7 +66,7 @@ class ShiftController(http.Controller):
                         'end': str(pytz.utc.localize(slot.end_datetime).astimezone(employee_tz).replace(tzinfo=None)),
                         'color': self._format_planning_shifts(slot.role_id.color),
                         'alloc_hours': '%d:%02d' % (int(slot.allocated_hours), round(slot.allocated_hours % 1 * 60)),
-                        'alloc_perc': slot.allocated_percentage,
+                        'alloc_perc': f'{slot.allocated_percentage:.2f}',
                         'slot_id': slot.id,
                         'note': slot.name,
                         'allow_self_unassign': slot.allow_self_unassign,
@@ -81,8 +81,10 @@ class ShiftController(http.Controller):
                     open_slots.append(slot)
         # Calculation of the events to define the default calendar view:
         # If the planning_sudo only spans a week, default view is week, else it is month.
-        min_start_datetime = planning_sudo.start_datetime
-        max_end_datetime = planning_sudo.end_datetime
+        min_start_datetime = slots_start_datetime and min(slots_start_datetime) \
+                             or pytz.utc.localize(planning_sudo.start_datetime).astimezone(employee_tz).replace(tzinfo=None)
+        max_end_datetime = slots_end_datetime and max(slots_end_datetime) \
+                           or pytz.utc.localize(planning_sudo.end_datetime).astimezone(employee_tz).replace(tzinfo=None)
         if min_start_datetime.isocalendar()[1] == max_end_datetime.isocalendar()[1]:
             # isocalendar returns (year, week number, and weekday)
             default_view = 'timeGridWeek'
@@ -108,7 +110,6 @@ class ShiftController(http.Controller):
         else:
             # Fallback when no slot is available. Still needed because open slots display a calendar
             mintime_weekview, maxtime_weekview = checkin_min, checkout_max
-        defaut_start = pytz.utc.localize(planning_sudo.start_datetime).astimezone(employee_tz).replace(tzinfo=None)
         if employee_fullcalendar_data or open_slots:
             planning_values.update({
                 'employee_slots_fullcalendar_data': employee_fullcalendar_data,
@@ -127,7 +128,7 @@ class ShiftController(http.Controller):
                 'mintime': '%02d:00:00' % mintime_weekview,
                 'maxtime': '%02d:00:00' % maxtime_weekview,
                 'default_view': default_view,
-                'default_start': defaut_start.date(),
+                'default_start': min_start_datetime.date(),
                 'no_data': False
             })
         return planning_values

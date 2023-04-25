@@ -33,13 +33,8 @@ Tour.register('hr_contract_salary_tour', {
             run: 'click',
         },
         {
-            content: "Configuration",
-            trigger: 'button[data-menu-xmlid="hr_recruitment.menu_hr_recruitment_configuration"]',
-            run: 'click',
-        },
-        {
-            content: "Jobs",
-            trigger: '.dropdown-item[data-menu-xmlid="hr_recruitment.menu_hr_job_position_config"]',
+            content: "Jobs list view",
+            trigger: '.o_switch_view.o_list',
             run: 'click',
         },
         {
@@ -49,7 +44,7 @@ Tour.register('hr_contract_salary_tour', {
         },
         {
             content: "Job\'s Name",
-            trigger: "input.o_field_widget[name='name']",
+            trigger: ".o_field_widget[name='name'] input",
             run: 'text Experienced Developer (BE)',
         },
         {
@@ -76,7 +71,7 @@ Tour.register('hr_contract_salary_tour', {
         {
             content: "Open Application Pipe",
             trigger: "button.oe_stat_button:contains(Applications)",
-            extra_trigger: 'button.o_form_button_edit',
+            extra_trigger: '.o_form_saved',
             run: 'click',
         },
         {
@@ -88,17 +83,17 @@ Tour.register('hr_contract_salary_tour', {
         // Test Applicant
         {
             content: "Applicant Name",
-            trigger: '.oe_title input[name="name"]',
+            trigger: '.oe_title [name="name"] input',
             run: "text Jojo Zeboss' Application",
         },
         {
             content: "Applicant\'s Name",
-            trigger: '.oe_title input[name="partner_name"]',
+            trigger: '.oe_title [name="partner_name"] input',
             run: 'text Mitchell Admin 2',
         },
         {
             content: "Generate Offer",
-            trigger: ".o_statusbar_buttons > button span:contains('Generate Offer')",
+            trigger: ".o_statusbar_buttons > button:contains('Generate Offer')",
             extra_trigger: ".o_statusbar_buttons",
             run: 'click',
         },
@@ -109,13 +104,13 @@ Tour.register('hr_contract_salary_tour', {
         },
         {
             content: "Confirm Partner Creation",
-            trigger: ".modal-dialog .btn-primary span:contains('Save')",
+            trigger: ".modal-dialog .btn-secondary:contains('Discard')",
             run: 'click'
         },
         {
             content: "Send Offer",
             trigger: "button[name='action_send_mail']",
-            extra_trigger: ".modal-dialog .btn-primary span:contains('Send')",
+            extra_trigger: ".modal-dialog .btn-primary:contains('Send')",
             run: 'click',
         },
         {
@@ -329,14 +324,14 @@ Tour.register('hr_contract_salary_tour', {
         },
         {
             content: "BirthDate",
-            trigger: 'input[name="birthday"]',
+            trigger: '[name="birthday"] input',
             run: function () {
                 $("input[name='birthday']").val('2017-09-01');
             },
         },
         {
             content: "Gender",
-            trigger: 'input[name="gender"]',
+            trigger: '[name="gender"] input',
             run: function () {
                 $('input[value="female"]').prop('checked', true);
             },
@@ -429,7 +424,7 @@ Tour.register('hr_contract_salary_tour', {
         },
         {
             content: "Country of Birth",
-            trigger: 'label[for=country_of_birth]',
+            trigger: 'label[for=country_of_birth]:eq(0)',
             run: function () {
                 $('select[name=country_of_birth] option:contains(Belgium)').prop('selected', true);
                 $('select[name=country_of_birth]').trigger('change');
@@ -520,10 +515,19 @@ Tour.register('hr_contract_salary_tour', {
             run: 'text 1'
         },
         {
+            content: 'Set 0 Disabled Children',
+            trigger: 'input[name=disabled_children_number]',
+            extra_trigger: 'input[name="Net"][value="2663.69"]',
+            run: function (actions) {
+                actions.text('0', this.$anchor);
+                this.$anchor.trigger('blur')
+            }
+        },
+        {
             content: 'Uncheck Disabled Children',
             trigger: 'input[name=disabled_children_bool]',
-            extra_trigger: 'input[name="Net"][value="2663.69"]',
-            run: 'click'
+            extra_trigger: 'input[name="Net"][value="2444.69"]',
+            run: 'click',
         },
         {
             content: 'Unset Children',
@@ -535,7 +539,7 @@ Tour.register('hr_contract_salary_tour', {
             content: 'Check Other Dependent People',
             trigger: 'input[name=other_dependent_people]',
             extra_trigger: 'input[name="Net"][value="2114.69"]',
-            run: 'click',
+            run: 'click'
         },
         {
             content: 'Set 2 Senior',
@@ -612,7 +616,7 @@ Tour.register('hr_contract_salary_tour', {
             run: 'click',
         },
         {
-            content: "Next",
+            content: "Next 1",
             trigger: 'iframe .o_sign_sign_item_navigator',
             run: 'click',
         },
@@ -622,7 +626,7 @@ Tour.register('hr_contract_salary_tour', {
             run: 'text 17/09/2018',
         },
         {
-            content: "Next",
+            content: "Next 2",
             trigger: 'iframe .o_sign_sign_item_navigator',
             run: 'click',
         },
@@ -633,7 +637,7 @@ Tour.register('hr_contract_salary_tour', {
         },
         // fill signature
         {
-            content: "Next",
+            content: "Next 3",
             trigger: 'iframe .o_sign_sign_item_navigator',
             run: 'click',
         },
@@ -648,7 +652,7 @@ Tour.register('hr_contract_salary_tour', {
             run: 'click',
         },
         {
-            content: "Adopt and Sign",
+            content: "Adopt & Sign",
             trigger: 'footer.modal-footer button.btn-primary:enabled',
             run: 'click',
         },
@@ -659,7 +663,7 @@ Tour.register('hr_contract_salary_tour', {
         },
         // fill date
         {
-            content: "Next",
+            content: "Next 4",
             trigger: 'iframe .o_sign_sign_item_navigator:contains("next")',
             run: 'click',
         },
@@ -701,13 +705,8 @@ Tour.register('hr_contract_salary_tour_hr_sign', {
         run: 'click',
     },
     {
-        content: "Configuration",
-        trigger: 'button[data-menu-xmlid="hr_recruitment.menu_hr_recruitment_configuration"]',
-        run: 'click',
-    },
-    {
-        content: "Jobs",
-        trigger: '.dropdown-item[data-menu-xmlid="hr_recruitment.menu_hr_job_position_config"]',
+        content: "Jobs list view",
+        trigger: '.o_switch_view.o_list',
         run: 'click',
     },
     {
@@ -717,7 +716,7 @@ Tour.register('hr_contract_salary_tour_hr_sign', {
     {
         content: "Open Application Pipe",
         trigger: "button.oe_stat_button:contains(Applications)",
-        extra_trigger: 'button.o_form_button_edit',
+        extra_trigger: '.o_form_saved',
         run: 'click',
     },
     {
@@ -727,7 +726,7 @@ Tour.register('hr_contract_salary_tour_hr_sign', {
     {
         content: "Open Contracts",
         trigger: "button.oe_stat_button:contains(Contracts)",
-        extra_trigger: 'button.o_form_button_edit',
+        extra_trigger: '.o_form_saved',
         run: 'click',
     },
     {
@@ -737,7 +736,7 @@ Tour.register('hr_contract_salary_tour_hr_sign', {
     {
         content: "Open Signature Request",
         trigger: "button.oe_stat_button:contains(Sign)",
-        extra_trigger: 'button.o_form_button_edit',
+        extra_trigger: '.o_form_saved',
         run: 'click',
     },
     {
@@ -746,7 +745,7 @@ Tour.register('hr_contract_salary_tour_hr_sign', {
         run: 'click',
     },
     {
-        content: "Next",
+        content: "Next 5",
         trigger: 'iframe .o_sign_sign_item_navigator',
         run: 'click',
     },
@@ -784,13 +783,8 @@ Tour.register('hr_contract_salary_tour_2', {
             run: 'click',
         },
         {
-            content: "Configuration",
-            trigger: 'button[data-menu-xmlid="hr_recruitment.menu_hr_recruitment_configuration"]',
-            run: 'click',
-        },
-        {
-            content: "Jobs",
-            trigger: '.dropdown-item[data-menu-xmlid="hr_recruitment.menu_hr_job_position_config"]',
+            content: "Jobs list view",
+            trigger: '.o_switch_view.o_list',
             run: 'click',
         },
         {
@@ -800,7 +794,7 @@ Tour.register('hr_contract_salary_tour_2', {
         {
             content: "Open Application Pipe",
             trigger: "button.oe_stat_button:contains(Applications)",
-            extra_trigger: 'button.o_form_button_edit',
+            extra_trigger: '.o_form_saved',
             run: 'click',
         },
         {
@@ -811,24 +805,29 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         {
             content: "Application Name",
-            trigger: '.oe_title input[name="name"]',
+            trigger: '.oe_title [name="name"] input',
             run: "text Mitchell's Application",
         },
         {
             content: "Applicant\'s Name",
-            trigger: '.oe_title input[name="partner_name"]',
+            trigger: '.oe_title [name="partner_name"] input',
             run: 'text Mitchell Admin 3',
+        },
+        {
+            content: "Add Email Address",
+            trigger: '.o_group [name="email_from"] input',
+            run: 'text mitchell.stephen@example.com',
+        },
+        {
+            content: "Confirm Applicant Creation",
+            trigger: ".o_control_panel button.o_form_button_save",
+            run: 'click'
         },
         {
             content: "Create Employee",
             trigger: ".o_statusbar_buttons > button[name='create_employee_from_applicant']",
             extra_trigger: ".o_statusbar_buttons",
             run: 'click',
-        },
-        {
-            content: "Confirm Employee Creation",
-            trigger: ".o_control_panel button.o_form_button_save",
-            run: 'click'
         },
         {
             content: "Add Manager",
@@ -847,15 +846,20 @@ Tour.register('hr_contract_salary_tour_2', {
             auto: true,
         },
         {
-            content: "Save",
-            trigger: '.o_form_buttons_edit .o_form_button_save',
+            content: "Add Work Email",
+            trigger: '.o_group [name="work_email"] input',
+            run: 'text mitchel3_work@example.com',
+        },
+        {
+            content: "Save Employee",
+            trigger: '.o_form_button_save',
             extra_trigger: '.o_form_statusbar .o_statusbar_buttons:contains("Launch Plan")',
             run: 'click',
         },
         {
             content: "Create Contract",
             trigger: '.oe_button_box .oe_stat_button:contains("Contracts")',
-            extra_trigger: '.o_cp_buttons .btn-primary.o_form_button_edit',
+            extra_trigger: '.o_form_saved',
             run: 'click',
         },
         {
@@ -865,7 +869,7 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         {
             content: "Contract Reference",
-            trigger: '.oe_title input[name="name"]',
+            trigger: '.oe_title [name="name"] input',
             run: 'text Mitchell Admin PFI Contract',
         },
         {
@@ -914,12 +918,12 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         {
             content: "Contract Information",
-            trigger: ".o_content .o_form_view .o_notebook li.nav-item:eq(1) a",
+            trigger: ".o_content .o_notebook li.nav-item:eq(1) a",
             run: "click",
         },
         {
             content: "Contract Information",
-            trigger: "div.o_input[name='wage'] input",
+            trigger: "div[name='wage'] input",
             run: "text 2950",
         },
         {
@@ -940,17 +944,17 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         {
             content: "Contract Information",
-            trigger: "div.o_input[name='fuel_card'] input",
+            trigger: "div[name='fuel_card'] input",
             run: "text 250",
         },
         {
             content: "Contract Information",
-            trigger: "div.o_input[name='commission_on_target'] input",
+            trigger: "div[name='commission_on_target'] input",
             run: "text 1000",
         },
         {
             content: "Contract Information",
-            trigger: "input.o_input[name='ip_wage_rate']",
+            trigger: "[name='ip_wage_rate'] input",
             run: "text 25",
         },
         {
@@ -960,9 +964,20 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         {
             content: "Generate Simulation Link",
-            trigger: ".o_statusbar_buttons > button span:contains('Simulation')",
+            trigger: ".o_statusbar_buttons > button:contains('Simulation')",
             extra_trigger: ".o_statusbar_buttons",
             run: 'click',
+        },
+        {
+            content: "Select Contract",
+            trigger: '.o_field_widget.o_field_many2one[name=contract_id]',
+            run: function (actions) {
+                actions.text("Mitchell Admin PFI", this.$anchor.find("input"));
+            },
+        },
+        {
+            trigger: ".ui-autocomplete > li > a:contains('Mitchell Admin PFI Contract')",
+            auto: true,
         },
         {
             content: "Send Offer",
@@ -971,19 +986,9 @@ Tour.register('hr_contract_salary_tour_2', {
             run: 'click',
         },
         {
-            content: "Add email Address",
-            trigger: ".modal-dialog .o_group input[name=\"email\"]",
-            run: 'text mitchell.stephen@example.com',
-        },
-        {
-            content: "Confirm Partner Creation",
-            trigger: ".modal-dialog .btn-primary span:contains('Save')",
-            run: 'click'
-        },
-        {
             content: "Send Offer",
             trigger: "button[name='action_send_mail']",
-            extra_trigger: ".modal-dialog .btn-primary span:contains('Send')",
+            extra_trigger: ".modal-dialog .btn-primary:contains('Send')",
             run: 'click',
         },
         {
@@ -1144,7 +1149,7 @@ Tour.register('hr_contract_salary_tour_2', {
             run: 'click',
         },
         {
-            content: "Next",
+            content: "Next 6",
             trigger: 'iframe .o_sign_sign_item_navigator',
             run: 'click',
         },
@@ -1154,7 +1159,7 @@ Tour.register('hr_contract_salary_tour_2', {
             run: 'text 17/09/2018',
         },
         {
-            content: "Next",
+            content: "Next 7",
             trigger: 'iframe .o_sign_sign_item_navigator',
             run: 'click',
         },
@@ -1165,7 +1170,7 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         // fill signature
         {
-            content: "Next",
+            content: "Next 8",
             trigger: 'iframe .o_sign_sign_item_navigator',
             run: 'click',
         },
@@ -1180,7 +1185,7 @@ Tour.register('hr_contract_salary_tour_2', {
             run: 'click',
         },
         {
-            content: "Adopt and Sign",
+            content: "Adopt & Sign",
             trigger: 'footer.modal-footer button.btn-primary:enabled',
             run: 'click',
         },
@@ -1191,7 +1196,7 @@ Tour.register('hr_contract_salary_tour_2', {
         },
         // fill date
         {
-            content: "Next",
+            content: "Next 9",
             trigger: 'iframe .o_sign_sign_item_navigator:contains("next")',
             run: 'click',
         },

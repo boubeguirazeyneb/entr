@@ -3,22 +3,27 @@
 # 	* delivery_dhl
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:59+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022\n"
-"Language-Team: Ukrainian (https://www.transifex.com/odoo/teams/41243/uk/)\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022\n"
+"Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: uk\n"
 "Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+
+#. module: delivery_dhl
+#: model_terms:ir.ui.view,arch_db:delivery_dhl.view_delivery_carrier_form_with_provider_dhl
+msgid "'rate': {}, 'ship': {}, 'return': {}"
+msgstr "'rate': {}, 'ship': {}, 'return': {}"
 
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__0
@@ -161,6 +166,16 @@ msgid "Check this if your package is dutiable."
 msgstr "Перевірте це, якщо ваша упаковка підлягає сплаті мита."
 
 #. module: delivery_dhl
+#: model_terms:ir.ui.view,arch_db:delivery_dhl.view_delivery_carrier_form_with_provider_dhl
+msgid "Custom Data"
+msgstr "Кастомні дані"
+
+#. module: delivery_dhl
+#: model:ir.model.fields,field_description:delivery_dhl.field_delivery_carrier__dhl_custom_data_request
+msgid "Custom data for DHL requests,"
+msgstr "Кастомні дані для запитів DHL,"
+
+#. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__d
 msgid "D - Express Worldwide"
 msgstr "D - Express Worldwide"
@@ -182,16 +197,22 @@ msgid "DHL Configuration"
 msgstr "Налаштування DHL"
 
 #. module: delivery_dhl
-#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_dom
-#: model:product.product,name:delivery_dhl.product_product_delivery_dhl_eu
-#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_eu_product_template
+#. odoo-python
+#: code:addons/delivery_dhl/models/delivery_dhl.py:0
+#: code:addons/delivery_dhl/models/delivery_dhl.py:0
+#, python-format
+msgid "DHL Documents"
+msgstr "Документи DHL"
+
+#. module: delivery_dhl
+#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_eu_dom
+#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_eu_dom_product_template
 msgid "DHL EU"
 msgstr "DHL EU"
 
 #. module: delivery_dhl
-#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_intl
-#: model:product.product,name:delivery_dhl.product_product_delivery_dhl_intl
-#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_intl_product_template
+#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_eu_intl
+#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_eu_intl_product_template
 msgid "DHL EU -> International"
 msgstr "DHL EU -> Міжнародний"
 
@@ -217,6 +238,7 @@ msgid "DHL Shipping Methods"
 msgstr "Методи доставки DHL"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid "DHL Site ID is missing, please modify your delivery method settings."
@@ -229,20 +251,19 @@ msgid "DHL SiteID"
 msgstr "ID сайту DHL"
 
 #. module: delivery_dhl
-#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_dom_us
-#: model:product.product,name:delivery_dhl.product_product_delivery_dhl_us
-#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_us_product_template
+#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_us_dom
+#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_us_dom_product_template
 msgid "DHL US"
 msgstr "DHL US"
 
 #. module: delivery_dhl
-#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_intl_us
-#: model:product.product,name:delivery_dhl.product_product_delivery_dhl_intl_us
-#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_intl_us_product_template
+#: model:delivery.carrier,name:delivery_dhl.delivery_carrier_dhl_us_intl
+#: model:product.template,name:delivery_dhl.product_product_delivery_dhl_us_intl_product_template
 msgid "DHL US -> International"
 msgstr "DHL US -> Міжнародний"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid ""
@@ -252,6 +273,14 @@ msgstr ""
 "доставки."
 
 #. module: delivery_dhl
+#. odoo-python
+#: code:addons/delivery_dhl/models/dhl_request.py:0
+#, python-format
+msgid "DHL doesn't support products with name greater than 75 characters."
+msgstr "DHL не підтримує товари з назвами більше 75 знаків."
+
+#. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid "DHL password is missing, please modify your delivery method settings."
@@ -304,6 +333,7 @@ msgid "H - Economy Select"
 msgstr "H - Economy Select"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/delivery_dhl.py:0
 #, python-format
 msgid "Hint: The destination may not require the dutiable option."
@@ -318,6 +348,13 @@ msgstr "I - Break Bulk Economy"
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_package_dimension_unit__i
 msgid "Inches"
 msgstr "Дюйми"
+
+#. module: delivery_dhl
+#. odoo-python
+#: code:addons/delivery_dhl/models/delivery_dhl.py:0
+#, python-format
+msgid "Invalid syntax for DHL custom data."
+msgstr "Недійсний синтаксис для кастомних даних DHL."
 
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__j
@@ -377,7 +414,7 @@ msgstr "Опції"
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__p
 msgid "P - Express Worldwide"
-msgstr "P - Express Worldwide"
+msgstr "P - Express по всьому світу"
 
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_label_image_format__pdf
@@ -395,6 +432,7 @@ msgid "Package Weight Unit"
 msgstr "Одиниця виміру ваги упаковки"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid ""
@@ -406,6 +444,7 @@ msgstr ""
 "бухгалтерського обліку."
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid "Please provide at least one item to ship."
@@ -452,6 +491,7 @@ msgid "Sender"
 msgstr "Відправник"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/delivery_dhl.py:0
 #: code:addons/delivery_dhl/models/delivery_dhl.py:0
 #, python-format
@@ -474,6 +514,7 @@ msgid "T - Express 12:00"
 msgstr "T - Express 12:00"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid ""
@@ -484,6 +525,7 @@ msgstr ""
 " %s)"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid ""
@@ -494,6 +536,18 @@ msgstr ""
 " %s)"
 
 #. module: delivery_dhl
+#: model:ir.model.fields,help:delivery_dhl.field_delivery_carrier__dhl_custom_data_request
+msgid ""
+"The custom data in DHL is organized like the inside of a json file.\n"
+"        There are 3 possible keys: 'rate', 'ship', 'return', to which you can add your custom data.\n"
+"        More info on https://xmlportal.dhl.com/"
+msgstr ""
+"Кастомні дані в DHL організовані як всередині файлу json.\n"
+"        Є 3 можливі варіанти: 'rate', 'ship', 'return', до яких ви можете додати ваші кастомні дані.\n"
+"        Більше інформації за посиланням https://xmlportal.dhl.com/"
+
+#. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/dhl_request.py:0
 #, python-format
 msgid ""
@@ -504,6 +558,7 @@ msgstr ""
 " %s"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/delivery_dhl.py:0
 #, python-format
 msgid ""
@@ -515,19 +570,7 @@ msgstr ""
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__u
 msgid "U - Express Worldwide"
-msgstr "U - Express Worldwide"
-
-#. module: delivery_dhl
-#: model:product.product,uom_name:delivery_dhl.product_product_delivery_dhl_eu
-#: model:product.product,uom_name:delivery_dhl.product_product_delivery_dhl_intl
-#: model:product.product,uom_name:delivery_dhl.product_product_delivery_dhl_intl_us
-#: model:product.product,uom_name:delivery_dhl.product_product_delivery_dhl_us
-#: model:product.template,uom_name:delivery_dhl.product_product_delivery_dhl_eu_product_template
-#: model:product.template,uom_name:delivery_dhl.product_product_delivery_dhl_intl_product_template
-#: model:product.template,uom_name:delivery_dhl.product_product_delivery_dhl_intl_us_product_template
-#: model:product.template,uom_name:delivery_dhl.product_product_delivery_dhl_us_product_template
-msgid "Units"
-msgstr "Одиниці"
+msgstr "U - Express по всьому світу"
 
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__v
@@ -550,10 +593,18 @@ msgid "Y - Express 12:00"
 msgstr "Y - Express 12:00"
 
 #. module: delivery_dhl
+#. odoo-python
 #: code:addons/delivery_dhl/models/delivery_dhl.py:0
 #, python-format
 msgid "You can't cancel DHL shipping without pickup date."
 msgstr "Ви не можете закрити доставку DHL без дати отримання."
+
+#. module: delivery_dhl
+#. odoo-python
+#: code:addons/delivery_dhl/models/delivery_dhl.py:0
+#, python-format
+msgid "You cannot delete the commercial invoice sequence."
+msgstr "Ви не можете видалити послідовність комерційних рахунків."
 
 #. module: delivery_dhl
 #: model:ir.model.fields.selection,name:delivery_dhl.selection__delivery_carrier__dhl_product_code__z

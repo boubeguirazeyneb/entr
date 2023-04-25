@@ -3,21 +3,22 @@
 # 	* delivery_fedex
 # 
 # Translators:
-# Arash Sardari <arashss77@gmail.com>, 2022
-# M.Hossein S.Farvashani <Farvashani@gmail.com>, 2022
-# Hamid Darabi, 2022
-# Martin Trigaux, 2022
-# Mohsen Mohammadi <iammohsen.123@gmail.com>, 2022
-# Hamed Mohammadi <hamed@dehongi.com>, 2022
+# Martin Trigaux, 2023
+# Arash Sardari <arashss77@gmail.com>, 2023
+# Mohsen Mohammadi <iammohsen.123@gmail.com>, 2023
+# Hamid Darabi, 2023
+# Hanna Kheradroosta, 2023
+# Hamed Mohammadi <hamed@dehongi.com>, 2023
+# fardin mardani, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:59+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: Hamed Mohammadi <hamed@dehongi.com>, 2022\n"
-"Language-Team: Persian (https://www.transifex.com/odoo/teams/41243/fa/)\n"
+"POT-Creation-Date: 2022-12-15 13:28+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: fardin mardani, 2023\n"
+"Language-Team: Persian (https://app.transifex.com/odoo/teams/41243/fa/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -34,6 +35,18 @@ msgstr ""
 msgid ""
 "<br/>According to your needs, you will need to contact different "
 "certifications :"
+msgstr ""
+
+#. module: delivery_fedex
+#: model_terms:ir.ui.view,arch_db:delivery_fedex.view_delivery_carrier_form_with_provider_fedex
+msgid ""
+"<span attrs=\"{'invisible': [('fedex_weight_unit', '!=', 'KG')]}\">CM</span>\n"
+"                                <span attrs=\"{'invisible': [('fedex_weight_unit', '!=', 'LB')]}\">IN</span>"
+msgstr ""
+
+#. module: delivery_fedex
+#: model_terms:ir.ui.view,arch_db:delivery_fedex.view_delivery_carrier_form_with_provider_fedex
+msgid "<span class=\"o_form_label\">Package Length Unit</span>"
 msgstr ""
 
 #. module: delivery_fedex
@@ -92,11 +105,32 @@ msgid "EPL2"
 msgstr ""
 
 #. module: delivery_fedex
+#. odoo-python
 #: code:addons/delivery_fedex/models/delivery_fedex.py:0
 #, python-format
 msgid ""
 "Error:\n"
 "%s"
+msgstr ""
+
+#. module: delivery_fedex
+#: model_terms:ir.ui.view,arch_db:delivery_fedex.view_delivery_carrier_form_with_provider_fedex
+msgid "Extra Data"
+msgstr ""
+
+#. module: delivery_fedex
+#: model:ir.model.fields,field_description:delivery_fedex.field_delivery_carrier__fedex_extra_data_rate_request
+msgid "Extra data for rate"
+msgstr ""
+
+#. module: delivery_fedex
+#: model:ir.model.fields,field_description:delivery_fedex.field_delivery_carrier__fedex_extra_data_return_request
+msgid "Extra data for return"
+msgstr ""
+
+#. module: delivery_fedex
+#: model:ir.model.fields,field_description:delivery_fedex.field_delivery_carrier__fedex_extra_data_ship_request
+msgid "Extra data for ship"
 msgstr ""
 
 #. module: delivery_fedex
@@ -127,6 +161,16 @@ msgstr "FEDEX_EXPRESS_SAVER"
 #. module: delivery_fedex
 #: model:ir.model.fields.selection,name:delivery_fedex.selection__delivery_carrier__fedex_service_type__fedex_ground
 msgid "FEDEX_GROUND"
+msgstr ""
+
+#. module: delivery_fedex
+#: model:ir.model.fields.selection,name:delivery_fedex.selection__delivery_carrier__fedex_service_type__fedex_international_priority
+msgid "FEDEX_INTERNATIONAL_PRIORITY"
+msgstr ""
+
+#. module: delivery_fedex
+#: model:ir.model.fields.selection,name:delivery_fedex.selection__delivery_carrier__fedex_service_type__fedex_international_priority_express
+msgid "FEDEX_INTERNATIONAL_PRIORITY_EXPRESS"
 msgstr ""
 
 #. module: delivery_fedex
@@ -174,7 +218,7 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:delivery_fedex.res_config_settings_view_form_sale
 #: model_terms:ir.ui.view,arch_db:delivery_fedex.res_config_settings_view_form_stock
 msgid "FedEx Shipping Methods"
-msgstr ""
+msgstr "روش های حمل و نقل FedEx"
 
 #. module: delivery_fedex
 #: model_terms:ir.ui.view,arch_db:delivery_fedex.view_delivery_carrier_form_with_provider_fedex
@@ -198,7 +242,6 @@ msgstr ""
 
 #. module: delivery_fedex
 #: model:delivery.carrier,name:delivery_fedex.delivery_carrier_fedex_inter
-#: model:product.product,name:delivery_fedex.product_product_delivery_fedex_inter
 #: model:product.template,name:delivery_fedex.product_product_delivery_fedex_inter_product_template
 msgid "Fedex International"
 msgstr ""
@@ -220,7 +263,6 @@ msgstr ""
 
 #. module: delivery_fedex
 #: model:delivery.carrier,name:delivery_fedex.delivery_carrier_fedex_us
-#: model:product.product,name:delivery_fedex.product_product_delivery_fedex_us
 #: model:product.template,name:delivery_fedex.product_product_delivery_fedex_us_product_template
 msgid "Fedex US"
 msgstr ""
@@ -251,6 +293,13 @@ msgid "INTERNATIONAL_PRIORITY"
 msgstr ""
 
 #. module: delivery_fedex
+#. odoo-python
+#: code:addons/delivery_fedex/models/delivery_fedex.py:0
+#, python-format
+msgid "Invalid syntax for FedEx extra data."
+msgstr ""
+
+#. module: delivery_fedex
 #: model:ir.model.fields.selection,name:delivery_fedex.selection__delivery_carrier__fedex_weight_unit__kg
 msgid "KG"
 msgstr ""
@@ -276,12 +325,6 @@ msgid "Meter Number"
 msgstr ""
 
 #. module: delivery_fedex
-#: code:addons/delivery_fedex/models/delivery_fedex.py:0
-#, python-format
-msgid "No packages for this picking"
-msgstr ""
-
-#. module: delivery_fedex
 #: model_terms:ir.ui.view,arch_db:delivery_fedex.view_delivery_carrier_form_with_provider_fedex
 msgid "Once your account is created, go to"
 msgstr ""
@@ -289,7 +332,7 @@ msgstr ""
 #. module: delivery_fedex
 #: model_terms:ir.ui.view,arch_db:delivery_fedex.view_delivery_carrier_form_with_provider_fedex
 msgid "Options"
-msgstr "گزینه ها"
+msgstr "گزینه‌ها"
 
 #. module: delivery_fedex
 #: model:ir.model.fields.selection,name:delivery_fedex.selection__delivery_carrier__fedex_document_stock_type__paper_4x6
@@ -458,18 +501,14 @@ msgid "Sender"
 msgstr "فرستنده"
 
 #. module: delivery_fedex
+#. odoo-python
 #: code:addons/delivery_fedex/models/delivery_fedex.py:0
 #, python-format
 msgid "Shipment #%s has been cancelled"
 msgstr "روش ارسال #%s لغو شد"
 
 #. module: delivery_fedex
-#: code:addons/delivery_fedex/models/delivery_fedex.py:0
-#, python-format
-msgid "Shipment created into Fedex <br/> <b>Tracking Number : </b>%s"
-msgstr ""
-
-#. module: delivery_fedex
+#. odoo-python
 #: code:addons/delivery_fedex/models/delivery_fedex.py:0
 #, python-format
 msgid ""
@@ -503,6 +542,22 @@ msgstr ""
 #. module: delivery_fedex
 #: model:ir.model,name:delivery_fedex.model_stock_package_type
 msgid "Stock package type"
+msgstr "نوع بسته بندی موجودی"
+
+#. module: delivery_fedex
+#: model:ir.model.fields,help:delivery_fedex.field_delivery_carrier__fedex_extra_data_rate_request
+#: model:ir.model.fields,help:delivery_fedex.field_delivery_carrier__fedex_extra_data_return_request
+#: model:ir.model.fields,help:delivery_fedex.field_delivery_carrier__fedex_extra_data_ship_request
+msgid ""
+"The extra data in FedEx is organized like the inside of a json file.\n"
+"This functionality is advanced/technical and should only be used if you know what you are doing.\n"
+"\n"
+"Example of valid value: ```\n"
+"\"ShipmentDetails\": {\"Pieces\": {\"Piece\": {\"AdditionalInformation\": \"extra info\"}}}\n"
+"```\n"
+"\n"
+"With the above example, the AdditionalInformation of each piece will be updated.\n"
+"More info on https://www.fedex.com/en-us/developer/web-services/process.html#documentation"
 msgstr ""
 
 #. module: delivery_fedex
@@ -518,14 +573,7 @@ msgid ""
 msgstr ""
 
 #. module: delivery_fedex
-#: model:product.product,uom_name:delivery_fedex.product_product_delivery_fedex_inter
-#: model:product.product,uom_name:delivery_fedex.product_product_delivery_fedex_us
-#: model:product.template,uom_name:delivery_fedex.product_product_delivery_fedex_inter_product_template
-#: model:product.template,uom_name:delivery_fedex.product_product_delivery_fedex_us_product_template
-msgid "Units"
-msgstr "واحد ها"
-
-#. module: delivery_fedex
+#. odoo-python
 #: code:addons/delivery_fedex/models/delivery_fedex.py:0
 #, python-format
 msgid ""

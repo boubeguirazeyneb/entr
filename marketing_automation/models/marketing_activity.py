@@ -18,11 +18,10 @@ from odoo.tools.misc import clean_context
 _logger = logging.getLogger(__name__)
 
 
-
 class MarketingActivity(models.Model):
     _name = 'marketing.activity'
     _description = 'Marketing Activity'
-    _inherits = {'utm.source': 'utm_source_id'}
+    _inherit = ['utm.source.mixin']
     _order = 'interval_standardized'
 
     # definition and UTM
@@ -33,13 +32,13 @@ class MarketingActivity(models.Model):
     mass_mailing_id = fields.Many2one(
         'mailing.mailing', string='Marketing Template', compute='_compute_mass_mailing_id',
         readonly=False, store=True)
+    # Technical field doing the mapping of activity type and mailing type
     mass_mailing_id_mailing_type = fields.Selection([
         ('mail', 'Email')], string='Mailing Type', compute='_compute_mass_mailing_id_mailing_type',
-        readonly=True, store=True, help='Technical field doing the mapping of activity type and mailing type.')
+        readonly=True, store=True)
     server_action_id = fields.Many2one(
         'ir.actions.server', string='Server Action', compute='_compute_server_action_id',
         readonly=False, store=True)
-    utm_source_id = fields.Many2one('utm.source', 'Source', ondelete='cascade', required=True)
     campaign_id = fields.Many2one(
         'marketing.campaign', string='Campaign',
         index=True, ondelete='cascade', required=True)
@@ -67,7 +66,7 @@ class MarketingActivity(models.Model):
         default='hours', required=True)
     # target
     domain = fields.Char(
-        string='Applied Filter', default='[]',
+        string='Applied Filter',
         help='Activity will only be performed if record satisfies this domain, obtained from the combination of the activity filter and its inherited filter',
         compute='_compute_inherited_domain', recursive=True, store=True, readonly=True)
     activity_domain = fields.Char(
@@ -309,6 +308,8 @@ class MarketingActivity(models.Model):
     def execute(self, domain=None):
         # auto-commit except in testing mode
         auto_commit = not getattr(threading.current_thread(), 'testing', False)
+
+        # organize traces by activity
         trace_domain = [
             ('schedule_date', '<=', Datetime.now()),
             ('state', '=', 'scheduled'),
@@ -317,16 +318,13 @@ class MarketingActivity(models.Model):
         ]
         if domain:
             trace_domain += domain
-
-        traces = self.env['marketing.trace'].search(trace_domain)
-
-        # organize traces by activity
-        trace_to_activities = dict()
-        for trace in traces:
-            if trace.activity_id not in trace_to_activities:
-                trace_to_activities[trace.activity_id] = trace
-            else:
-                trace_to_activities[trace.activity_id] |= trace
+        trace_to_activities = {
+            self.env['marketing.activity'].browse(group['activity_id'][0]):
+            self.env['marketing.trace'].browse(group['ids'])
+            for group in self.env['marketing.trace'].read_group(
+                trace_domain, fields=['ids:array_agg(id)', 'activity_id'], groupby=['activity_id']
+            )
+        }
 
         # execute activity on their traces
         BATCH_SIZE = 500  # same batch size as the MailComposer
@@ -515,9 +513,9 @@ class MarketingActivity(models.Model):
         if view_filter in ('reply', 'bounce'):
             found_traces = self.trace_ids.filtered(lambda trace: trace.mailing_trace_status == view_filter)
         elif view_filter == 'sent':
-            found_traces = self.trace_ids.filtered(lambda trace: trace.mailing_trace_ids.sent_datetime)
+            found_traces = self.trace_ids.filtered('mailing_trace_ids.sent_datetime')
         elif view_filter == 'click':
-            found_traces = self.trace_ids.filtered(lambda trace: trace.mailing_trace_ids.links_click_datetime)
+            found_traces = self.trace_ids.filtered('mailing_trace_ids.links_click_datetime')
         else:
             found_traces = self.env['marketing.trace']
 

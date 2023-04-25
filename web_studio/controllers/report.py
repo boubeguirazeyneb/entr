@@ -160,7 +160,7 @@ class WebStudioReportController(main.WebStudioController):
 
             view = get_report_view(view_name)
             studio_view = self._get_studio_view(view)
-            element = request.env['ir.qweb']._get_template(view.id, {"full_branding": True})[0]
+            element = request.env['ir.qweb'].with_context(full_branding=True)._get_template(view.id)[0]
 
             process_template_groups(element)
 
@@ -284,8 +284,17 @@ class WebStudioReportController(main.WebStudioController):
         })
         root = etree.fromstring(html).getroottree()
         links = [link.get('href') for link in root.findall("//link")]
-        link_ids = [int(link.replace('/web/assets/', '').split('-', 1)[0]) for link in links]
-        css = {a.name: base64.b64decode(a.datas) for a in Attachment.browse(link_ids)}
+        if 'assets' in request.session.debug:
+            domain = []
+            for link in links:
+                if domain:
+                    domain = ['|'] + domain
+                domain.append(('name', '=', link.replace('/web/assets/debug/', '')))
+            attachments = Attachment.search(domain)
+        else:
+            link_ids = [int(link.replace('/web/assets/', '').split('-', 1)[0]) for link in links]
+            attachments = Attachment.browse(link_ids)
+        css = {a.name: base64.b64decode(a.datas) for a in attachments}
 
         return {
             "css": css
@@ -293,9 +302,8 @@ class WebStudioReportController(main.WebStudioController):
 
     def _test_report(self, report_name, record_id):
         # render the report to catch a rendering error
-        report = request.env['ir.actions.report']._get_report_from_name(report_name)
         try:
-            return report._render_qweb_html([record_id], {
+            return request.env['ir.actions.report']._render_qweb_html(report_name, [record_id], {
                 'full_branding': True,
                 'studio': True,
             })

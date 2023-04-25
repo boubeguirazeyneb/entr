@@ -18,11 +18,12 @@ This code allows to generate the DTE document for Chilean invoicing.
  In order to see the barcode on the invoice, you need the pdf417gen library.
 
     """,
-    'website': 'http://blancomartin.cl',
+    'website': 'http://www.bmya.cl',
     'depends': [
-        'account_debit_note',
         'l10n_cl',
-        ],
+        'account_edi',
+        'account_debit_note',
+    ],
     'external_dependencies': {
         'python': [
             'zeep',
@@ -60,9 +61,9 @@ This code allows to generate the DTE document for Chilean invoicing.
     ],
     'demo': [
         'demo/partner_demo.xml',
+        'demo/edi_demo.xml',
     ],
     'installable': True,
-    'auto_install': True,
-    'application': False,
+    'auto_install': ['l10n_cl', 'account_edi'],
     'license': 'OEEL-1',
 }

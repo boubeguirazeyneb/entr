@@ -125,8 +125,9 @@ class AccountMove(models.Model):
         # Avoid to post a vendor bill with a inactive currency created from the incoming mail
         for move in self.filtered(
                 lambda x: x.company_id.account_fiscal_country_id.code == "CL" and
-                          x.company_id.l10n_cl_dte_service_provider in ['SII', 'SIITEST'] and
+                          x.company_id.l10n_cl_dte_service_provider in ['SII', 'SIITEST', 'SIIDEMO'] and
                           x.journal_id.l10n_latam_use_documents):
+            msg_demo = _(' in DEMO mode.') if move.company_id.l10n_cl_dte_service_provider == 'SIIDEMO' else '.'
             # check if we have the currency active, in order to receive vendor bills correctly.
             if move.move_type in ['in_invoice', 'in_refund'] and not move.currency_id.active:
                 raise UserError(
@@ -135,10 +136,10 @@ class AccountMove(models.Model):
             # generation of customer invoices
             if ((move.move_type in ['out_invoice', 'out_refund'] and move.journal_id.type == 'sale')
                     or (move.move_type in ['in_invoice', 'in_refund'] and move.l10n_latam_document_type_id._is_doc_type_vendor())):
-                move._l10n_cl_edi_post_validation()
                 if move.journal_id.l10n_cl_point_of_sale_type != 'online' and not move.l10n_latam_document_type_id._is_doc_type_vendor():
                     move.l10n_cl_dte_status = 'manual'
                     continue
+                move._l10n_cl_edi_post_validation()
                 move._l10n_cl_create_dte()
                 move.l10n_cl_dte_status = 'not_sent'
                 dte_signed, file_name = move._l10n_cl_create_dte_envelope()
@@ -146,12 +147,12 @@ class AccountMove(models.Model):
                     'name': 'SII_{}'.format(file_name),
                     'res_id': move.id,
                     'res_model': 'account.move',
-                    'datas': base64.b64encode(dte_signed.encode('ISO-8859-1')),
+                    'datas': base64.b64encode(dte_signed.encode('ISO-8859-1', 'replace')),
                     'type': 'binary',
                 })
                 move.l10n_cl_sii_send_file = attachment.id
                 move.with_context(no_new_invoice=True).message_post(
-                    body=_('DTE has been created'),
+                    body=_('DTE has been created%s', msg_demo),
                     attachment_ids=attachment.ids)
         return res
 
@@ -172,7 +173,7 @@ class AccountMove(models.Model):
         # for example, for a bad address or a bad activity description in the originating document.
         if self._context.get('default_l10n_cl_edi_reference_doc_code') == '2':
             for move in reverse_moves:
-                move.line_ids = [[5, 0], [0, 0, {
+                move.invoice_line_ids = [[5, 0], [0, 0, {
                     'account_id': move.journal_id.default_account_id.id,
                     'name': _('Where it says: %s should say: %s') % (
                         self._context.get('default_l10n_cl_original_text'),
@@ -189,7 +190,7 @@ class AccountMove(models.Model):
         Send to the supplier the acceptance or claim of the bill received.
         """
         response_id = self.env['ir.sequence'].browse(self.env.ref('l10n_cl_edi.response_sequence').id).next_by_id()
-        response = self.env.ref('l10n_cl_edi.response_dte')._render({
+        response = self.env['ir.qweb']._render('l10n_cl_edi.response_dte', {
             'move': self,
             'format_vat': self._l10n_cl_format_vat,
             'time_stamp': self._get_cl_current_strftime(),
@@ -230,7 +231,13 @@ class AccountMove(models.Model):
         # To avoid double send on double-click
         if self.l10n_cl_dte_status != "not_sent":
             return None
+        _logger.info('Sending DTE for invoice with ID %s (name: %s)', self.id, self.name)
         digital_signature = self.company_id._get_digital_signature(user_id=self.env.user.id)
+        if self.company_id.l10n_cl_dte_service_provider == 'SIIDEMO':
+            self.message_post(body=_('This DTE has been generated in DEMO Mode. It is considered as accepted and '
+                                     'it won\'t be sent to SII.'))
+            self.l10n_cl_dte_status = 'accepted'
+            return None
         response = self._send_xml_to_sii(
             self.company_id.l10n_cl_dte_service_provider,
             self.company_id.website,
@@ -302,7 +309,7 @@ class AccountMove(models.Model):
                      response_parsed.findtext('{http://www.sii.cl/XMLSchema}RESP_HDR/NUM_ATENCION')))
 
     def l10n_cl_verify_claim_status(self):
-        if self.company_id.l10n_cl_dte_service_provider == 'SIITEST':
+        if self.company_id.l10n_cl_dte_service_provider in ['SIITEST', 'SIIDEMO']:
             raise UserError(_('This feature is not available in certification/test mode'))
         response = self._get_dte_claim(
             self.company_id.l10n_cl_dte_service_provider,
@@ -347,7 +354,7 @@ class AccountMove(models.Model):
         xml_dte = base64.b64decode(dte_attachment.datas).decode('utf-8')
         xml_content = etree.fromstring(xml_dte)
         response_id = self.env['ir.sequence'].browse(self.env.ref('l10n_cl_edi.response_sequence').id).next_by_id()
-        xml_ack_template = self.env.ref('l10n_cl_edi.ack_template')._render({
+        xml_ack_template = self.env['ir.qweb']._render('l10n_cl_edi.ack_template', {
             'move': self,
             'format_vat': self._l10n_cl_format_vat,
             'get_cl_current_strftime': self._get_cl_current_strftime,
@@ -383,7 +390,7 @@ class AccountMove(models.Model):
         if not self.l10n_latam_document_type_id._is_doc_type_acceptance():
             raise UserError(_('The document type with code %s cannot be accepted') %
                             self.l10n_latam_document_type_id.code)
-        if self.company_id.l10n_cl_dte_service_provider == 'SIITEST':
+        if self.company_id.l10n_cl_dte_service_provider in ['SIITEST', 'SIIDEMO']:
             self._l10n_cl_send_dte_reception_status('accepted')
             self.l10n_cl_dte_acceptation_status = 'accepted'
             self.message_post(body=_('Claim status was not sending to SII. This feature is not available in '
@@ -419,7 +426,7 @@ class AccountMove(models.Model):
         if not self.l10n_latam_document_type_id._is_doc_type_acceptance():
             raise UserError(_('The document type with code %s cannot be claimed') %
                             self.l10n_latam_document_type_id.code)
-        if self.company_id.l10n_cl_dte_service_provider == 'SIITEST':
+        if self.company_id.l10n_cl_dte_service_provider in ['SIITEST', 'SIIDEMO']:
             self._l10n_cl_send_dte_reception_status('claimed')
             self.write({
                 'l10n_cl_dte_acceptation_status': 'claimed',
@@ -467,7 +474,7 @@ class AccountMove(models.Model):
         doc_id_number = 'F{}T{}'.format(folio, self.l10n_latam_document_type_id.code)
         dte_barcode_xml = self._l10n_cl_get_dte_barcode_xml()
         self.l10n_cl_sii_barcode = dte_barcode_xml['barcode']
-        dte = self.env.ref('l10n_cl_edi.dte_template')._render({
+        dte = self.env['ir.qweb']._render('l10n_cl_edi.dte_template', {
             'move': self,
             'format_vat': self._l10n_cl_format_vat,
             'get_cl_current_strftime': self._get_cl_current_strftime,
@@ -489,18 +496,19 @@ class AccountMove(models.Model):
             'res_model': self._name,
             'res_id': self.id,
             'type': 'binary',
-            'datas': base64.b64encode(signed_dte.encode('ISO-8859-1'))
+            'datas': base64.b64encode(signed_dte.encode('ISO-8859-1', 'replace'))
         })
         self.l10n_cl_dte_file = dte_attachment.id
 
     def _l10n_cl_create_partner_dte(self):
-        dte_signed, file_name = self._l10n_cl_create_dte_envelope(self.partner_id.vat)
+        dte_signed, file_name = self._l10n_cl_create_dte_envelope(
+            '55555555-5' if self.partner_id.l10n_cl_sii_taxpayer_type == '4' else self.partner_id.vat)
         dte_partner_attachment = self.env['ir.attachment'].create({
             'name': file_name,
             'res_model': self._name,
             'res_id': self.id,
             'type': 'binary',
-            'datas': base64.b64encode(dte_signed.encode('ISO-8859-1'))
+            'datas': base64.b64encode(dte_signed.encode('ISO-8859-1', 'replace'))
         })
         self.with_context(no_new_invoice=True).message_post(
             body=_('Partner DTE has been generated'),
@@ -514,7 +522,7 @@ class AccountMove(models.Model):
             'l10n_cl_edi.envio_boleta') or self.env.ref('l10n_cl_edi.envio_dte')
         dte = self.l10n_cl_dte_file.raw.decode('ISO-8859-1')
         dte = Markup(dte.replace('<?xml version="1.0" encoding="ISO-8859-1" ?>', ''))
-        dte_rendered = template._render({
+        dte_rendered = self.env['ir.qweb']._render(template.id, {
             'move': self,
             'RutEmisor': self._l10n_cl_format_vat(self.company_id.vat),
             'RutEnvia': digital_signature.subject_serial_number,
@@ -612,7 +620,7 @@ class AccountMove(models.Model):
         self._l10n_cl_edi_validate_boletas()
 
     def _l10n_cl_edi_validate_boletas(self):
-        if self.l10n_latam_document_type_id.code == '39':
+        if self.l10n_latam_document_type_id.code in ['39', '41']:
             raise UserError(_('Ticket is not allowed, please contact your administrator to install the '
                             'l10n_cl_edi_boletas module'))
 
@@ -642,7 +650,7 @@ class AccountMove(models.Model):
         lines_with_taxes = self.invoice_line_ids.filtered(lambda x: x.tax_ids)
         lines_without_taxes = self.invoice_line_ids.filtered(lambda x: not x.tax_ids)
         values = {
-            'vat_amount': self.currency_id.round(sum(vat_taxes.mapped('price_subtotal'))),
+            'vat_amount': self.direction_sign * self.currency_id.round(sum(vat_taxes.mapped('amount_currency'))),
             # Sum of the subtotal amount affected by tax
             'subtotal_amount_taxable': sum(lines_with_taxes.mapped('price_subtotal')) if (
                     lines_with_taxes and (self.l10n_latam_document_type_id.code == '39' or
@@ -685,7 +693,7 @@ class AccountMove(models.Model):
         self.ensure_one()
         return [{'tax_code': line.tax_line_id.l10n_cl_sii_code,
                  'tax_percent': abs(line.tax_line_id.amount),
-                 'tax_amount': self.currency_id.round(abs(line.price_subtotal))} for line in self.line_ids.filtered(
+                 'tax_amount': self.currency_id.round(abs(line.amount_currency))} for line in self.line_ids.filtered(
             lambda x: x.tax_group_id.id in [
                 self.env.ref('l10n_cl.tax_group_ila').id, self.env.ref('l10n_cl.tax_group_retenciones').id])]
 
@@ -696,7 +704,7 @@ class AccountMove(models.Model):
         of the invoice, etc.
         :return: xml that goes embedded inside the pdf417 code
         """
-        dd = self.env.ref('l10n_cl_edi.dd_template')._render({
+        dd = self.env['ir.qweb']._render('l10n_cl_edi.dd_template', {
             'move': self,
             'format_vat': self._l10n_cl_format_vat,
             'float_repr': float_repr,
@@ -707,9 +715,9 @@ class AccountMove(models.Model):
             '__keep_empty_lines': True,
         })
         caf_file = self.l10n_latam_document_type_id._get_caf_file(self.company_id.id, int(self.l10n_latam_document_number))
-        ted = self.env.ref('l10n_cl_edi.ted_template')._render({
+        ted = self.env['ir.qweb']._render('l10n_cl_edi.ted_template', {
             'dd': dd,
-            'frmt': self._sign_message(dd.encode('ISO-8859-1'), caf_file.findtext('RSASK')),
+            'frmt': self._sign_message(dd.encode('ISO-8859-1', 'replace'), caf_file.findtext('RSASK')),
             'stamp': self._get_cl_current_strftime(),
             '__keep_empty_lines': True,
         })
@@ -726,13 +734,17 @@ class AccountMove(models.Model):
         return self.env['l10n_latam.document.type'].search(
             [('code', '=', '61'), ('country_id.code', '=', "CL")], limit=1)
 
-    def _l10n_cl_get_comuna_recep(self):
+    def _l10n_cl_get_comuna_recep(self, recep=True):
         if self.partner_id._l10n_cl_is_foreign():
-            return self._format_length(
-                self.partner_id.state_id.name or self.commercial_partner_id.state_id.name or 'N-A', 20)
+            if recep:
+                return self._format_length(
+                    self.partner_id.state_id.name or self.commercial_partner_id.state_id.name or 'N-A', 20)
+            return self._format_length(self.partner_shipping_id.state_id.name or 'N-A', 20)
         if self.l10n_latam_document_type_id._is_doc_type_voucher():
             return 'N-A'
-        return self.partner_id.city or self.commercial_partner_id.city or False
+        if recep:
+            return self._format_length(self.partner_id.city or self.commercial_partner_id.city, 20) or False
+        return self._format_length(self.partner_shipping_id.city, 20) or False
 
     def _l10n_cl_get_set_dte_id(self, xml_content):
         set_dte = xml_content.find('.//ns0:SetDTE', namespaces={'ns0': 'http://www.sii.cl/SiiDte'})
@@ -762,7 +774,7 @@ class AccountMove(models.Model):
         for move in self.search([('l10n_cl_dte_acceptation_status', 'in', ['accepted', 'claimed']),
                                  ('move_type', 'in', ['out_invoice', 'out_refund']),
                                  ('l10n_cl_claim', '=', False)]):
-            if move.company_id.l10n_cl_dte_service_provider == 'SIITEST':
+            if move.company_id.l10n_cl_dte_service_provider in ['SIITEST', 'SIIDEMO']:
                 continue
             move.l10n_cl_verify_claim_status()
             self.env.cr.commit()

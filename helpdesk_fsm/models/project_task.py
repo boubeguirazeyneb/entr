@@ -7,18 +7,32 @@ from odoo import api, models, fields
 class Task(models.Model):
     _inherit = 'project.task'
 
-    helpdesk_ticket_id = fields.Many2one('helpdesk.ticket', string='Ticket', help='Ticket this task was generated from', readonly=True)
+    helpdesk_ticket_id = fields.Many2one('helpdesk.ticket', string='Original Ticket', readonly=True)
+
+    # Project Sharing fields
+    display_helpdesk_ticket_button = fields.Boolean('Display Ticket', compute='_compute_display_helpdesk_ticket_button')
 
     @property
     def SELF_READABLE_FIELDS(self):
-        return super().SELF_READABLE_FIELDS | {'helpdesk_ticket_id'}
+        return super().SELF_READABLE_FIELDS | {'helpdesk_ticket_id', 'display_helpdesk_ticket_button'}
 
-    def action_view_ticket(self):
+    @api.depends_context('uid')
+    @api.depends('helpdesk_ticket_id')
+    def _compute_display_helpdesk_ticket_button(self):
+        is_portal = self.user_has_groups('base.group_portal')
+        if is_portal:
+            tickets = self.env['helpdesk.ticket'].search([('id', 'in', self.helpdesk_ticket_id.ids)])
+        for task in self:
+            task.display_helpdesk_ticket_button = task.helpdesk_ticket_id in tickets if is_portal else bool(task.helpdesk_ticket_id)
+
+    def action_project_sharing_view_ticket(self):
+        self.ensure_one()
+        if not self.display_helpdesk_ticket_button:
+            return {}
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'helpdesk.ticket',
-            'view_mode': 'form',
-            'res_id': self.helpdesk_ticket_id.id,
+            "name": "Portal Ticket",
+            "type": "ir.actions.act_url",
+            "url": self.helpdesk_ticket_id.get_portal_url(),
         }
 
     def write(self, vals):
@@ -29,10 +43,10 @@ class Task(models.Model):
         if 'fsm_done' in vals:
             tracked_tasks = self.filtered(
                 lambda t: t.fsm_done and t.helpdesk_ticket_id.use_fsm and previous_states[t] != t.fsm_done)
-            subtype_id = self.env.ref('helpdesk_fsm.mt_ticket_task_done')
+            subtype = self.env.ref('helpdesk_fsm.mt_ticket_task_done')
             for task in tracked_tasks:
-                body = '<a href="#" data-oe-model="project.task" data-oe-id="%s">%s</a>' % (task.id, task.display_name)
-                task.helpdesk_ticket_id.sudo().message_post(subtype_id=subtype_id.id, body=body)
+                task.helpdesk_ticket_id.sudo().message_post(
+                    subtype_id=subtype.id, body=task._get_html_link())
         return res
 
     @api.model_create_multi

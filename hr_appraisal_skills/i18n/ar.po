@@ -3,17 +3,18 @@
 # 	* hr_appraisal_skills
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Malaz Abuidris <msea@odoo.com>, 2022
+# Martin Trigaux, 2022
+# Tasneem Sarhan <tsa@odoo.com>, 2022
+# Malaz Abuidris <msea@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:44+0000\n"
-"PO-Revision-Date: 2021-09-14 12:39+0000\n"
-"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2022\n"
-"Language-Team: Arabic (https://www.transifex.com/odoo/teams/41243/ar/)\n"
+"POT-Creation-Date: 2023-04-14 06:19+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2023\n"
+"Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -32,23 +33,32 @@ msgstr ""
 "                        </span>"
 
 #. module: hr_appraisal_skills
-#. openerp-web
-#: code:addons/hr_appraisal_skills/static/src/xml/templates.xml:0
+#. odoo-javascript
+#: code:addons/hr_appraisal_skills/static/src/js/appraisal_skills_one2many.xml:0
 #, python-format
-msgid "ADD"
-msgstr "إضافة "
-
-#. module: hr_appraisal_skills
-#. openerp-web
-#: code:addons/hr_appraisal_skills/static/src/xml/templates.xml:0
-#, python-format
-msgid "ADD NEW SKILLS"
+msgid "Add new skills"
 msgstr "إضافة مهارات جديدة "
 
 #. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__appraisal_id
 msgid "Appraisal"
 msgstr "التقييم"
+
+#. module: hr_appraisal_skills
+#: model:ir.actions.act_window,name:hr_appraisal_skills.hr_appraisal_skill_report_action
+#: model:ir.model,name:hr_appraisal_skills.model_hr_appraisal_skill_report
+msgid "Appraisal Skills Report"
+msgstr "تقرير مهارات التقييم "
+
+#. module: hr_appraisal_skills
+#: model_terms:ir.actions.act_window,help:hr_appraisal_skills.hr_appraisal_skill_report_action
+msgid "Appraisal skills appear only for marked appraisals."
+msgstr "تظهر مهارات التقييم فقط للتقييمات المحددة بعلامة. "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__company_id
+msgid "Company"
+msgstr "الشركة "
 
 #. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__create_uid
@@ -61,12 +71,35 @@ msgid "Created on"
 msgstr "أنشئ في"
 
 #. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__current_skill_level_id
+msgid "Current Skill Level"
+msgstr "مستوى المهارة الحالية "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__current_level_progress
+msgid "Current Skill Progress"
+msgstr "مدى التقدم في مستوى المهارة الحالية "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields.selection,name:hr_appraisal_skills.selection__hr_appraisal_skill_report__evolution__decline
+msgid "Decline"
+msgstr "رفض"
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__department_id
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
+msgid "Department"
+msgstr "القسم"
+
+#. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__display_name
 msgid "Display Name"
 msgstr "اسم العرض "
 
 #. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__employee_id
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__employee_id
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
 msgid "Employee"
 msgstr "الموظف"
 
@@ -74,6 +107,11 @@ msgstr "الموظف"
 #: model:ir.model,name:hr_appraisal_skills.model_hr_appraisal
 msgid "Employee Appraisal"
 msgstr "تقييم الموظف"
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__display_name
+msgid "Employee Name"
+msgstr "اسم الموظف"
 
 #. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__employee_skill_id
@@ -86,12 +124,36 @@ msgid "Employee Skills"
 msgstr "مهارات الموظفين "
 
 #. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__evolution
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
+msgid "Evolution"
+msgstr "تطور"
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__evolution_sequence
+msgid "Evolution Sequence"
+msgstr "تسلسل التطور "
+
+#. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__id
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__id
 msgid "ID"
 msgstr "المُعرف"
 
 #. module: hr_appraisal_skills
+#: model:ir.model.fields.selection,name:hr_appraisal_skills.selection__hr_appraisal_skill_report__evolution__improvement
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
+msgid "Improvement"
+msgstr "التحسين "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields.selection,name:hr_appraisal_skills.selection__hr_appraisal_skill_report__evolution__just_added
+msgid "Just added"
+msgstr "أُضيفت للتو "
+
+#. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__justification
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__justification
 msgid "Justification"
 msgstr "المبررات"
 
@@ -116,9 +178,25 @@ msgid "Manager"
 msgstr "المدير"
 
 #. module: hr_appraisal_skills
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
+msgid "No Change"
+msgstr "لا تتوجد تغيرات "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__previous_skill_level_id
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__previous_skill_level_id
+msgid "Previous Skill Level"
+msgstr "مستوى المهارة السابق "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__previous_level_progress
+msgid "Previous Skill Progress"
+msgstr "مدى تقدم المهارة السابقة "
+
+#. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__level_progress
 msgid "Progress"
-msgstr "التقدم "
+msgstr "مدى التقدم "
 
 #. module: hr_appraisal_skills
 #: model:ir.model.fields,help:hr_appraisal_skills.field_hr_appraisal_skill__level_progress
@@ -126,7 +204,18 @@ msgid "Progress from zero knowledge (0%) to fully mastered (100%)."
 msgstr "التقدم من معرفة بنسبة (0%) إلى الإتقان كلياً (100%). "
 
 #. module: hr_appraisal_skills
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
+msgid "Regression"
+msgstr "تراجع "
+
+#. module: hr_appraisal_skills
+#: model:ir.model.fields.selection,name:hr_appraisal_skills.selection__hr_appraisal_skill_report__evolution__same
+msgid "Same"
+msgstr "نفس المستوى "
+
+#. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__skill_id
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__skill_id
 msgid "Skill"
 msgstr "المهارة "
 
@@ -137,6 +226,8 @@ msgstr "مستوى المهارة "
 
 #. module: hr_appraisal_skills
 #: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill__skill_type_id
+#: model:ir.model.fields,field_description:hr_appraisal_skills.field_hr_appraisal_skill_report__skill_type_id
+#: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_report_view_search
 msgid "Skill Type"
 msgstr "نوع المهارة "
 
@@ -145,6 +236,12 @@ msgstr "نوع المهارة "
 #: model_terms:ir.ui.view,arch_db:hr_appraisal_skills.hr_appraisal_skill_view_form
 msgid "Skills"
 msgstr "المهارات "
+
+#. module: hr_appraisal_skills
+#: model:ir.ui.menu,name:hr_appraisal_skills.menu_appraisal_skills_report
+#: model_terms:ir.actions.act_window,help:hr_appraisal_skills.hr_appraisal_skill_report_action
+msgid "Skills Evolution"
+msgstr "تطور المهارات "
 
 #. module: hr_appraisal_skills
 #: model:ir.model.constraint,message:hr_appraisal_skills.constraint_hr_appraisal_skill__unique_skill

@@ -4,8 +4,7 @@ import { FileInput } from "@web/core/file_input/file_input";
 import CustomFileInput from "web.CustomFileInput";
 import { useService } from "@web/core/utils/hooks";
 
-const { Component, hooks } = owl;
-const { useRef, useState, onWillUpdateProps } = hooks;
+import { Component, onWillUpdateProps, useRef, useState } from "@odoo/owl";
 
 const DEFAULT_ICON = {
     backgroundColor: BG_COLORS[5],
@@ -47,71 +46,88 @@ export class IconCreator extends Component {
         // on the 'edit' icon of an existing app) and in the legacy environment (through the app
         // creator)
         this.FileInput = FileInput;
+        this.fileInputProps = {
+            acceptedFileExtensions: "image/png",
+            resModel: "res.users",
+        };
         try {
             const user = useService("user");
             this.orm = useService("orm");
-            this.userId = user.userId;
+            this.fileInputProps.resId = user.userId;
         } catch (e) {
             if (e.message === "Service user is not available") {
-                this.userId = this.env.session.uid;
                 // we are in a legacy environment, so use the legacy CustomFileInput as
                 // the new one requires the new http service
                 this.FileInput = CustomFileInput;
+                this.fileInputProps = {
+                    accepted_file_extensions: "image/png",
+                    action: "/web/binary/upload_attachment",
+                    id: this.env.session.uid,
+                    model: "res.users",
+                };
             }
         }
+        this.rpc = useService("rpc");
 
+        this.state = useState({ iconClass: this.props.iconClass });
         this.show = useState({
             backgroundColor: false,
             color: false,
             iconClass: false,
         });
 
-        if (this.env.qweb.constructor.enableTransitions) {
-            onWillUpdateProps(async (nextProps) => {
-                if ("iconClass" in nextProps && nextProps.iconClass !== this.props.iconClass) {
-                    await new Promise((r) => $(this.iconRef.el).stop().fadeOut(50, r));
-                    this.transition = () => $(this.iconRef.el).stop().fadeIn(800);
-                }
-            });
-        }
+        onWillUpdateProps((nextProps) => {
+            if (
+                this.constructor.enableTransitions &&
+                nextProps.iconClass !== this.props.iconClass
+            ) {
+                this.applyIconTransition(nextProps.iconClass);
+            } else {
+                this.state.iconClass = nextProps.iconClass;
+            }
+        });
     }
 
-    patched() {
-        if (this.transition) {
-            this.transition();
-            delete this.transition;
+    applyIconTransition(nextIconClass) {
+        const iconEl = this.iconRef.el;
+        if (!iconEl) {
+            return;
         }
+
+        iconEl.classList.remove("o-fading-in");
+        iconEl.classList.remove("o-fading-out");
+
+        iconEl.onanimationend = () => {
+            this.state.iconClass = nextIconClass;
+            iconEl.onanimationend = () => {
+                iconEl.onanimationend = null;
+                iconEl.classList.remove("o-fading-in");
+            };
+            iconEl.classList.remove("o-fading-out");
+            iconEl.classList.add("o-fading-in");
+        };
+        iconEl.classList.add("o-fading-out");
     }
 
     //--------------------------------------------------------------------------
     // Handlers
     //--------------------------------------------------------------------------
 
-    /**
-     * @private
-     */
-    _onDesignIconClick() {
-        this.trigger(
-            "icon-changed",
-            Object.assign(
-                {
-                    type: "custom_icon",
-                },
-                DEFAULT_ICON
-            )
-        );
+    onDesignIconClick() {
+        this.props.onIconChange({
+            type: "custom_icon",
+            ...DEFAULT_ICON,
+        });
     }
 
     /**
-     * @private
-     * @param {OwlEvent} ev
+     * @param {Object[]} files
      */
-    async _onFileUploaded(ev) {
-        if (!ev.detail.files.length) {
+    async onFileUploaded([file]) {
+        if (!file) {
             // Happens when cancelling upload
             return;
         }
-        const file = ev.detail.files[0];
         let res;
         if (this.orm) {
             res = await this.orm.read("ir.attachment", [file.id], ["datas"]);
@@ -123,7 +139,7 @@ export class IconCreator extends Component {
             });
         }
 
-        this.trigger("icon-changed", {
+        this.props.onIconChange({
             type: "base64",
             uploaded_attachment_id: file.id,
             webIconData: "data:image/png;base64," + res[0].datas.replace(/\s/g, ""),
@@ -131,31 +147,26 @@ export class IconCreator extends Component {
     }
 
     /**
-     * @private
      * @param {string} palette
      * @param {string} value
      */
-    _onPaletteItemClick(palette, value) {
+    onPaletteItemClick(palette, value) {
         if (this.props[palette] === value) {
             return; // same value
         }
-
-        const detail = {
+        this.props.onIconChange({
             backgroundColor: this.props.backgroundColor,
             color: this.props.color,
             iconClass: this.props.iconClass,
             type: "custom_icon",
-        };
-        detail[palette] = value;
-
-        this.trigger("icon-changed", detail);
+            [palette]: value,
+        });
     }
 
     /**
-     * @private
      * @param {string} palette
      */
-    _onTogglePalette(palette) {
+    onTogglePalette(palette) {
         for (const pal in this.show) {
             if (pal === palette) {
                 this.show[pal] = !this.show[pal];
@@ -166,15 +177,16 @@ export class IconCreator extends Component {
     }
 }
 
-// IconCreator.components = { FileInput };
 IconCreator.defaultProps = DEFAULT_ICON;
 IconCreator.props = {
     backgroundColor: { type: String, optional: 1 },
     color: { type: String, optional: 1 },
-    editable: Boolean,
+    editable: { type: Boolean, optional: 1 },
     iconClass: { type: String, optional: 1 },
     type: { validate: (t) => ["base64", "custom_icon"].includes(t) },
     uploaded_attachment_id: { type: Number, optional: 1 },
     webIconData: { type: String, optional: 1 },
+    onIconChange: Function,
 };
 IconCreator.template = "web_studio.IconCreator";
+IconCreator.enableTransitions = true;

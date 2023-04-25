@@ -3,6 +3,7 @@
 
 from . import browsable_object
 from . import hr_contract
+from . import hr_contract_history
 from . import hr_employee
 from . import res_config_settings
 from . import hr_payroll_structure
@@ -16,6 +17,10 @@ from . import hr_payslip_input
 from . import hr_payslip_input_type
 from . import hr_payslip_run
 from . import resource_calendar
+from . import res_company
+from . import res_users
 from . import hr_rule_parameter
+from . import hr_work_entry_type
 from . import hr_work_entry
 from . import hr_salary_attachment
+from . import note

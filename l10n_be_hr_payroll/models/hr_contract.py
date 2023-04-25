@@ -6,6 +6,7 @@ import pytz
 from collections import defaultdict
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from dateutil.rrule import rrule, DAILY
 
 from odoo import api, fields, models, _
 from odoo.tools import float_round, date_utils
@@ -78,21 +79,6 @@ class HrContract(models.Model):
     ip = fields.Boolean('Intellectual Property', default=False, tracking=True)
     ip_wage_rate = fields.Float(string="IP percentage", help="Should be between 0 and 100 %")
     ip_value = fields.Float(compute='_compute_ip_value')
-    # Please stop making this field readonly
-    time_credit = fields.Boolean('Part Time', readonly=False, help='This is a part time contract.')
-    work_time_rate = fields.Float(
-        compute='_compute_work_time_rate', store=True, readonly=True,
-        string='Work time rate', help='Work time rate versus full time working schedule.')
-    time_credit_full_time_wage = fields.Monetary(
-        'Full Time Equivalent Wage', compute='_compute_time_credit_full_time_wage',
-        store=True, readonly=False)
-    standard_calendar_id = fields.Many2one(
-        'resource.calendar', default=lambda self: self.env.company.resource_calendar_id, readonly=True,
-        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
-    time_credit_type_id = fields.Many2one(
-        'hr.work.entry.type', string='Part Time Work Entry Type',
-        domain=['&', ('is_leave', '=', True), ('leave_right', '=', False)],
-        help="The work entry type used when generating work entries to fit full time working schedule.")
     fiscal_voluntarism = fields.Boolean(
         string="Fiscal Voluntarism", default=False, tracking=True,
         help="Voluntarily increase withholding tax rate.")
@@ -100,42 +86,74 @@ class HrContract(models.Model):
     no_onss = fields.Boolean(string="No ONSS")
     no_withholding_taxes = fields.Boolean()
     rd_percentage = fields.Integer("Time Percentage in R&D")
-    employee_age = fields.Integer('Age of Employee', compute='_compute_employee_age')
+    employee_age = fields.Integer('Age of Employee', compute='_compute_employee_age', compute_sudo=True)
     l10n_be_impulsion_plan = fields.Selection([
         ('25yo', '< 25 years old'),
         ('12mo', '12 months +'),
         ('55yo', '55+ years old')], string="Impulsion Plan")
     l10n_be_onss_restructuring = fields.Boolean(string="Allow ONSS Reduction for Restructuring")
 
-    _sql_constraints = [
-        ('check_percentage_ip_rate', 'CHECK(ip_wage_rate >= 0 AND ip_wage_rate <= 100)', 'The IP rate on wage should be between 0 and 100.'),
-        ('check_percentage_fiscal_voluntary_rate', 'CHECK(fiscal_voluntary_rate >= 0 AND fiscal_voluntary_rate <= 100)', 'The Fiscal Voluntary rate on wage should be between 0 and 100.')
-    ]
-
-    has_hospital_insurance = fields.Boolean(string="Has Hospital Insurance", groups="hr_contract.group_hr_contract_manager", tracking=True)
-    insured_relative_children = fields.Integer(string="# Insured Children < 19 y/o", groups="hr_contract.group_hr_contract_manager", tracking=True)
-    insured_relative_adults = fields.Integer(string="# Insured Children >= 19 y/o", groups="hr_contract.group_hr_contract_manager", tracking=True)
-    insured_relative_spouse = fields.Boolean(string="Insured Spouse", groups="hr_contract.group_hr_contract_manager", tracking=True)
-    hospital_insurance_amount_per_child = fields.Float(string="Amount per Child", groups="hr_contract.group_hr_contract_manager",
+    has_hospital_insurance = fields.Boolean(string="Has Hospital Insurance", groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    insured_relative_children = fields.Integer(string="# Insured Children < 19 y/o", groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    insured_relative_adults = fields.Integer(string="# Insured Children >= 19 y/o", groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    insured_relative_spouse = fields.Boolean(string="Insured Spouse", groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    hospital_insurance_amount_per_child = fields.Float(string="Amount per Child", groups="hr_contract.group_hr_contract_employee_manager",
         default=lambda self: float(self.env['ir.config_parameter'].sudo().get_param('hr_contract_salary.hospital_insurance_amount_child', default=7.2)))
-    hospital_insurance_amount_per_adult = fields.Float(string="Amount per Adult", groups="hr_contract.group_hr_contract_manager",
+    hospital_insurance_amount_per_adult = fields.Float(string="Amount per Adult", groups="hr_contract.group_hr_contract_employee_manager",
         default=lambda self: float(self.env['ir.config_parameter'].sudo().get_param('hr_contract_salary.hospital_insurance_amount_adult', default=20.5)))
-    insurance_amount = fields.Float(compute='_compute_insurance_amount', string="Insurance Amount", groups="hr_contract.group_hr_contract_manager", tracking=True)
-    insured_relative_adults_total = fields.Integer(compute='_compute_insured_relative_adults_total', groups="hr_contract.group_hr_contract_manager")
+    insurance_amount = fields.Float(compute='_compute_insurance_amount', string="Insurance Amount", groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    insured_relative_adults_total = fields.Integer(compute='_compute_insured_relative_adults_total', groups="hr_contract.group_hr_contract_employee_manager")
+    l10n_be_hospital_insurance_notes = fields.Text(string="Hospital Insurance: Additional Info")
+
+    wage_with_holidays = fields.Monetary(
+        string="Wage With Sacrifices",
+        help="Adapted salary, according to the sacrifices defined on the contract (Example: Extra-legal time off, a percentage of the salary invested in a group insurance, etc...)")
+    # Group Insurance
+    l10n_be_group_insurance_rate = fields.Float(
+        string="Group Insurance Sacrifice Rate", tracking=True,
+        help="Should be between 0 and 100 %")
+    l10n_be_group_insurance_amount = fields.Monetary(
+        compute='_compute_l10n_be_group_insurance_amount', store=True)
+    l10n_be_group_insurance_cost = fields.Monetary(
+        compute='_compute_l10n_be_group_insurance_amount', store=True)
+    # Ambulatory Insurance
+    l10n_be_has_ambulatory_insurance = fields.Boolean(
+        string="Has Ambulatory Insurance",
+        groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    l10n_be_ambulatory_insured_children = fields.Integer(
+        string="Ambulatory: # Insured Children < 19",
+        groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    l10n_be_ambulatory_insured_adults = fields.Integer(
+        string="Ambulatory: # Insured Children >= 19",
+        groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    l10n_be_ambulatory_insured_spouse = fields.Boolean(
+        string="Ambulatory: Insured Spouse",
+        groups="hr_contract.group_hr_contract_employee_manager", tracking=True)
+    l10n_be_ambulatory_amount_per_child = fields.Float(
+        string="Ambulatory: Amount per Child", groups="hr_contract.group_hr_contract_employee_manager",
+        default=lambda self: float(self.env['ir.config_parameter'].sudo().get_param('hr_contract_salary.ambulatory_insurance_amount_child', default=7.2)))
+    l10n_be_ambulatory_amount_per_adult = fields.Float(
+        string="Ambulatory: Amount per Adult", groups="hr_contract.group_hr_contract_employee_manager",
+        default=lambda self: float(self.env['ir.config_parameter'].sudo().get_param('hr_contract_salary.ambulatory_insurance_amount_adult', default=20.5)))
+    l10n_be_ambulatory_insurance_amount = fields.Float(
+        compute='_compute_ambulatory_insurance_amount', string="Ambulatory: Insurance Amount",
+        groups="hr_contract.group_hr_contract_employee_manager", compute_sudo=True, tracking=True)
+    l10n_be_ambulatory_insured_adults_total = fields.Integer(
+        compute='_compute_ambulatory_insured_adults_total',
+        groups="hr_contract.group_hr_contract_employee_manager")
+    l10n_be_ambulatory_insurance_notes = fields.Text(string="Ambulatory Insurance: Additional Info")
+
 
     l10n_be_is_below_scale = fields.Boolean(
-        string="Is below CP200 salary scale", compute='_compute_l10n_be_is_below_scale', search='_search_l10n_be_is_below_scale')
-    l10n_be_is_below_scale_warning = fields.Char(compute='_compute_l10n_be_is_below_scale')
+        string="Is below CP200 salary scale", compute='_compute_l10n_be_is_below_scale', search='_search_l10n_be_is_below_scale', compute_sudo=True)
+    l10n_be_is_below_scale_warning = fields.Char(compute='_compute_l10n_be_is_below_scale', compute_sudo=True)
+    l10n_be_canteen_cost = fields.Monetary(string="Canteen Cost")
 
-    @api.depends('time_credit', 'resource_calendar_id.hours_per_week', 'standard_calendar_id.hours_per_week')
-    def _compute_work_time_rate(self):
-        for contract in self:
-            if contract.time_credit and contract.standard_calendar_id.hours_per_week:
-                contract.work_time_rate = contract.resource_calendar_id.hours_per_week / contract.standard_calendar_id.hours_per_week
-            elif contract.company_id.resource_calendar_id.hours_per_week:
-                contract.work_time_rate = contract.resource_calendar_id.hours_per_week / contract.company_id.resource_calendar_id.hours_per_week
-            else:
-                contract.work_time_rate = 1
+    _sql_constraints = [
+        ('check_percentage_ip_rate', 'CHECK(ip_wage_rate >= 0 AND ip_wage_rate <= 100)', 'The IP rate on wage should be between 0 and 100.'),
+        ('check_percentage_fiscal_voluntary_rate', 'CHECK(fiscal_voluntary_rate >= 0 AND fiscal_voluntary_rate <= 100)', 'The Fiscal Voluntary rate on wage should be between 0 and 100.'),
+        ('check_percentage_group_insurance_rate', 'CHECK(l10n_be_group_insurance_rate >= 0 AND l10n_be_group_insurance_rate <= 100)', 'The group insurance salary sacrifice rate on wage should be between 0 and 100.'),
+    ]
 
     @api.depends(
         'wage', 'state', 'employee_id.l10n_be_scale_seniority', 'job_id.l10n_be_scale_category',
@@ -225,21 +243,10 @@ class HrContract(models.Model):
     @api.constrains('rd_percentage')
     def _check_discount_percentage(self):
         if self.filtered(lambda c: c.rd_percentage < 0 or c.rd_percentage > 100):
-            raise ValidationError(_('The time Percentage in R&D should be between 1-100'))
+            raise ValidationError(_('The time Percentage in R&D should be between 0-100'))
         for contract in self:
             if contract.rd_percentage and contract.employee_id.certificate not in ['civil_engineer', 'doctor', 'master', 'bachelor']:
-                raise ValidationError(_('Only employeers with a Bachelor/Master/Doctor/Civil Engineer degree can benefit from the withholding taxes exemption.'))
-
-    @api.depends('wage', 'time_credit', 'work_time_rate')
-    def _compute_time_credit_full_time_wage(self):
-        for contract in self:
-            work_time_rate = contract._get_work_time_rate()
-            if contract.time_credit and work_time_rate != 0:
-                contract.time_credit_full_time_wage = contract.wage / work_time_rate
-            elif contract.time_credit and not work_time_rate:
-                contract.time_credit_full_time_wage = contract._get_contract_wage()
-            else:
-                contract.time_credit_full_time_wage = contract.wage
+                raise ValidationError(_('Only employees with a Bachelor/Master/Doctor/Civil Engineer degree can benefit from the withholding taxes exemption.'))
 
     @api.depends('ip', 'ip_wage_rate')
     def _compute_ip_value(self):
@@ -263,7 +270,7 @@ class HrContract(models.Model):
         # maximum of € 6.91 per check and per day provided, while the participation
         # of the second must amount to a minimum of € 1.09.
         for contract in self:
-            contract.meal_voucher_paid_by_employer = contract.meal_voucher_amount - 1.09
+            contract.meal_voucher_paid_by_employer = max(0, contract.meal_voucher_amount - 1.09)
             monthly_nb_meal_voucher = 220.0 / 12
             contract.meal_voucher_paid_monthly_by_employer = contract.meal_voucher_paid_by_employer * monthly_nb_meal_voucher
             contract.meal_voucher_average_monthly_amount = contract.meal_voucher_amount * monthly_nb_meal_voucher
@@ -315,9 +322,65 @@ class HrContract(models.Model):
         if not self.transport_mode_public:
             self.public_transport_reimbursed_amount = 0
 
-    def _get_work_time_rate(self):
+    @api.depends('holidays', 'wage', 'final_yearly_costs', 'l10n_be_group_insurance_rate')
+    def _compute_wage_with_holidays(self):
+        super()._compute_wage_with_holidays()
+
+    @api.depends('wage', 'l10n_be_group_insurance_rate')
+    def _compute_l10n_be_group_insurance_amount(self):
+        for contract in self:
+            rate = contract.l10n_be_group_insurance_rate
+            insurance_amount = contract.wage * rate / 100.0
+            contract.l10n_be_group_insurance_amount = insurance_amount
+            # Example
+            # 5 % salary configurator
+            # 4.4 % insurance cost
+            # 8.86 % ONSS
+            # =-----------------------
+            # 13.26 % over the 5%
+            contract.l10n_be_group_insurance_cost = insurance_amount * (1 + 13.26 / 100.0)
+
+    def _is_salary_sacrifice(self):
         self.ensure_one()
-        return self.work_time_rate if self.time_credit else 1.0
+        return super()._is_salary_sacrifice() or self.l10n_be_group_insurance_rate
+
+    def _get_yearly_cost_sacrifice_fixed(self):
+        return super()._get_yearly_cost_sacrifice_fixed() + self._get_salary_costs_factor() * self.wage * self.l10n_be_group_insurance_rate / 100
+
+    def _get_salary_costs_factor(self):
+        self.ensure_one()
+        res = super()._get_salary_costs_factor()
+        if self.structure_type_id == self.env.ref('hr_contract.structure_type_employee_cp200'):
+            res = 13.92 + 13.0 * EMPLOYER_ONSS
+        if self.l10n_be_group_insurance_rate:
+            return res * (1.0 - self.l10n_be_group_insurance_rate / 100)
+        return res
+
+    @api.depends(
+        'l10n_be_has_ambulatory_insurance',
+        'l10n_be_ambulatory_insured_adults',
+        'l10n_be_ambulatory_insured_spouse')
+    def _compute_ambulatory_insured_adults_total(self):
+        for contract in self:
+            contract.l10n_be_ambulatory_insured_adults_total = (
+                int(contract.l10n_be_has_ambulatory_insurance)
+                + contract.l10n_be_ambulatory_insured_adults
+                + int(contract.l10n_be_ambulatory_insured_spouse))
+
+    @api.model
+    def _get_ambulatory_insurance_amount(self, child_amount, child_count, adult_amount, adult_count):
+        return child_amount * child_count + adult_amount * adult_count
+
+    @api.depends(
+        'l10n_be_ambulatory_insured_children', 'l10n_be_ambulatory_insured_adults_total',
+        'l10n_be_ambulatory_amount_per_child', 'l10n_be_ambulatory_amount_per_adult')
+    def _compute_ambulatory_insurance_amount(self):
+        for contract in self:
+            contract.l10n_be_ambulatory_insurance_amount = contract._get_ambulatory_insurance_amount(
+                contract.l10n_be_ambulatory_amount_per_child,
+                contract.l10n_be_ambulatory_insured_children,
+                contract.l10n_be_ambulatory_amount_per_adult,
+                contract.l10n_be_ambulatory_insured_adults_total)
 
     @api.model
     def _get_private_car_reimbursed_amount(self, distance):
@@ -345,60 +408,22 @@ class HrContract(models.Model):
         nearly_expired_contracts.write({'kanban_state': 'blocked'})
 
         for contract in nearly_expired_contracts.filtered(lambda contract: contract.hr_responsible_id):
-            contract.activity_schedule(
+            contract.with_context(mail_activity_quick_update=True).activity_schedule(
                 'mail.mail_activity_data_todo', contract.date_end,
                 user_id=contract.hr_responsible_id.id)
 
         return super(HrContract, self).update_state()
 
+    def _preprocess_work_hours_data_split_half(self, work_data, date_from, date_to):
+        """
+        Method is meant to be overriden, see l10n_be_hr_payroll_attendance
+        """
+        return
+
     def _get_contract_credit_time_values(self, date_start, date_stop):
-        contract_vals = []
-        for contract in self:
-            if not contract.time_credit or not contract.time_credit_type_id:
-                continue
-
-            employee = contract.employee_id
-            resource = employee.resource_id
-            calendar = contract.resource_calendar_id
-            standard_calendar = contract.standard_calendar_id
-
-            # YTI TODO master: The domain is hacky, but we can't modify the method signature
-            # Add an argument compute_leaves=True on the method
-            standard_attendances = standard_calendar._work_intervals_batch(
-                pytz.utc.localize(date_start) if not date_start.tzinfo else date_start,
-                pytz.utc.localize(date_stop) if not date_stop.tzinfo else date_stop,
-                resources=resource,
-                domain=[('resource_id', '=', -1)])[resource.id]
-
-            # YTI TODO master: The domain is hacky, but we can't modify the method signature
-            # Add an argument compute_leaves=True on the method
-            attendances = calendar._work_intervals_batch(
-                pytz.utc.localize(date_start) if not date_start.tzinfo else date_start,
-                pytz.utc.localize(date_stop) if not date_stop.tzinfo else date_stop,
-                resources=resource,
-                domain=[('resource_id', '=', -1)]
-            )[resource.id]
-
-            credit_time_intervals = standard_attendances - attendances
-
-            for interval in credit_time_intervals:
-                work_entry_type_id = contract.time_credit_type_id
-                contract_vals += [{
-                    'name': "%s: %s" % (work_entry_type_id.name, employee.name),
-                    'date_start': interval[0].astimezone(pytz.utc).replace(tzinfo=None),
-                    'date_stop': interval[1].astimezone(pytz.utc).replace(tzinfo=None),
-                    'work_entry_type_id': work_entry_type_id.id,
-                    'is_credit_time': True,
-                    'employee_id': employee.id,
-                    'contract_id': contract.id,
-                    'company_id': contract.company_id.id,
-                    'state': 'draft',
-                }]
-        return contract_vals
-
-    def _get_contract_work_entries_values(self, date_start, date_stop):
-        contract_vals = super()._get_contract_work_entries_values(date_start, date_stop)
-        contract_vals += self._get_contract_credit_time_values(date_start, date_stop)
+        contract_vals = super(HrContract, self)._get_contract_credit_time_values(date_start, date_stop)
+        for contract_val in contract_vals:
+            contract_val['is_credit_time'] = True
         return contract_vals
 
     def _get_work_hours_split_half(self, date_from, date_to, domain=None):
@@ -422,6 +447,8 @@ class HrContract(models.Model):
             ['date_start:day', 'work_entry_type_id'],
             lazy=False
         )
+
+        self._preprocess_work_hours_data_split_half(work_entries, date_from, date_to)
 
         for day_data in work_entries:
             work_entry_type_id = day_data['work_entry_type_id'][0] if day_data['work_entry_type_id'] else False
@@ -571,7 +598,43 @@ class HrContract(models.Model):
             # to 13/10).
             total_sick_days = sum([(l.date_to - l.date_from).days + 1 for l in sick_less_than_30days_before])
             this_leave_current_duration = (date_from - leave.holiday_id.date_from).days + 1
-            if total_sick_days + this_leave_current_duration > 30:
+            # Include off days (eg: weekends) that are not convered by time off
+            # in case the sick time off is split and not covering the whole
+            # interval
+            min_date_from = min(sick_less_than_30days_before.mapped('date_from'))
+            max_date_to = leave.holiday_id.date_to
+            employee_contracts = employee._get_contracts(min_date_from, max_date_to, states=['open', 'close'])
+            work_hours_data_by_calendar = {
+                c.resource_calendar_id: [work_day for work_day, work_hours in employee.with_context(
+                    compute_leaves=False).list_work_time_per_day(min_date_from, max_date_to, c.resource_calendar_id)]
+                for c in employee_contracts}
+            effective_worked_days = {
+                calendar: [
+                    work_day for work_day in work_days \
+                    if all(work_day < l.date_from.date() or work_day > l.date_to.date() for l in sick_less_than_30days_before + leave.holiday_id)
+                ] for calendar, work_days in work_hours_data_by_calendar.items()
+            }
+            uncovered_off_days = 0
+            last_seen_work_day = (min_date_from + relativedelta(days=-1)).date()
+            last_seen_off_day = min_date_from.date()
+            for day in rrule(DAILY, min_date_from, until=max_date_to):
+                day = day.date()
+                if day >= date_from.date():
+                    continue
+                day_contract = employee_contracts.filtered(lambda c: c.date_start <= day and (not c.date_end or c.date_end >= day))
+                if day in effective_worked_days[day_contract.resource_calendar_id]:
+                    last_seen_work_day = day
+                    continue
+                if all(day < l.date_from.date() or day > l.date_to.date() for l in sick_less_than_30days_before + leave.holiday_id):
+                    if day not in work_hours_data_by_calendar[day_contract.resource_calendar_id]:
+                        # Backward check, only count the day if only time off before
+                        # (eg: Avoid counting Sat/Sun if worked the days before)
+                        if last_seen_work_day > last_seen_off_day:
+                            continue
+                        uncovered_off_days += 1
+                else:
+                    last_seen_off_day = day
+            if total_sick_days + this_leave_current_duration + uncovered_off_days > 30:
                 return partial_sick_work_entry_type
         return result
 
@@ -630,6 +693,10 @@ class HrContract(models.Model):
         self.ensure_one()
         if name == 'hospital':
             return self._get_hospital_insurance_amount()
+        if name == 'ambulatory':
+            return self.l10n_be_ambulatory_insurance_amount
+        if name == 'group':
+            return self.l10n_be_group_insurance_amount * (1 + 4.4 / 100.0)
         return 0.0
 
     def _get_hospital_insurance_amount(self):
@@ -642,12 +709,11 @@ class HrContract(models.Model):
             self._trigger_l10n_be_next_activities()
         return res
 
-    @api.model
-    def create(self, vals):
-        contract = super(HrContract, self).create(vals)
-        if contract.state == 'open':
-            contract._trigger_l10n_be_next_activities()
-        return contract
+    @api.model_create_multi
+    def create(self, vals_list):
+        contracts = super().create(vals_list)
+        contracts.filtered(lambda c: c.state == 'open')._trigger_l10n_be_next_activities()
+        return contracts
 
     def _get_fields_that_recompute_we(self):
         return super()._get_fields_that_recompute_we() + [

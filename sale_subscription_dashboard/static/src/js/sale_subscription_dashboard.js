@@ -93,10 +93,16 @@ var sale_subscription_dashboard_abstract = AbstractAction.extend(StandaloneField
         };
     },
 
+    willStart: function() {
+        return Promise.all(
+            [this._super.apply(this, arguments),
+            this.fetch_data()]
+        );
+    },
+
     start: async function () {
-        const [res, data] = await Promise.all([this._super(), this.fetch_data()]);
+        await this._super();
         this.render_dashboard();
-        return res;
     },
 
     on_reverse_breadcrumb: function() {
@@ -232,23 +238,23 @@ var sale_subscription_dashboard_abstract = AbstractAction.extend(StandaloneField
     },
 
     update_cp: function() {
+        this.updateControlPanel({
+            cp_content: this.render_controlpanel_content()
+        });
+    },
+
+    render_controlpanel_content: function() {
         const PeriodChange = this.$searchview &&
         this.dashboard_options.filter !== this.$searchview.find('.o_predefined_range.selected').data('filter');
-        let def;
         if (!this.$searchview || PeriodChange) {
             this.render_filters();
             this.$searchview.filter('.o_update_options').on('click', this.on_update_options);
-            def = this.set_up_datetimepickers({});
+            this.set_up_datetimepickers({});
         }
-        const self = this;
-        Promise.resolve(def).then(function () {
-            self.updateControlPanel({
-                cp_content: {
-                    $searchview: self.$searchview,
-                    $buttons: self.$cpButton
-                },
-            });
-        });
+        return {
+            $searchview: this.$searchview,
+            $buttons: this.$cpButton,
+        };
     },
 
     set_up_datetimepickers: function (datetimeContext) {
@@ -389,8 +395,12 @@ var sale_subscription_dashboard_main = sale_subscription_dashboard_abstract.exte
         this.unresolved_defs_vals = [];
     },
 
+    start: async function () {
+        this.controlPanelProps.cp_content = this.render_controlpanel_content();
+        return this._super();
+    },
+
     fetch_data: async function () {
-        var self = this;
         const data = await this._rpc({
             route: '/sale_subscription_dashboard/fetch_data',
             params: {context: session.user_context},
@@ -443,7 +453,6 @@ var sale_subscription_dashboard_main = sale_subscription_dashboard_abstract.exte
     on_reverse_breadcrumb: function () {
         this._super();
 
-        var self = this;
         if(this.$main_dashboard) {
             this.defs = [];
             // If there is unresolved defs, we need to replace the uncompleted boxes
@@ -572,11 +581,12 @@ var sale_subscription_dashboard_detailed = sale_subscription_dashboard_abstract.
                     stat_type: this.selected_stat,
                     start_date: dateToServer(this.start_date, 'date'),
                     end_date: dateToServer(this.end_date, 'date'),
+                    points_limit: 2,
                     filters: this.filters,
                     context: session.user_context,
                 },
             }, {shadow: true});
-        this.value = data;
+        this.value = data[data.length-1][1];
     },
 
     update_cp: function () {
@@ -1047,14 +1057,14 @@ var SaleSubscriptionDashboardStatBox = Widget.extend({
     },
 
     start: async function() {
-        const data = await this.compute_graph();
+        await this.compute_graph();
         const display_tooltip = '<b>' + this.box_name + '</b><br/>' + _t('Current Value: ') + this.format_number(this.value);
         this.$el.tooltip({title: display_tooltip, trigger: 'hover'});
-        this.$('[data-toggle="popover"]').popover({trigger: 'hover'});
+        this.$('[data-bs-toggle="popover"]').popover({trigger: 'hover'});
         const options = {
             has_mrr: this.has_mrr, format_number: this.format_number,
             value: this.value, demo_values: this.demo_values,
-            stat_type: this.stat_type, currency_id: this.currency_id,
+            stat_type: this.stat_type, currency_id: this.is_monetary && this.currency_id,
             added_symbol: this.added_symbol,
         };
         const $boxName = $(QWeb.render("sale_subscription_dashboard.box_name", options));
@@ -1120,7 +1130,7 @@ var SaleSubscriptionDashboardForecastBox = Widget.extend({
         };
     },
     start: async function() {
-        const data = await this.compute_numbers();
+        await this.compute_numbers();
         const display_tooltip = '<b>' + this.box_name + '</b><br/>' + _t('Current Value: ') + this.format_number(this.value);
         this.$el.tooltip({title: display_tooltip, trigger: 'hover'});
         const options = {
@@ -1172,11 +1182,13 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
 
     init: function() {
         this._super.apply(this, arguments);
-        this.start_date = moment().subtract(1, 'months').startOf('month');
-        this.end_date = moment().subtract(1, 'months').endOf('month');
+        this.start_date = moment().subtract(1,'months').startOf('month'); // last month values by default
+        this.end_date = moment().subtract(1,'months').endOf('month');
         this.barGraph = {};
         this.migrationDate = false;
         this.currentCompany = $.bbq.getState('cids') && parseInt($.bbq.getState('cids').split(',')[0]);
+        this.pdf_values = {'salespersons_statistics': {}, 'salesman_ids': [],'graphs': {}, 'company': this.currentCompany}
+
         // Chart.js requires the canvas to be in the DOM when the chart is rendered (s.t. it is able
         // to compute positions and stuff), so we use the following promise to ensure that we don't
         // try to render a chart before being in the DOM.
@@ -1203,6 +1215,12 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
         );
     },
 
+    start: async function () {
+        this.controlPanelProps.cp_content = this.render_controlpanel_content();
+        const res = await this._super(...arguments);
+        return res;
+    },
+
     fetch_salesmen: function() {
         var self = this;
         return self._rpc({
@@ -1210,6 +1228,7 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
                 params: {context: session.user_context,},
             }).then(function(result) {
                 self.salesman_ids = result.salesman_ids;
+                self.pdf_values.salesman_ids = result.salesman_ids;
                 self.salesman = result.default_salesman || [];
                 self.currency_id = result.currency_id;
                 self.migrationDate = moment(result.migration_date, 'YYYY-MM-DD');
@@ -1235,7 +1254,7 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
         var self = this;
         addLoader(this.$('#mrr_growth_salesman'));
 
-        self._rpc({
+        this._rpc({
             route: '/sale_subscription_dashboard/get_values_salesmen',
             params: {
                 start_date: dateToServer(this.start_date, 'date'),
@@ -1246,6 +1265,7 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
         }, {shadow: true}).then(async function (result) {
             await self._mountedProm;
             var salespersons_statistics = result.salespersons_statistics;
+            self.pdf_values['salespersons_statistics'] = result.salespersons_statistics;
             Object.keys(salespersons_statistics).forEach(element => {
                 var cur_salesman = self.salesman_ids.find(val => val.id === Number(element));
                 self.$('.o_salesman_loop').append(QWeb.render("sale_subscription_dashboard.salesman", {
@@ -1387,19 +1407,17 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
     },
 
     on_update_options: function () {
-        var selected_salesman_id = Number(this.$searchview.find('option[name="salesman"]:selected').val());
-        this.salesman = _.findWhere(this.salesman_ids, {id: selected_salesman_id});
         this.render_dashboard();
     },
 
-    update_cp: function() {
-        var self = this;
-        self.$searchview = $(QWeb.render("sale_subscription_dashboard.salesman_searchview"));
-        self.set_up_datetimepickers({salesman: true});
-        self.$cpButton = $(QWeb.render("sale_subscription_dashboard.export"));
-        self.$cpButton.on('click', function () {
+    render_controlpanel_content() {
+        this.$searchview = $(QWeb.render("sale_subscription_dashboard.salesman_searchview"));
+        this.set_up_datetimepickers({salesman: true});
+        this.$cpButton = $(QWeb.render("sale_subscription_dashboard.export"));
+        const self = this;
+        this.$cpButton.on('click', function () {
             ajax.rpc('/web/dataset/call_kw/sale.subscription/print_pdf', {
-            model: 'sale.subscription',
+            model: 'sale.order',
             method: 'print_pdf',
             args: [],
             kwargs: {},
@@ -1407,40 +1425,26 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
             .then(function (result) {
                 for (var key in self.barGraph) {
                     var base64Image = self.barGraph[key].toBase64Image();
-                    base64Image = '<img src="data:image/png;base64' + base64Image + '" alt="graphic" />';
-                    $(".o_salesmen_dashboard").find(".canvas_" + key).replaceWith(base64Image).html();
+                    self.pdf_values.graphs[key] = base64Image;
                 }
-                // Save banner text and table propertie before PDF rendering
-                var bannerContent = $(".o_subscription_dashboard_warning").text();
-                // We do not want the warning in the report.
-                $(".o_subscription_dashboard_warning").text('');
-                result.data.body_html = $(".o_salesmen_dashboard").html();
-                // get back the warning message if it exists
-                $(".o_subscription_dashboard_warning").text(bannerContent);
+                result.data.rendering_values = JSON.stringify(self.pdf_values);
                 var doActionProm = self.do_action(result);
                 return doActionProm;
             });
         });
-
-        self.$searchview.on('click', '.o_update_options', this.on_update_options);
-        this.updateControlPanel({
-           cp_content: {
-               $searchview: this.$searchview,
-               $buttons: this.$cpButton,
-           },
-        });
+        this.$searchview.on('click', '.o_update_options', this.on_update_options);
         // We need the many2many widget to limit the available users to the ones returned by the `fetch_salesmen` RPC call.
-        var domainList = [];
+        let domainList = [];
         // The available users in the dropdown are synched with the available salesman_ids.
         // Note: self.salesman may already contains the current user (default salesman) when the dashboard is launched.
-        if (self.many2manytags) {
-            var values = [];
+        if (this.many2manytags) {
+            let values = [];
             for (let index = 0; index < self.many2manytags.value.res_ids.length; index++) {
                 values.push(self.salesman_ids.find(val => val.id === self.many2manytags.value.res_ids[index]));
             }
-           self.salesman = values;
+           this.salesman = values;
         }
-        self.salesman_ids.forEach(saleman => {
+        this.salesman_ids.forEach(saleman => {
             domainList.push(saleman.id);
         });
         // Make a dummy record to attach the salesman selector widget
@@ -1463,6 +1467,10 @@ var sale_subscription_dashboard_salesman = sale_subscription_dashboard_abstract.
             self._registerWidget(recordID, 'model', self.many2manytags);
             self.many2manytags.appendTo(self.$searchview.find('.salesman_tags'));
         });
+        return {
+            $searchview: this.$searchview,
+            $buttons: this.$cpButton,
+        };
     },
 });
 

@@ -1,9 +1,13 @@
-odoo.define('web_studio.MockServer', function (require) {
-'use strict';
+/** @odoo-module */
 
-var MockServer = require('web.MockServer');
+import MockServer from 'web.MockServer';
 
 MockServer.include({
+    init() {
+        this._super(...arguments);
+        MockServer.currentMockServer = this;
+    },
+
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
@@ -22,6 +26,26 @@ MockServer.include({
         }
         return this._super.apply(this, arguments);
     },
-});
 
+    /**
+     * Mocks method "_return_view" that generates the return value of a call
+     * to edit_view. It's basically an object similar to the result of a call
+     * to get_views. It is used in mockRPC functions that mock edit_view calls.
+     *
+     * @param {string} arch
+     * @param {string} model
+     * @private
+     * @returns {Object}
+     */
+    _mockReturnView(arch, model) {
+        const view = this.getView({ arch, model });
+        const models = {};
+        for (const modelName of view.models) {
+            models[modelName] = this.fieldsGet(modelName);
+        }
+        return Promise.resolve({
+            models,
+            views: { [view.type]: view },
+        });
+    },
 });

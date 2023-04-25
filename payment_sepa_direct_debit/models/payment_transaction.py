@@ -3,7 +3,7 @@
 import logging
 
 from odoo import _, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 from odoo.addons.payment import utils as payment_utils
 
@@ -25,7 +25,7 @@ class PaymentTransaction(models.Model):
         :raise: UserError if the transaction is not linked to a valid mandate
         """
         super()._send_payment_request()
-        if self.provider != 'sepa_direct_debit':
+        if self.provider_code != 'sepa_direct_debit':
             return
 
         if not self.token_id:
@@ -39,24 +39,47 @@ class PaymentTransaction(models.Model):
                 or (mandate.end_date and mandate.end_date > fields.Datetime.now()):
             raise UserError("SEPA: " + _("The mandate is invalid."))
 
-        # Since there is no provider to send a payment request to, the processing of the
-        # `_handle_feedback_data` method is reproduced here.
-        if self.operation == 'validation':
-            self._set_done()
-            self._execute_callback()
-        else:
-            self._set_pending()  # Remain in pending until the account.payment is reconciled
-            self._execute_callback()
-            self._sdd_notify_debit(self.token_id)
+        # There is no provider to send a payment request to, but we handle empty notification data
+        # to let the payment engine call the generic processing methods.
+        self._handle_notification_data('sepa_direct_debit', {'reference': self.reference})
 
-            # As the transaction is set in pending, the processing of the
-            # `_finalize_post_processing` method is reproduced here as well.
-            payment_method_line = mandate.payment_journal_id.inbound_payment_method_line_ids\
-                .filtered(lambda l: l.code == 'sdd')
-            self._create_payment(
-                payment_method_line_id=payment_method_line.id,
-                sdd_mandate_id=mandate.id,
+    def _get_tx_from_notification_data(self, provider_code, notification_data):
+        """ Override of `payment` to find the transaction based on dummy data.
+
+        :param str provider_code: The provider_code of the provider that handled the transaction.
+        :param dict notification_data: The dummy notification data.
+        :return: The transaction if found.
+        :rtype: recordset of `payment.transaction`
+        :raise ValidationError: If the data match no transaction.
+        """
+        tx = super()._get_tx_from_notification_data(provider_code, notification_data)
+        if provider_code != 'sepa_direct_debit' or len(tx) == 1:
+            return tx
+
+        reference = notification_data.get('reference')
+        tx = self.search([('reference', '=', reference), ('provider_code', '=', 'sepa_direct_debit')])
+        if not tx:
+            raise ValidationError(
+                "SEPA: " + _("No transaction found matching reference %s.", reference)
             )
+        return tx
+
+    def _process_notification_data(self, notification_data):
+        """ Override of `payment` to process the transaction based on dummy data.
+
+        Note: self.ensure_one()
+
+        :param dict notification_data: The dummy notification data.
+        :return: None
+        :raise ValidationError: If inconsistent data were received.
+        """
+        super()._process_notification_data(notification_data)
+        if self.provider_code != 'sepa_direct_debit':
+            return
+
+        self._set_done()  # SEPA transactions are confirmed as soon as the mandate is valid.
+        if self.operation in ('online_token', 'offline'):
+            self._sdd_notify_debit(self.token_id)
 
     def _sdd_notify_debit(self, token):
         """ Notify the customer that a debit has been made from his account.
@@ -75,15 +98,32 @@ class PaymentTransaction(models.Model):
                                 as a `payment.token` record
         :return: None
         """
-        iban = token.sdd_mandate_id.partner_bank_id.acc_number.replace(' ', '')
-        obfuscated_iban = payment_utils.build_token_name(
-            payment_details_short=iban[-4:], final_length=len(iban)
-        )
         ctx = self.env.context.copy()
         ctx.update({
-            'iban': obfuscated_iban,
+            'iban_last_4': token.payment_details[:4],
             'mandate_ref': token.sdd_mandate_id.name,
             'creditor_identifier': self.env.company.sdd_creditor_identifier,
         })
         template = self.env.ref('payment_sepa_direct_debit.mail_template_sepa_notify_debit')
         template.with_context(ctx).send_mail(self.id)
+
+    def _create_payment(self, **extra_create_values):
+        """ Override of `payment` to pass the correct payment method line id and the SDD mandate id
+        to the extra create values.
+
+        Note: self.ensure_one()
+
+        :param dict extra_create_values: The optional extra create values.
+        :return: The created payment.
+        :rtype: recordset of `account.payment`
+        """
+        if self.provider_code != 'sepa_direct_debit':
+            return super()._create_payment(**extra_create_values)
+
+        mandate = self.token_id.sdd_mandate_id
+        payment_method_line = mandate.payment_journal_id.inbound_payment_method_line_ids.filtered(
+            lambda l: l.code == 'sepa_direct_debit'
+        )
+        return super()._create_payment(
+            payment_method_line_id=payment_method_line.id, sdd_mandate_id=mandate.id
+        )

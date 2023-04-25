@@ -3,20 +3,20 @@
 # 	* helpdesk_fsm
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Ivan Yelizariev // IEL (ellui) <yelizariev@itpp.dev>, 2021
-# ILMIR <karamov@it-projects.info>, 2021
-# Irina Fedulova <istartlin@gmail.com>, 2021
+# Irina Fedulova <istartlin@gmail.com>, 2022
+# Ivan Kropotkin <yelizariev@itpp.dev>, 2022
+# ILMIR <karamov@it-projects.info>, 2022
 # Сергей Шебанин <sergey@shebanin.ru>, 2022
+# Martin Trigaux, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:39+0000\n"
-"Last-Translator: Сергей Шебанин <sergey@shebanin.ru>, 2022\n"
-"Language-Team: Russian (https://www.transifex.com/odoo/teams/41243/ru/)\n"
+"POT-Creation-Date: 2023-04-14 06:17+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Martin Trigaux, 2022\n"
+"Language-Team: Russian (https://app.transifex.com/odoo/teams/41243/ru/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -24,20 +24,14 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
 
 #. module: helpdesk_fsm
-#: model:project.task,legend_blocked:helpdesk_fsm.helpdesk_fsm_task_1
-#: model:project.task,legend_blocked:helpdesk_fsm.helpdesk_fsm_task_2
-msgid "Blocked"
-msgstr "Заблокировано"
-
-#. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__company_id
 msgid "Company"
 msgstr "Компания"
 
 #. module: helpdesk_fsm
-#: model:ir.model.fields,help:helpdesk_fsm.field_helpdesk_ticket__use_fsm
-msgid "Convert tickets into Field Service tasks"
-msgstr "Преобразование заявок в задачи Выездных сотрудников"
+#: model:ir.model,name:helpdesk_fsm.model_helpdesk_ticket_convert_wizard
+msgid "Convert Helpdesk Tickets to Tasks"
+msgstr ""
 
 #. module: helpdesk_fsm
 #: model_terms:ir.ui.view,arch_db:helpdesk_fsm.create_fsm_task_view_form
@@ -46,10 +40,12 @@ msgstr ""
 
 #. module: helpdesk_fsm
 #: model_terms:ir.ui.view,arch_db:helpdesk_fsm.create_fsm_task_view_form
+#: model_terms:ir.ui.view,arch_db:helpdesk_fsm.helpdesk_ticket_view_form
 msgid "Create Task"
 msgstr "создать задачу"
 
 #. module: helpdesk_fsm
+#. odoo-python
 #: code:addons/helpdesk_fsm/models/helpdesk.py:0
 #: model:ir.model,name:helpdesk_fsm.model_helpdesk_create_fsm_task
 #, python-format
@@ -59,17 +55,17 @@ msgstr "Создать задачу Field Service"
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__create_uid
 msgid "Created by"
-msgstr "Создан"
+msgstr "Создал"
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__create_date
 msgid "Created on"
-msgstr "Создан"
+msgstr "Дата создания"
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__partner_id
 msgid "Customer"
-msgstr "Заказчик"
+msgstr "Клиент"
 
 #. module: helpdesk_fsm
 #: model_terms:ir.ui.view,arch_db:helpdesk_fsm.create_fsm_task_view_form
@@ -80,6 +76,11 @@ msgstr "Отменить"
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__display_name
 msgid "Display Name"
 msgstr "Отображаемое имя"
+
+#. module: helpdesk_fsm
+#: model:ir.model.fields,field_description:helpdesk_fsm.field_project_task__display_helpdesk_ticket_button
+msgid "Display Ticket"
+msgstr ""
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_team__fsm_project_id
@@ -104,18 +105,12 @@ msgstr "Команда службы поддержки"
 #. module: helpdesk_fsm
 #: model:ir.model,name:helpdesk_fsm.model_helpdesk_ticket
 msgid "Helpdesk Ticket"
-msgstr "Заявка техподдержки"
+msgstr "Заявка службы поддержки"
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__id
 msgid "ID"
 msgstr "Идентификатор"
-
-#. module: helpdesk_fsm
-#: model:project.task,legend_normal:helpdesk_fsm.helpdesk_fsm_task_1
-#: model:project.task,legend_normal:helpdesk_fsm.helpdesk_fsm_task_2
-msgid "In Progress"
-msgstr "В работе"
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task____last_update
@@ -133,15 +128,15 @@ msgid "Last Updated on"
 msgstr "Последнее обновление"
 
 #. module: helpdesk_fsm
-#: model_terms:ir.ui.view,arch_db:helpdesk_fsm.helpdesk_ticket_view_form
-msgid "Plan Intervention"
+#: model:ir.model.fields,field_description:helpdesk_fsm.field_project_task__helpdesk_ticket_id
+msgid "Original Ticket"
 msgstr ""
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__project_id
 #: model_terms:ir.ui.view,arch_db:helpdesk_fsm.helpdesk_team_view_form
 msgid "Project"
-msgstr "Управление проектами"
+msgstr "Проект"
 
 #. module: helpdesk_fsm
 #: model:ir.model.fields,help:helpdesk_fsm.field_helpdesk_create_fsm_task__project_id
@@ -149,18 +144,15 @@ msgid "Project in which to create the task"
 msgstr ""
 
 #. module: helpdesk_fsm
-#: model:project.task,legend_done:helpdesk_fsm.helpdesk_fsm_task_1
-#: model:project.task,legend_done:helpdesk_fsm.helpdesk_fsm_task_2
-msgid "Ready"
-msgstr "Готово"
-
-#. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__helpdesk_ticket_id
 msgid "Related ticket"
 msgstr ""
 
 #. module: helpdesk_fsm
+#. odoo-python
+#: code:addons/helpdesk_fsm/controllers/portal.py:0
 #: model:ir.model,name:helpdesk_fsm.model_project_task
+#, python-format
 msgid "Task"
 msgstr "Задача"
 
@@ -173,13 +165,24 @@ msgid "Task Done"
 msgstr ""
 
 #. module: helpdesk_fsm
+#. odoo-python
+#: code:addons/helpdesk_fsm/wizard/create_task.py:0
+#, python-format
+msgid "Task created"
+msgstr ""
+
+#. module: helpdesk_fsm
+#. odoo-python
+#: code:addons/helpdesk_fsm/controllers/portal.py:0
+#: code:addons/helpdesk_fsm/models/helpdesk.py:0
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_ticket__fsm_task_ids
 #: model_terms:ir.ui.view,arch_db:helpdesk_fsm.helpdesk_ticket_view_form
+#, python-format
 msgid "Tasks"
 msgstr "Задачи"
 
 #. module: helpdesk_fsm
-#: code:addons/helpdesk_fsm/models/helpdesk.py:0
+#. odoo-python
 #: code:addons/helpdesk_fsm/wizard/create_task.py:0
 #, python-format
 msgid "Tasks from Tickets"
@@ -191,8 +194,10 @@ msgid "Tasks generated from this ticket"
 msgstr ""
 
 #. module: helpdesk_fsm
-#: model:ir.model.fields,field_description:helpdesk_fsm.field_project_task__helpdesk_ticket_id
+#. odoo-python
+#: code:addons/helpdesk_fsm/controllers/portal.py:0
 #: model_terms:ir.ui.view,arch_db:helpdesk_fsm.project_sharing_inherit_project_task_view_form
+#, python-format
 msgid "Ticket"
 msgstr "Запрос"
 
@@ -202,21 +207,11 @@ msgid "Ticket from this task"
 msgstr ""
 
 #. module: helpdesk_fsm
-#: model:ir.model.fields,help:helpdesk_fsm.field_project_task__helpdesk_ticket_id
-msgid "Ticket this task was generated from"
-msgstr ""
-
-#. module: helpdesk_fsm
 #: model:ir.model.fields,help:helpdesk_fsm.field_helpdesk_create_fsm_task__partner_id
 msgid "Ticket's customer, will be linked to the task"
 msgstr ""
 
 #. module: helpdesk_fsm
-#: model_terms:ir.ui.view,arch_db:helpdesk_fsm.project_sharing_inherit_project_task_view_form
-msgid "Tickets"
-msgstr "Обращения"
-
-#. module: helpdesk_fsm
 #: model:ir.model.fields,field_description:helpdesk_fsm.field_helpdesk_create_fsm_task__name
 msgid "Title"
-msgstr "Обращение"
+msgstr "Заголовок"

@@ -9,25 +9,26 @@ from odoo.tests import common
 
 
 class TestStockReport(common.TransactionCase):
-    def setUp(self):
-        super(TestStockReport, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
         # using active_test=False to also get archived product.product/stock.valuation.layer
-        Product = self.env['product.product'].with_context(active_test=False)
-        Move = self.env['stock.move'].with_context(active_test=False)
+        Product = cls.env['product.product'].with_context(active_test=False)
+        Move = cls.env['stock.move'].with_context(active_test=False)
 
         products = Product.search([('product_tmpl_id.type', '=', 'product')])
-        moves = Move.search([('company_id', '=', self.env.company.id)])
+        moves = Move.search([('company_id', '=', cls.env.company.id)])
         for move in moves:
             if move._is_in():
                 move._create_in_svl()
             elif move._is_out():
                 move._create_out_svl()
 
-        self.inventory_valuation = sum(product.value_svl for product in products)
-        self.total_move_valuation = sum(moves.mapped('stock_valuation_layer_ids.value'))
+        cls.inventory_valuation = sum(product.value_svl for product in products)
+        cls.total_move_valuation = sum(moves.mapped('stock_valuation_layer_ids.value'))
         incoming_moves = Move.search([('picking_id.picking_type_id.code', '=', 'incoming')])
-        self.incoming_move_valuation = sum(incoming_moves.mapped('stock_valuation_layer_ids.value'))
+        cls.incoming_move_valuation = sum(incoming_moves.mapped('stock_valuation_layer_ids.value'))
 
     def test_valuation(self):
         # without domain

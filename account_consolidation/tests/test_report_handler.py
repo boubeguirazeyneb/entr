@@ -178,8 +178,8 @@ class TestShowZeroHandler(AccountConsolidationTestCase):
     @patch('odoo.addons.account_consolidation.report.handler.show_zero.ShowZeroHandler._line_is_not_zero')
     def test_account_line_should_be_added(self, patched_line_not_zero):
         will_be_ignored = {}
-        options_enabled = {'show_zero_balance_accounts': True}
-        options_disabled = {'show_zero_balance_accounts': False}
+        options_enabled = {'consolidation_show_zero_balance_accounts': True}
+        options_disabled = {'consolidation_show_zero_balance_accounts': False}
         self.assertTrue(ShowZeroHandler.account_line_should_be_added(will_be_ignored, options_enabled))
         patched_line_not_zero.assert_not_called()
 
@@ -197,8 +197,8 @@ class TestShowZeroHandler(AccountConsolidationTestCase):
     @patch('odoo.addons.account_consolidation.report.handler.show_zero.ShowZeroHandler._section_line_has_children')
     def test_section_line_should_be_added(self, patched_children, patched_zero):
         will_be_ignored = []
-        options_enabled = {'show_zero_balance_accounts': True}
-        options_disabled = {'show_zero_balance_accounts': False}
+        options_enabled = {'consolidation_show_zero_balance_accounts': True}
+        options_disabled = {'consolidation_show_zero_balance_accounts': False}
         self.assertTrue(ShowZeroHandler.section_line_should_be_added(will_be_ignored, None))
         patched_children.assert_not_called()
         patched_zero.assert_not_called()
@@ -222,11 +222,11 @@ class TestShowZeroHandler(AccountConsolidationTestCase):
     def test__line_is_not_zero(self):
         test_lines = [
             ({'columns': []}, False),
-            ({'columns': [{'no_format_name': 0.0}]}, False),
-            ({'columns': [{'no_format_name': 42.42}]}, True),
-            ({'columns': [{'no_format_name': 42.42}, {'no_format_name': 0}]}, True),
-            ({'columns': [{'no_format_name': 0}, {'no_format_name': 42.42}]}, True),
-            ({'columns': [{'no_format_name': -42.424242}, {'no_format_name': 42.424242}]}, False),
+            ({'columns': [{'no_format': 0.0}]}, False),
+            ({'columns': [{'no_format': 42.42}]}, True),
+            ({'columns': [{'no_format': 42.42}, {'no_format': 0}]}, True),
+            ({'columns': [{'no_format': 0}, {'no_format': 42.42}]}, True),
+            ({'columns': [{'no_format': -42.424242}, {'no_format': 42.424242}]}, False),
         ]
         for line in test_lines:
             self.assertEqual(ShowZeroHandler._line_is_not_zero(line[0]), line[1],

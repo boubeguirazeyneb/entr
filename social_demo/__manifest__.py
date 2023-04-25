@@ -10,7 +10,7 @@
     This module creates a social 'sandbox' where you can play around with the social app without publishing anything on actual social media.""",
     'depends': ['social', 'social_facebook', 'social_twitter', 'social_linkedin', 'social_youtube', 'social_instagram', 'product'],
     'data': [
-        'views/social_post_views.xml'
+        'security/ir.model.access.csv',
     ],
     'demo': [
         'data/social_demo.xml',
@@ -22,7 +22,9 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'social_demo/static/**/*',
+            'social_demo/static/src/js/social_youtube_upload_field.js',
+            'social_demo/static/src/js/stream_post_comment.js',
+            'social_demo/static/src/js/stream_post_comments_reply.js',
         ],
     },
     'license': 'OEEL-1',

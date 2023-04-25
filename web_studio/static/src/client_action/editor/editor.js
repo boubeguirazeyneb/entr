@@ -9,7 +9,7 @@ import { EditorMenu } from "./editor_menu/editor_menu";
 
 import { mapDoActionOptionAPI } from "@web/legacy/backend_utils";
 
-const { Component, core, hooks } = owl;
+import { Component, EventBus, markup, onWillStart, useSubEnv } from "@odoo/owl";
 
 const editorTabRegistry = registry.category("web_studio.editor_tabs");
 
@@ -34,19 +34,22 @@ const actionServiceStudio = {
 
 export class Editor extends Component {
     setup() {
-        this.studio = useService("studio");
+        const services = Object.create(this.env.services);
 
-        hooks.useSubEnv({
-            bus: new core.EventBus(),
+        useSubEnv({
+            bus: new EventBus(),
+            services,
         });
-        this.env.services = Object.assign({}, this.env.services);
-        this.env.services.router = {
+        // Assuming synchronousness
+        services.router = {
             current: { hash: {} },
             pushState() {},
         };
-        // Assuming synchronousness
-        this.env.services.action = actionServiceStudio.start(this.env);
+        services.action = actionServiceStudio.start(this.env);
+
+        this.studio = useService("studio");
         this.actionService = useService("action");
+        this.rpc = useService("rpc");
 
         useBus(this.studio.bus, "UPDATE", async () => {
             const action = await this.getStudioAction();
@@ -54,22 +57,23 @@ export class Editor extends Component {
                 clearBreadcrumbs: true,
             });
         });
+
+        onWillStart(this.onWillStart);
     }
 
-    async willStart() {
+    async onWillStart() {
         this.initialAction = await this.getStudioAction();
     }
 
-    switchView(ev) {
-        const { viewType } = ev.detail;
+    switchView({ viewType }) {
         this.studio.setParams({ viewType, editorTab: "views" });
     }
     switchViewLegacy(ev) {
         this.studio.setParams({ viewType: ev.detail.view_type });
     }
 
-    onSwitchTab(ev) {
-        this.studio.setParams({ editorTab: ev.detail.tab });
+    switchTab({ tab }) {
+        this.studio.setParams({ editorTab: tab });
     }
 
     async getStudioAction() {
@@ -80,11 +84,13 @@ export class Editor extends Component {
         } else if (editorTab === "reports" && editedReport) {
             return "web_studio.report_editor";
         } else {
-            return this.rpc("/web_studio/get_studio_action", {
+            const action = await this.rpc("/web_studio/get_studio_action", {
                 action_name: editorTab,
                 model: editedAction.res_model,
                 view_id: editedAction.view_id && editedAction.view_id[0], // Not sure it is correct or desirable
             });
+            action.help = action.help && markup(action.help);
+            return action;
         }
     }
 

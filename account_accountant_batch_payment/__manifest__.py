@@ -7,19 +7,20 @@
     'category': 'Accounting',
     'summary': 'Allows using Reconciliation with the Batch Payment feature.',
     'depends': ['account_accountant', 'account_batch_payment'],
+    'data': [
+        'security/ir.model.access.csv',
+
+        'views/bank_rec_widget_views.xml',
+        'views/account_batch_payment_rejection_views.xml',
+    ],
     'auto_install': True,
     'license': 'OEEL-1',
     'assets': {
         'web.assets_backend': [
-            'account_accountant_batch_payment/static/src/css/account_reconciliation.css',
-            'account_accountant_batch_payment/static/src/js/account_batch_payment_reconciliation.js',
+            'account_accountant_batch_payment/static/src/components/**/*',
         ],
-        'web.qunit_suite_tests': [
-            ('after', 'web/static/tests/legacy/views/kanban_tests.js', 'account_accountant_batch_payment/static/src/css/account_reconciliation.css'),
-            ('after', 'web/static/tests/legacy/views/kanban_tests.js', 'account_accountant_batch_payment/static/test/reconciliation_tests.js'),
-        ],
-        'web.assets_qweb': [
-            'account_accountant_batch_payment/static/src/xml/**/*',
+        'web.assets_tests': [
+            'account_accountant_batch_payment/static/tests/tours/*.js',
         ],
     }
 }

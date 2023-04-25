@@ -14,6 +14,8 @@ from odoo.http import request, content_disposition
 from odoo.tools.translate import _
 from odoo.tools import image_process
 
+from werkzeug.exceptions import Forbidden
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,60 +23,21 @@ class ShareRoute(http.Controller):
 
     # util methods #################################################################################
 
-    def binary_content(self, id, env=None, field='datas', share_id=None, share_token=None,
-                       download=False, unique=False, filename_field='name'):
-        env = env or request.env
-        record = env['documents.document'].browse(int(id))
-        filehash = None
+    def _get_file_response(self, res_id, share_id=None, share_token=None, field='raw'):
+        """ returns the http response to download one file. """
+        record = request.env['documents.document'].browse(int(res_id))
 
         if share_id:
-            share = env['documents.share'].sudo().browse(int(share_id))
-            record = share._get_documents_and_check_access(share_token, [int(id)], operation='read')
+            share = request.env['documents.share'].sudo().browse(int(share_id))
+            record = share._get_documents_and_check_access(share_token, [int(res_id)], operation='read')
         if not record or not record.exists():
-            return (404, [], None)
+            raise request.not_found()
 
-        #check access right
-        try:
-            last_update = record['__last_update']
-        except AccessError:
-            return (404, [], None)
-
-        mimetype = False
-        if record.type == 'url' and record.url:
-            module_resource_path = record.url
-            filename = os.path.basename(module_resource_path)
-            status = 301
-            content = module_resource_path
-        else:
-            status, content, filename, mimetype, filehash = env['ir.http']._binary_record_content(
-                record, field=field, filename=None, filename_field=filename_field,
-                default_mimetype='application/octet-stream')
-        status, headers, content = env['ir.http']._binary_set_headers(
-            status, content, filename, mimetype, unique, filehash=filehash, download=download)
-
-        return status, headers, content
-
-    def _get_file_response(self, id, field='datas', share_id=None, share_token=None):
-        """
-        returns the http response to download one file.
-
-        """
-
-        status, headers, content = self.binary_content(
-            id, field=field, share_id=share_id, share_token=share_token, download=True)
-
-        if status != 200:
-            return request.env['ir.http']._response_by_status(status, headers, content)
-        else:
-            content_base64 = base64.b64decode(content)
-            headers.append(('Content-Length', len(content_base64)))
-            response = request.make_response(content_base64, headers)
-
-        return response
+        return request.env['ir.binary']._get_stream_from(record, field).get_response()
 
     def _get_downloadable_documents(self, documents):
-        """ to override to filter out documents that cannot be downloaded """
-        return documents
+        """ file requests are not downloadable """
+        return documents.filtered(lambda d: d.type != "empty")
 
     def _make_zip(self, name, documents):
         """returns zip files for the Document Inspector and the portal.
@@ -83,21 +46,25 @@ class ShareRoute(http.Controller):
         :param documents: files (documents.document) to be zipped.
         :return: a http response to download a zip file.
         """
+        # TODO: zip on-the-fly while streaming instead of loading the
+        #       entire zip in memory and sending it all at once.
+
         stream = io.BytesIO()
         try:
             with zipfile.ZipFile(stream, 'w') as doc_zip:
                 for document in self._get_downloadable_documents(documents):
                     if document.type != 'binary':
                         continue
-                    status, content, filename, mimetype, filehash = request.env['ir.http']._binary_record_content(
-                        document, field='datas', filename=None, filename_field='name',
-                        default_mimetype='application/octet-stream')
-                    doc_zip.writestr(filename, base64.b64decode(content),
-                                     compress_type=zipfile.ZIP_DEFLATED)
+                    binary_stream = request.env['ir.binary']._get_stream_from(document, 'raw')
+                    doc_zip.writestr(
+                        binary_stream.download_name,
+                        binary_stream.read(),  # Cf Todo: this is bad
+                        compress_type=zipfile.ZIP_DEFLATED
+                    )
         except zipfile.BadZipfile:
             logger.exception("BadZipfile exception")
 
-        content = stream.getvalue()
+        content = stream.getvalue()  # Cf Todo: this is bad
         headers = [
             ('Content-Type', 'zip'),
             ('X-Content-Type-Options', 'nosniff'),
@@ -109,7 +76,7 @@ class ShareRoute(http.Controller):
     # Download & upload routes #####################################################################
 
     @http.route('/documents/upload_attachment', type='http', methods=['POST'], auth="user")
-    def upload_document(self, folder_id, ufile, tag_ids, document_id=False, partner_id=False, owner_id=False):
+    def upload_document(self, folder_id, ufile, tag_ids, document_id=False, partner_id=False, owner_id=False, res_id=False, res_model=False):
         files = request.httprequest.files.getlist('ufile')
         result = {'success': _("All files uploaded")}
         tag_ids = tag_ids.split(',') if tag_ids else []
@@ -143,6 +110,9 @@ class ShareRoute(http.Controller):
                     }
                     if owner_id:
                         vals['owner_id'] = int(owner_id)
+                    if res_id and res_model:
+                        vals['res_id'] = res_id
+                        vals['res_model'] = res_model
                     vals_list.append(vals)
                 except Exception as e:
                     logger.exception("Fail to upload document %s" % ufile.filename)
@@ -216,29 +186,38 @@ class ShareRoute(http.Controller):
     def documents_content(self, id):
         return self._get_file_response(id)
 
-    @http.route(['/documents/image/<int:id>',
-                 '/documents/image/<int:id>/<int:width>x<int:height>',
-                 ], type='http', auth="public")
-    def content_image(self, id=None, field='datas', share_id=None, width=0, height=0, crop=False, share_token=None,
-                      unique=False, **kwargs):
-        status, headers, image_base64 = self.binary_content(
-            id=id, field=field, share_id=share_id, share_token=share_token, unique=unique)
-        if status != 200:
-            return request.env['ir.http']._response_by_status(status, headers, image_base64)
-
+    @http.route(['/documents/pdf_content/<int:document_id>'], type='http', auth='user')
+    def documents_pdf_content(self, document_id):
+        """
+        This route is used to fetch the content of a pdf document to make it's thumbnail.
+        404 not found is returned if the user does not hadocument_idve the rights to write on the document.
+        """
+        record = request.env['documents.document'].browse(int(document_id))
         try:
-            image_base64 = image_process(image_base64, size=(int(width), int(height)), crop=crop)
-        except Exception:
-            return request.not_found()
+            # We have to check that we can actually read the attachment as well.
+            # Since we could have a document with an attachment linked to another record to which
+            # we don't have access to.
+            if record.attachment_id:
+                record.attachment_id.check('read')
+            record.check_access_rule('write')
+        except AccessError:
+            raise Forbidden()
+        return self._get_file_response(document_id)
 
-        if not image_base64:
-            return request.not_found()
+    @http.route(['/documents/image/<int:res_id>',
+                 '/documents/image/<int:res_id>/<int:width>x<int:height>',
+                 ], type='http', auth="public")
+    def content_image(self, res_id=None, field='datas', share_id=None, width=0, height=0, crop=False, share_token=None, **kwargs):
+        record = request.env['documents.document'].browse(int(res_id))
+        if share_id:
+            share = request.env['documents.share'].sudo().browse(int(share_id))
+            record = share._get_documents_and_check_access(share_token, [int(res_id)], operation='read')
+        if not record or not record.exists():
+            raise request.not_found()
 
-        content = base64.b64decode(image_base64)
-        headers = http.set_safe_image_headers(headers, content)
-        response = request.make_response(content, headers)
-        response.status_code = status
-        return response
+        return request.env['ir.binary']._get_image_stream_from(
+            record, field, width=int(width), height=int(height), crop=crop
+        ).get_response()
 
     @http.route(['/document/zip'], type='http', auth='user')
     def get_zip(self, file_ids, zip_name, **kw):
@@ -270,8 +249,11 @@ class ShareRoute(http.Controller):
             logger.exception("Failed to zip share link id: %s" % share_id)
         return request.not_found()
 
-    @http.route(["/document/avatar/<int:share_id>/<access_token>"], type='http', auth='public')
-    def get_avatar(self, access_token=None, share_id=None):
+    @http.route([
+        "/document/avatar/<int:share_id>/<access_token>",
+        "/document/avatar/<int:share_id>/<access_token>/<document_id>",
+    ], type='http', auth='public')
+    def get_avatar(self, access_token=None, share_id=None, document_id=None):
         """
         :param share_id: id of the share.
         :param access_token: share access token
@@ -281,12 +263,13 @@ class ShareRoute(http.Controller):
             env = request.env
             share = env['documents.share'].sudo().browse(share_id)
             if share._get_documents_and_check_access(access_token, document_ids=[], operation='read') is not False:
-                image = env['res.users'].sudo().browse(share.create_uid.id).avatar_128
-
-                if not image:
-                    return env['ir.http']._placeholder()
-
-                return base64.b64decode(image)
+                if document_id:
+                    user = env['documents.document'].sudo().browse(int(document_id)).owner_id
+                    if not user:
+                        return env['ir.binary']._placeholder()
+                else:
+                    user = share.create_uid
+                return request.env['ir.binary']._get_stream_from(user, 'avatar_128').get_response()
             else:
                 return request.not_found()
         except Exception:
@@ -322,7 +305,7 @@ class ShareRoute(http.Controller):
         :return: a portal page to preview and download a single file.
         """
         try:
-            document = self._get_file_response(id, share_id=share_id, share_token=access_token, field='datas')
+            document = self._get_file_response(id, share_id=share_id, share_token=access_token, field='raw')
             return document or request.not_found()
         except Exception:
             logger.exception("Failed to download document %s" % id)
@@ -362,12 +345,17 @@ class ShareRoute(http.Controller):
                 share_id,
                 button_text,
             )
+        Documents = request.env['documents.document']
         if document_id and available_documents:
             if available_documents.type != 'empty':
                 return http.request.not_found()
             try:
+                max_upload_size = Documents.get_document_max_upload_limit()
                 file = request.httprequest.files.getlist('requestFile')[0]
                 data = file.read()
+                if max_upload_size and (len(data) > int(max_upload_size)):
+                    # TODO return error when converted to json
+                    return logger.exception("File is too Large.")
                 mimetype = file.content_type
                 write_vals = {
                     'mimetype': mimetype,
@@ -382,8 +370,12 @@ class ShareRoute(http.Controller):
                 available_documents.message_post(body=chatter_message)
         elif not document_id and available_documents is not False:
             try:
+                max_upload_size = Documents.get_document_max_upload_limit()
                 for file in request.httprequest.files.getlist('files'):
                     data = file.read()
+                    if max_upload_size and (len(data) > int(max_upload_size)):
+                        # TODO return error when converted to json
+                        return logger.exception("File is too Large.")
                     mimetype = file.content_type
                     document_dict = {
                         'mimetype': mimetype,
@@ -394,7 +386,7 @@ class ShareRoute(http.Controller):
                         'owner_id': share.owner_id.id,
                         'folder_id': folder_id,
                     }
-                    document = request.env['documents.document'].with_user(share.create_uid).with_context(binary_field_real_user=http.request.env.user).create(document_dict)
+                    document = Documents.with_user(share.create_uid).with_context(binary_field_real_user=http.request.env.user).create(document_dict)
                     document.message_post(body=chatter_message)
                     if share.activity_option:
                         document.documents_set_activity(settings_record=share)
@@ -439,6 +431,9 @@ class ShareRoute(http.Controller):
                 'author': share.create_uid.name,
             }
             if share.type == 'ids' and len(available_documents) == 1:
+                if self._get_downloadable_documents(available_documents) == available_documents:
+                    document = self._get_file_response(available_documents[0].id, share_id=share.id, share_token=str(token), field='raw')
+                    return document or request.not_found()
                 options.update(document=available_documents[0], request_upload=True)
                 return request.render('documents.share_single', options)
             else:

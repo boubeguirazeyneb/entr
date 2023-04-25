@@ -11,7 +11,7 @@ class GermanTaxReportTest(AccountSalesReportCommon):
 
     @classmethod
     def setUpClass(cls, chart_template_ref='l10n_de_skr03.l10n_de_chart_template'):
-        super().setUpClass(chart_template_ref)
+        super().setUpClass(chart_template_ref=chart_template_ref)
 
     @classmethod
     def setup_company_data(cls, company_name, chart_template=None, **kwargs):
@@ -19,6 +19,8 @@ class GermanTaxReportTest(AccountSalesReportCommon):
         res['company'].update({
             'country_id': cls.env.ref('base.de').id,
             'vat': 'DE123456788',
+            'l10n_de_stnr': '151/815/08156',
+            'state_id': cls.env.ref('base.state_de_th')
         })
         res['company'].partner_id.update({
             'email': 'jsmith@mail.com',
@@ -54,8 +56,8 @@ class GermanTaxReportTest(AccountSalesReportCommon):
         })
         move.action_post()
 
-        report = self.env['account.generic.tax.report']
-        options = report._get_options(None)
+        report = self.env.ref('l10n_de.tax_report')
+        options = report._get_options()
 
         expected_xml = """
         <Anmeldungssteuern art="UStVA" version="201801">
@@ -72,18 +74,16 @@ class GermanTaxReportTest(AccountSalesReportCommon):
                 <Umsatzsteuervoranmeldung>
                     <Jahr>2019</Jahr>
                     <Zeitraum>11</Zeitraum>
-                    <Steuernummer />
-                    <Kz09>0.00</Kz09>
-                    <Kz81>28</Kz81>
-                    <Kz89>14</Kz89>
-                    <Kz61>-14</Kz61>
-                    <Kz83>0.00</Kz83>
+                    <Steuernummer>4151081508156</Steuernummer>
+                    <Kz81>150</Kz81>
+                    <Kz89>75</Kz89>
+                    <Kz61>14,25</Kz61>
+                    <Kz83>0,00</Kz83>
                 </Umsatzsteuervoranmeldung>
             </Steuerfall>
         </Anmeldungssteuern>
         """
-
         self.assertXmlTreeEqual(
-            self.get_xml_tree_from_string(report.get_xml(options)),
+            self.get_xml_tree_from_string(self.env[report.custom_handler_model_name].export_tax_report_to_xml(options)['file_content']),
             self.get_xml_tree_from_string(expected_xml)
         )

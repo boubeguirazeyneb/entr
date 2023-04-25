@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 import logging
 
 from odoo import api, fields, SUPERUSER_ID
@@ -60,8 +59,41 @@ def _generate_payslips(cr, registry):
                 wizard = env['hr.payslip.employees'].create(wizard_vals)
                 wizard.with_context(active_id=payslip_run.id, allowed_company_ids=cids).compute_sheet()
             _logger.info('Validating payslips')
-            # after many operations on work_entries, statistics may be broken.
-            # Analysing table is fast, but will transform a potential ~30 seconds
-            # sql time for _mark_conflicting_work_entries into ~2 seconde
+            # after many insertions in work_entries, table statistics may be broken.
+            # In this case, query plan may be randomly suboptimal leading to slow search
+            # Analyzing the table is fast, and will transform a potential ~30 seconds
+            # sql time for _mark_conflicting_work_entries into ~2 seconds
             env.cr.execute('ANALYZE hr_work_entry')
             payslip_runs.with_context(allowed_company_ids=cids).action_validate()
+
+        # Generate skills logs
+        logs_vals = []
+        data_vals = []
+        today = fields.Date.today()
+        all_skills = env['hr.skill'].search([])
+        all_employees = env['hr.employee'].search([])
+        for employee in all_employees:
+            for skill in all_skills:
+                for index, level in enumerate(skill.skill_type_id.skill_level_ids):
+                    logs_vals.append({
+                        'employee_id': employee.id,
+                        'department_id': employee.department_id.id,
+                        'skill_id': skill.id,
+                        'skill_type_id': skill.skill_type_id.id,
+                        'skill_level_id': level.id,
+                        'date': today - relativedelta(months=(index + 1) * 3 + index % 3)
+                    })
+        skill_logs = env['hr.employee.skill.log'].create(logs_vals)
+        prefix = 'test_l10n_be_hr_payroll_account'
+        for log in skill_logs:
+            employee_id = log.employee_id.id
+            skill_id = log.skill_id.id
+            level_id = log.skill_level_id.id
+            data_vals.append({
+                'name': f'{prefix}.skill_log_employee_{employee_id}_skill_{skill_id}_level_{level_id}',
+                'module': prefix,
+                'res_id': log.id,
+                'model': 'hr.employee.skill.log',
+                'noupdate': True,
+            })
+        env['ir.model.data'].create(data_vals)

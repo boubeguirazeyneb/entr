@@ -16,8 +16,10 @@ _logger = logging.getLogger(__name__)
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
-    is_taxcloud_configured = fields.Boolean(related='company_id.is_taxcloud_configured', help='Used to determine whether or not to warn the user to configure TaxCloud.')
-    is_taxcloud = fields.Boolean(related='fiscal_position_id.is_taxcloud', help='Technical field to determine whether to hide taxes in views or not.')
+    # Used to determine whether or not to warn the user to configure TaxCloud
+    is_taxcloud_configured = fields.Boolean(related='company_id.is_taxcloud_configured')
+    # Technical field to determine whether to hide taxes in views or not
+    is_taxcloud = fields.Boolean(related='fiscal_position_id.is_taxcloud')
 
     def _post(self, soft=True):
         # OVERRIDE
@@ -64,8 +66,7 @@ class AccountMove(models.Model):
         request = self._get_TaxCloudRequest(api_id, api_key)
 
         request.set_location_origin_detail(shipper)
-        request.set_location_destination_detail(
-            self.env['res.partner'].browse(self._get_invoice_delivery_partner_id()))
+        request.set_location_destination_detail(self.partner_shipping_id)
 
         request.set_invoice_items_detail(self)
 
@@ -83,7 +84,7 @@ class AccountMove(models.Model):
         # do not modify without syncing the other method
         raise_warning = False
         taxes_to_set = []
-        for index, line in enumerate(self.invoice_line_ids.filtered(lambda l: not l.display_type)):
+        for index, line in enumerate(self.invoice_line_ids.filtered(lambda l: l.display_type not in ('line_note', 'line_section'))):
             if line._get_taxcloud_price() >= 0.0 and line.quantity >= 0.0:
                 price = line.price_unit * (1 - (line.discount or 0.0) / 100.0) * line.quantity
                 if not price:
@@ -153,7 +154,7 @@ class AccountMove(models.Model):
         else:
             return True
 
-    def action_invoice_paid(self):
+    def _invoice_paid_hook(self):
         for invoice in self:
             company = invoice.company_id
             if invoice.fiscal_position_id.is_taxcloud:
@@ -168,7 +169,7 @@ class AccountMove(models.Model):
                     )
                 else:
                     request.set_invoice_items_detail(invoice)
-                    origin_invoice = self.reversed_entry_id
+                    origin_invoice = invoice.reversed_entry_id
                     if origin_invoice:
                         request.client.service.Returned(
                             request.api_login_id,
@@ -183,7 +184,7 @@ class AccountMove(models.Model):
                             invoice.id,
                         )
 
-        return super(AccountMove, self).action_invoice_paid()
+        return super(AccountMove, self)._invoice_paid_hook()
 
 
 class AccountMoveLine(models.Model):

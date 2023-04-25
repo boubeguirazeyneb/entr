@@ -52,6 +52,8 @@ class HrPayslipEmployees(models.TransientModel):
             work_entries_by_contract[work_entry.contract_id] |= work_entry
 
         for contract, work_entries in work_entries_by_contract.items():
+            if contract.work_entry_source != 'calendar':
+                continue
             calendar_start = pytz.utc.localize(datetime.combine(max(contract.date_start, payslip_run.date_start), time.min))
             calendar_end = pytz.utc.localize(datetime.combine(min(contract.date_end or date.max, payslip_run.date_end), time.max))
             outside = contract.resource_calendar_id._attendance_intervals_batch(calendar_start, calendar_end)[False] - work_entries._to_intervals()
@@ -140,7 +142,6 @@ class HrPayslipEmployees(models.TransientModel):
             values = dict(default_values, **{
                 'name': _('New Payslip'),
                 'employee_id': contract.employee_id.id,
-                'credit_note': payslip_run.credit_note,
                 'payslip_run_id': payslip_run.id,
                 'date_from': payslip_run.date_start,
                 'date_to': payslip_run.date_end,

@@ -1,9 +1,10 @@
 odoo.define('web_studio.AbstractViewEditor', function (require) {
 "use strict";
 
-var ajax = require('web.ajax');
+const { loadBundle } = require("@web/core/assets");
 var AbstractView = require('web.AbstractView');
 const RendererWrapper = require('web.RendererWrapper');
+const { ComponentWrapper } = require("web.OwlCompatibility");
 const utils = require('web.utils');
 
 AbstractView.include({
@@ -74,7 +75,7 @@ AbstractView.include({
             const withSampleData = ['graph', 'pivot'].includes(options.viewType) ? true : false;
             return Promise.all([
                 self._loadData(model, { withSampleData }),
-                ajax.loadLibs(self)
+                loadBundle(self)
             ]).then(function (results) {
                 var { state } = results[0];
                 if (options.x2mField) {
@@ -86,7 +87,7 @@ AbstractView.include({
                     noContentHelp: undefined,
                 });
                 let editor;
-                if (utils.isComponent(Renderer)) {
+                if (Renderer.prototype instanceof ComponentWrapper) {
                     state = Object.assign({}, state, params);
                     const Component = state.Component;
                     const props = filterUnwantedProps(Component, state);

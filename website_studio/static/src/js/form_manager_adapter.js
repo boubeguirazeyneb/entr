@@ -6,12 +6,18 @@ import { registry } from "@web/core/registry";
 
 import FormManager from "website_studio.FormManager";
 
+const { Component } = owl;
+
 export class FormManagerAdapter extends ComponentAdapter {
-    constructor(parent, props) {
+    constructor(props) {
         props.Component = FormManager;
         super(...arguments);
+    }
+
+    setup() {
+        super.setup();
         this.studio = useService("studio");
-        this.env = owl.Component.env;
+        this.env = Component.env;
     }
 
     get widgetArgs() {

@@ -8,19 +8,10 @@ class ProductTicCategory(models.Model):
     _name = 'product.tic.category'
     _description = "Product TIC Category"
     _rec_name = 'code'
+    _rec_names_search = ['description', 'code']
 
     code = fields.Integer(string="TIC Category Code", required=True)
     description = fields.Char(string='TIC Description', required=True)
-
-    @api.model
-    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None):
-        args = args or []
-        tic_category_ids = []
-        if operator == 'ilike' and not (name or '').strip():
-            domain = []
-        else:
-            domain = ['|', ('description', operator, name), ('code', operator, name)]
-        return self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
 
     def name_get(self):
         res = []
@@ -52,6 +43,7 @@ class ResCompany(models.Model):
     def _compute_is_taxcloud_configured(self):
         for company in self:
             company.is_taxcloud_configured = company.taxcloud_api_id and company.taxcloud_api_key
+
 
 class ProductCategory(models.Model):
     _inherit = "product.category"

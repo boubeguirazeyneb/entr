@@ -21,16 +21,16 @@
                     </div>
                     <label for="mtbf" string="Mean Time Between Failure"/>
                     <div class="o_row">
-                        <field name="mtbf" class="oe_read_only"/> days
+                        <field name="mtbf" /> days
                     </div>
                     <label for="estimated_next_failure" string="Estimated Next Failure"/>
                     <div class="o_row">
-                        <field name="estimated_next_failure" class="oe_read_only"/>
+                        <field name="estimated_next_failure" />
                     </div>
-                    <field name="latest_failure_date" string="Latest Failure" class="oe_read_only"/>
+                    <field name="latest_failure_date" string="Latest Failure" />
                     <label for="mttr" string="Mean Time To Repair"/>
                     <div class="o_row">
-                        <field name="mttr" class="oe_read_only"/> days
+                        <field name="mttr" /> days
                     </div>
                 </group>
             </xpath>
@@ -44,6 +44,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='maintenance_type']" position="after">
                 <field name="production_company_id" invisible="1"/>
+                <field name="workorder_id" invisible="1"/>
                 <field name="production_id" options="{'no_create': True, 'no_open': True}"/>
                 <field name="workorder_id" attrs="{'invisible': [('production_id', '=', False)]}" options="{'no_create': True, 'no_open': True}" domain="[('production_id', '=', production_id)]" groups="mrp.group_mrp_routings"/>
                 <!-- <field name="repair_id"/> -->

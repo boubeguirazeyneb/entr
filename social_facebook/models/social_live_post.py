@@ -14,12 +14,19 @@ class SocialLivePostFacebook(models.Model):
 
     facebook_post_id = fields.Char('Actual Facebook ID of the post')
 
+    def _compute_live_post_link(self):
+        facebook_live_posts = self._filter_by_media_types(["facebook"]).filtered(lambda post: post.state == 'posted')
+        super(SocialLivePostFacebook, self - facebook_live_posts)._compute_live_post_link()
+
+        for post in facebook_live_posts:
+            post.live_post_link = "http://facebook.com/%s" % post.facebook_post_id
+
     def _refresh_statistics(self):
         super(SocialLivePostFacebook, self)._refresh_statistics()
         accounts = self.env['social.account'].search([('media_type', '=', 'facebook')])
 
         for account in accounts:
-            posts_endpoint_url = url_join(self.env['social.media']._FACEBOOK_ENDPOINT, "/v10.0/%s/%s" % (account.facebook_account_id, 'feed'))
+            posts_endpoint_url = url_join(self.env['social.media']._FACEBOOK_ENDPOINT, "/v10.0/%s/%s" % (account.facebook_account_id, 'published_posts'))
             result = requests.get(posts_endpoint_url,
                 params={
                     'access_token': account.facebook_access_token,
@@ -53,7 +60,7 @@ class SocialLivePostFacebook(models.Model):
                     })
 
     def _post(self):
-        facebook_live_posts = self.filtered(lambda post: post.account_id.media_type == 'facebook')
+        facebook_live_posts = self._filter_by_media_types(['facebook'])
         super(SocialLivePostFacebook, (self - facebook_live_posts))._post()
 
         for live_post in facebook_live_posts:

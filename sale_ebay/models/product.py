@@ -15,6 +15,7 @@ from xml.sax.saxutils import escape
 
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError, RedirectWarning, ValidationError
+from odoo.tools import check_barcode_encoding
 from odoo.osv import expression
 
 _logger = logging.getLogger(__name__)
@@ -86,23 +87,23 @@ class ProductTemplate(models.Model):
     ebay_start_date = fields.Datetime('Start Date', readonly=1, copy=False)
     ebay_quantity_sold = fields.Integer(related='product_variant_ids.ebay_quantity_sold', store=True, readonly=False, copy=False)
     ebay_fixed_price = fields.Float(related='product_variant_ids.ebay_fixed_price', store=True, readonly=False)
-    ebay_quantity = fields.Integer(related='product_variant_ids.ebay_quantity', store=True, readonly=False)
+    ebay_quantity = fields.Integer(related='product_variant_ids.ebay_quantity', store=True, readonly=False, default=1)
     ebay_last_sync = fields.Datetime(string="Last update", copy=False)
     ebay_template_id = fields.Many2one('mail.template', string='Description Template',
-        ondelete='set null',
-        help='This field contains the template that will be used.')
+        ondelete='set null')
 
-    @api.model
-    def create(self, values):
-        result = super(ProductTemplate, self).create(values)
-        related_values = {}
+    @api.model_create_multi
+    def create(self, vals_list):
+        products = super().create(vals_list)
         related_fields = ['ebay_fixed_price', 'ebay_quantity']
-        for field in related_fields:
-            if values.get(field):
-                related_values[field] = values[field]
-        if related_values:
-            result.write(related_values)
-        return result
+        for product, vals in zip(products, vals_list):
+            related_values = {}
+            for field in related_fields:
+                if vals.get(field):
+                    related_values[field] = vals[field]
+            if related_values:
+                product.write(related_values)
+        return products
 
     def _prepare_item_dict(self):
         if self.ebay_sync_stock:
@@ -231,42 +232,15 @@ class ProductTemplate(models.Model):
     def _ebay_encode(self, string):
         return escape(string.strip()) if string else ''
 
-    # returns the checksum of the ean13, or -1 if the ean has not the correct length, ean must be a string
-    def ean_checksum(self, ean):
-        code = list(ean)
-        if len(code) != 13:
-            return -1
-
-        oddsum = evensum = total = 0
-        code = code[:-1] # Remove checksum
-        for i in range(len(code)):
-            if i % 2 == 0:
-                evensum += int(code[i])
-            else:
-                oddsum += int(code[i])
-        total = oddsum * 3 + evensum
-        return int((10 - total % 10) % 10)
-
-    # returns true if the barcode string is encoded with the provided encoding.
-    def check_encoding(self, barcode, encoding):
-        if encoding == 'ean13':
-            return len(barcode) == 13 and re.match("^\d+$", barcode) and self.ean_checksum(barcode) == int(barcode[-1])
-        elif encoding == 'upc':
-            return len(barcode) == 12 and re.match("^\d+$", barcode) and self.ean_checksum("0"+barcode) == int(barcode[-1])
-        elif encoding == 'any':
-            return True
-        else:
-            return False
-
     def _prepare_non_variant_dict(self):
         item = self._prepare_item_dict()
         # Set default value to UPC
         item['Item']['ProductListingDetails']['UPC'] = 'Does not Apply'
         # Check the length of the barcode field to guess its type.
         if self.barcode:
-            if len(self.barcode) == 12 and self.check_encoding(self.barcode, 'upc'):
+            if check_barcode_encoding(self.barcode, 'upca'):
                 item['Item']['ProductListingDetails']['UPC'] = self.barcode
-            elif len(self.barcode) == 13 and self.check_encoding(self.barcode, 'ean13'):
+            elif check_barcode_encoding(self.barcode, 'ean13'):
                 item['Item']['ProductListingDetails']['EAN'] = self.barcode
         return item
 
@@ -295,9 +269,9 @@ class ProductTemplate(models.Model):
             upc = 'Does not apply'
             ean = 'Does not apply'
             if variant.barcode:
-                if len(variant.barcode) == 12 and self.check_encoding(variant.barcode, 'upc'):
+                if check_barcode_encoding(variant.barcode, 'upca'):
                     upc = variant.barcode
-                elif len(variant.barcode) == 13 and self.check_encoding(variant.barcode, 'ean13'):
+                elif check_barcode_encoding(variant.barcode, 'ean13'):
                     ean = variant.barcode
             variations.append({
                 'Quantity': variant.ebay_quantity,
@@ -599,9 +573,9 @@ class ProductTemplate(models.Model):
         :return: bool (did synchronisation succeed)
         """
         if not date_to - date_from <= _30DAYS:
-            raise ValidationError("This function should not be called with a range of more than 30 days, "
+            raise ValidationError(_("This function should not be called with a range of more than 30 days, "
                                   "as eBay does not handle longer timespans. "
-                                  "Instead use synchronize_orders which split in as many calls as needed.")
+                                  "Instead use synchronize_orders which split in as many calls as needed."))
         call_data = {
             'ModTimeFrom': str(date_from),
             'ModTimeTo': str(date_to),

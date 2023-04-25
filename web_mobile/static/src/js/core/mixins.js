@@ -3,6 +3,7 @@ odoo.define('web_mobile.mixins', function (require) {
 
 const session = require('web.session');
 const mobile = require('web_mobile.core');
+const { isIosApp } = require('@web/core/browser/feature_detection');
 
 /**
  * Mixin to setup lifecycle methods and allow to use 'backbutton' events sent
@@ -49,10 +50,17 @@ const UpdateDeviceAccountControllerMixin = {
     /**
      * @override
      */
-    async saveRecord() {
-        const changedFields = await this._super(...arguments);
-        this.savingDef = this.savingDef.then(() => session.updateAccountOnMobileDevice());
-        return changedFields;
+    async save() {
+        const isSaved = await this._super(...arguments);
+        if (!isSaved) {
+            return false;
+        }
+        const updated = session.updateAccountOnMobileDevice();
+        // Crapy workaround for unupdatable Odoo Mobile App iOS (Thanks Apple :@)
+        if (!isIosApp()){
+            await updated;
+        }
+        return true;
     },
 };
 
@@ -74,8 +82,7 @@ odoo.define('web_mobile.hooks', function (require) {
 
 const { backButtonManager } = require('web_mobile.core');
 
-const { Component, hooks } = owl;
-const { onWillUnmount, onMounted, onPatched } = hooks;
+const { onMounted, onPatched, onWillUnmount, useComponent } = require("@odoo/owl");
 
 /**
  * This hook provides support for executing code when the back button is pressed
@@ -94,7 +101,7 @@ const { onWillUnmount, onMounted, onPatched } = hooks;
  *  if undefined will be enabled on mount and disabled on unmount.
  */
 function useBackButton(func, shouldEnable) {
-    const component = Component.current;
+    const component = useComponent();
     let isEnabled = false;
 
     /**

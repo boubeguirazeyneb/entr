@@ -4,16 +4,21 @@
 from odoo import models, api, fields, _
 from odoo.exceptions import ValidationError, UserError
 from odoo.models import MAGIC_COLUMNS
-from odoo.osv.expression import OR
+from odoo.osv.expression import FALSE_DOMAIN, OR, expression
 from odoo.tools import get_lang
-from odoo.tools.misc import format_datetime, format_date
+from odoo.tools.misc import format_datetime, format_date, partition as tools_partition
+from collections.abc import Iterable
 
 from datetime import datetime, date
+from psycopg2.extensions import quote_ident
 import psycopg2
 import itertools
 import ast
 import logging
+import operator as py_operator
+
 _logger = logging.getLogger(__name__)
+ALLOWED_COMPANY_OPERATORS = ['not in', 'in', '=', '!=', 'ilike', 'not ilike', 'like', 'not like']
 
 
 class DataMergeRecord(models.Model):
@@ -49,15 +54,111 @@ class DataMergeRecord(models.Model):
     #############
     ### Searchs
     #############
+
     def _search_company_id(self, operator, value):
-        records = self.search([])
-        if operator == 'in':
-            records = records.filtered(lambda r: r.company_id.id in value)
-        elif operator == '=':
-            records = records.filtered(lambda r: r.company_id.id == value)
-        else:
+        """ Build a subquery to be used in the domain returned by this search method.
+
+            There can be two types of res_model_names regarding the company_id field.
+            Either the corresponding env[res_model_name] records have a company_id field or they don't.
+            In the first case we add a where condition for each distinct res_model_name.
+            In the second case we either return all the records or no records, depending
+            on the (operator, value) pair.
+        """
+        if operator not in ALLOWED_COMPANY_OPERATORS:
             raise NotImplementedError()
-        return [('id', 'in', records.ids)]
+
+        cr = self._cr
+        restrict_model_ids = self.env.context.get('data_merge_model_ids')
+        if restrict_model_ids:
+            cr.execute(
+                """
+                SELECT m.res_model_name,
+                       m.res_model_id
+                  FROM data_merge_model m
+                 WHERE m.id IN %s
+                """,
+                [restrict_model_ids],
+            )
+        else:
+            # SELECT DISTINCT res_model_name FROM data_merge_record
+            # is 7 times slower for 5 millions of data.merge.record
+            cr.execute(
+                """
+                SELECT m.res_model_name,
+                       m.res_model_id
+                  FROM data_merge_model m
+                 WHERE m.id IN (SELECT r.model_id FROM data_merge_record r)
+                """
+            )
+        models_info = cr.fetchall()
+        # Initial select id query to apply ir.rules and build Query object.
+        query = self.env['data_merge.record'].with_context(active_test=False)._search([])
+        if not models_info:
+            # no models => return all records
+            return [('id', 'in', query)]
+
+        models_with_company, models_no_company = tools_partition(
+            lambda r: self.env[r[0]]._fields.get('company_id'),
+            models_info,
+        )
+
+        # Whether a domain leaf (False, operator, value) should be considered as True
+        false_company_domain_is_true = (
+            (operator in ('not ilike', 'not like')) or
+            (operator in ('=', 'ilike', 'like') and not value) or
+            (operator == '!=' and value) or
+            (
+                isinstance(value, Iterable) and
+                (
+                    (operator == 'in' and False in value) or
+                    (operator == 'not in' and False not in value)
+                )
+            )
+        )
+
+        subqueries = []
+        if models_no_company and false_company_domain_is_true:
+            subqueries.append(
+                cr.mogrify(
+                    "SELECT id FROM data_merge_record WHERE res_model_id IN %s",
+                    [tuple(r[1] for r in models_no_company)],
+                ).decode(),
+            )
+
+        template_query = """
+        SELECT dmr.id
+          FROM data_merge_record dmr
+     LEFT JOIN "{model_table}"
+            ON dmr.res_model_id = %s
+           AND dmr.res_id = "{model_table}".id
+            {extra_joins}
+         WHERE {where_clause}
+        """
+        for model_name, model_id in models_with_company:
+            Model = self.env[model_name]
+            # Adapt operator and value for direct SQL query
+            exp = expression([('company_id', operator, value)], Model)
+            from_clause, where_clause, where_params = exp.query.get_sql()
+            assert from_clause.startswith(f'"{Model._table}"')
+
+            subqueries.append(
+                cr.mogrify(
+                    template_query.format(
+                        model_table=Model._table,
+                        where_clause=where_clause,
+                        extra_joins=from_clause[len(f'"{Model._table}"'):]
+                    ),
+                    [model_id] + where_params,
+                ).decode(),
+            )
+        if subqueries:
+            query.add_where("data_merge_record.id IN ({})".format("\nUNION\n".join(subqueries)), [])
+            return [('id', 'in', query)]
+        else:
+            # there was a nonempty models_info but no subqueries
+            # it means that nothing satisfies the domain
+            return FALSE_DOMAIN
+
 
     #############
     ### Computes
@@ -104,16 +205,9 @@ class DataMergeRecord(models.Model):
 
     @api.depends('res_id')
     def _compute_differences(self):
-        model_list_fields = {}
-        for model in list(set(self.mapped('res_model_name'))):
-            view = self.env[model].load_views([(False, 'list')])
-            list_fields = view['fields_views']['list']['fields'].keys()
-            model_list_fields[model] = list_fields
-
         for record in self:
-            list_fields = model_list_fields[record.res_model_name]
-            read_fields = record.group_id.divergent_fields.split(',') & list_fields
-            if read_fields != {''}:
+            if record.group_id.divergent_fields:
+                read_fields = record.group_id.divergent_fields.split(',')
                 record.differences = ', '.join(['%s: %s' % (k, v) for k,v in record._render_values(read_fields).items()])
             else:
                 record.differences = ''
@@ -213,12 +307,12 @@ class DataMergeRecord(models.Model):
 
     def _original_records(self):
         if not self:
-            return
+            return []
 
         model_name = set(self.mapped('res_model_name')) or {}
 
         if len(model_name) != 1:
-            raise ValidationError('Records must be of the same model')
+            raise ValidationError(_('Records must be of the same model'))
 
         model = model_name.pop()
         ids = self.mapped('res_id')
@@ -259,7 +353,7 @@ class DataMergeRecord(models.Model):
                 AND cl2.relname = %s
             GROUP BY cl1.relname"""
 
-        self.flush()
+        self.env.flush_all()
         self._cr.execute(query, (table, ))
         return {r[0]:r[1] for r in self._cr.fetchall()}
 
@@ -275,7 +369,7 @@ class DataMergeRecord(models.Model):
         references = self._get_model_references(destination._table)
 
         source_ids = source.ids
-        self.flush()
+        self.env.flush_all()
 
         for table, columns in references.items():
             for column in columns:
@@ -345,13 +439,13 @@ class DataMergeRecord(models.Model):
                             else:
                                 _logger.warning('Query %s failed', query)
                         except psycopg2.Error:
-                            raise ValidationError('Query Failed.')
+                            raise ValidationError(_('Query Failed.'))
 
         self._merge_additional_models(destination, source_ids)
         fields_to_recompute = [f.name for f in destination._fields.values() if f.compute and f.store]
         destination.modified(fields_to_recompute)
-        destination.recompute()
-        self.invalidate_cache()
+        self.env.flush_all()
+        self.env.invalidate_all()
 
     ## Manual merge of ir.attachment & mail.activity
     @api.model
@@ -403,19 +497,22 @@ class DataMergeRecord(models.Model):
                     else:
                         _logger.warning('Query %s failed', query)
                 except psycopg2.Error:
-                    raise ValidationError('Query Failed.')
+                    raise ValidationError(_('Query Failed.'))
 
     #############
     ### Override
     #############
-    @api.model
-    def create(self, vals):
-        group = self.env['data_merge.group'].browse(vals.get('group_id', 0))
-        record = self.env[group.res_model_name].browse(vals.get('res_id', 0))
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            group = self.env['data_merge.group'].browse(vals['group_id'])
+            if 'res_id' not in vals:
+                raise ValidationError(_('There is not referenced record'))
+            record = self.env[group.res_model_name].browse(vals['res_id'])
 
-        if not record.exists():
-            raise ValidationError('The referenced record does not exist')
-        return super(DataMergeRecord, self).create(vals)
+            if not record.exists():
+                raise ValidationError(_('The referenced record does not exist'))
+        return super().create(vals_list)
 
 
     def write(self, vals):

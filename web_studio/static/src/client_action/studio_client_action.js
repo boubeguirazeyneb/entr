@@ -10,46 +10,54 @@ import { Editor } from "./editor/editor";
 import { StudioNavbar } from "./navbar/navbar";
 import { StudioHomeMenu } from "./studio_home_menu/studio_home_menu";
 
-const { Component } = owl;
+import { Component, onWillStart, onMounted, onPatched, onWillUnmount } from "@odoo/owl";
 
 export class StudioClientAction extends Component {
     setup() {
         this.studio = useService("studio");
         useBus(this.studio.bus, "UPDATE", () => {
-            this.render();
+            this.render(true);
             cleanDomFromBootstrap();
         });
 
         this.menus = useService("menu");
         this.actionService = useService("action");
-        this.homeMenuProps = computeAppsAndMenuItems(this.menus.getMenuAsTree("root"));
+        this.homeMenuProps = {
+            apps: computeAppsAndMenuItems(this.menus.getMenuAsTree("root")).apps,
+        };
         useBus(this.env.bus, "MENUS:APP-CHANGED", () => {
-            this.homeMenuProps = computeAppsAndMenuItems(this.menus.getMenuAsTree("root"));
-            this.render();
+            this.homeMenuProps = {
+                apps: computeAppsAndMenuItems(this.menus.getMenuAsTree("root")).apps,
+            };
+            this.render(true);
         });
 
         this.AppCreatorWrapper = AppCreatorWrapper; // to remove
+
+        onWillStart(this.onWillStart);
+        onMounted(this.onMounted);
+        onPatched(this.onPatched);
+        onWillUnmount(this.onWillUnmount);
     }
 
-    willStart() {
+    onWillStart() {
         return this.studio.ready;
     }
 
-    mounted() {
+    onMounted() {
         this.studio.pushState();
         document.body.classList.add("o_in_studio"); // FIXME ?
     }
 
-    patched() {
+    onPatched() {
         this.studio.pushState();
     }
 
-    willUnmount() {
+    onWillUnmount() {
         document.body.classList.remove("o_in_studio");
     }
 
-    async onNewAppCreated(ev) {
-        const { menu_id, action_id } = ev.detail;
+    async onNewAppCreated({ action_id, menu_id }) {
         await this.menus.reload();
         this.menus.setCurrentMenu(menu_id);
         const action = await this.actionService.loadAction(action_id);
@@ -69,11 +77,12 @@ StudioClientAction.components = {
     ComponentAdapter: class extends ComponentAdapter {
         setup() {
             super.setup();
-            this.env = owl.Component.env;
+            this.env = Component.env;
         }
     },
 };
 StudioClientAction.target = "fullscreen";
 
-// force: true to override action defined by studio_action_loader
+registry.category("lazy_components").add("StudioClientAction", StudioClientAction);
+// force: true to bypass the studio lazy loading action next time and just use this one directly
 registry.category("actions").add("studio", StudioClientAction, { force: true });

@@ -22,8 +22,7 @@ from zeep.exceptions import TransportError
 from zeep.transports import Transport
 
 
-from odoo import _, models, fields
-from odoo.tools import xml_utils
+from odoo import _, models, fields, tools
 
 _logger = logging.getLogger(__name__)
 
@@ -134,7 +133,8 @@ class L10nClEdiUtilMixin(models.AbstractModel):
             'token': '</getToken>'
         }
         tag = tag_to_replace.get(xml_type, '</EnvioBOLETA>')
-        return message.replace(tag, sign + tag)
+        # With %s we make sure we return a string and not a Markup
+        return message.replace(tag, '%s%s' % (sign, tag))
 
     def _l10n_cl_format_vat(self, value, with_zero=False):
         if not value or value in ['', 0]:
@@ -220,12 +220,7 @@ class L10nClEdiUtilMixin(models.AbstractModel):
         if validation_type in ('token', 'bol') or (validation_type == 'doc' and is_doc_type_voucher):
             return True
         xsd_fname = validation_types[validation_type]
-        try:
-            return xml_utils._check_with_xsd(xml_to_validate, xsd_fname, self.sudo().env)
-        except FileNotFoundError:
-            _logger.warning(
-                _('The XSD validation files from SII has not been found, please run manually the cron: "Download XSD"'))
-            return True
+        return tools.validate_xml_from_attachment(self.env, xml_to_validate, xsd_fname, prefix='l10n_cl_edi')
 
     def _sign_full_xml(self, message, digital_signature, uri, xml_type, is_doc_type_voucher=False):
         """
@@ -235,17 +230,17 @@ class L10nClEdiUtilMixin(models.AbstractModel):
         digest_value = re.sub(r'\n\s*$', '', message, flags=re.MULTILINE)
         digest_value_tree = etree.tostring(etree.fromstring(digest_value)[0])
         if xml_type in ['doc', 'recep', 'token']:
-            signed_info_template = self.env.ref('l10n_cl_edi.signed_info_template')
+            signed_info_template = 'l10n_cl_edi.signed_info_template'
         else:
-            signed_info_template = self.env.ref('l10n_cl_edi.signed_info_template_with_xsi')
-        signed_info = signed_info_template._render({
+            signed_info_template = 'l10n_cl_edi.signed_info_template_with_xsi'
+        signed_info = self.env['ir.qweb']._render(signed_info_template, {
             'uri': '#{}'.format(uri),
             'digest_value': base64.b64encode(
                 self._get_sha1_digest(etree.tostring(etree.fromstring(digest_value_tree), method='c14n'))).decode(),
         })
         signed_info_c14n = Markup(etree.tostring(etree.fromstring(signed_info), method='c14n', exclusive=False,
                                           with_comments=False, inclusive_ns_prefixes=None).decode())
-        signature = self.env.ref('l10n_cl_edi.signature_template')._render({
+        signature = self.env['ir.qweb']._render('l10n_cl_edi.signature_template', {
             'signed_info': signed_info_c14n,
             'signature_value': self._sign_message(
                 signed_info_c14n.encode('utf-8'), digital_signature.private_key.encode('ascii')),
@@ -253,7 +248,6 @@ class L10nClEdiUtilMixin(models.AbstractModel):
             'exponent': digital_signature._get_private_key_exponent(),
             'certificate': '\n' + textwrap.fill(digital_signature.certificate, 64),
         })
-        signature = etree.tostring(etree.fromstring(signature), encoding='unicode')
         # The validation of the signature document
         self._xml_validator(signature, 'sig')
         full_doc = self._l10n_cl_append_sig(xml_type, signature, digest_value)
@@ -295,7 +289,7 @@ class L10nClEdiUtilMixin(models.AbstractModel):
         return response_parsed.xpath('//SEMILLA')[0].text
 
     def _get_signed_token(self, digital_signature, seed):
-        token_xml = self.env.ref('l10n_cl_edi.token_template')._render({'seed': seed})
+        token_xml = self.env['ir.qweb']._render('l10n_cl_edi.token_template', {'seed': seed})
         return self._sign_full_xml(token_xml, digital_signature, '', 'token')
 
     @l10n_cl_edi_retry(logger=_logger)
@@ -310,6 +304,9 @@ class L10nClEdiUtilMixin(models.AbstractModel):
         http://www.sii.cl/factura_electronica/factura_mercado/envio.pdf
         it says: as mentioned previously, the client program must include in the request header the following.....
         """
+        if mode == 'SIIDEMO':
+            # mocked response
+            return None
         token = self._get_token(mode, digital_signature)
         if token is None:
             self._report_connection_err(_('No response trying to get a token'))
@@ -391,6 +388,8 @@ class L10nClEdiUtilMixin(models.AbstractModel):
         """
         Request the status of a DTE file sent to the SII.
         """
+        if mode == 'SIIDEMO':
+            return None
         token = self._get_token(mode, digital_signature)
         if token is None:
             self._report_connection_err(_('Token cannot be generated. Please try again'))

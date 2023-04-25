@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
@@ -24,19 +23,17 @@ Allows to make call from next activities or with click-to-dial.
         'views/res_config_settings_views.xml',
         'views/res_partner_views.xml',
         'views/res_users_views.xml',
+        'views/res_users_settings_views.xml',
         'views/voip_phonecall_views.xml',
     ],
     'application': True,
     'license': 'OEEL-1',
     'assets': {
-        'mail.assets_discuss_public': [
-            'voip/static/src/components/*/*',
-            'voip/static/src/models/*/*.js',
+        'mail.assets_messaging': [
+            'voip/static/src/models/*.js',
         ],
         'web.assets_backend': [
             'voip/static/lib/sip.js',
-            'voip/static/src/components/*/*.js',
-            'voip/static/src/js/call_center_field.js',
             'voip/static/src/js/dialing_panel.js',
             'voip/static/src/js/phone_call.js',
             'voip/static/src/js/phone_call_activities_tab.js',
@@ -47,20 +44,24 @@ Allows to make call from next activities or with click-to-dial.
             'voip/static/src/js/phone_field.js',
             'voip/static/src/js/dialing_panel_container.js',
             'voip/static/src/js/voip_systray_item.js',
-            'voip/static/src/js/voip_service.js',
             'voip/static/src/js/legacy_compatibility.js',
             'voip/static/src/js/user_agent.js',
-            'voip/static/src/models/*/*.js',
-            'voip/static/src/scss/call_center_field.scss',
             'voip/static/src/scss/voip.scss',
+            'voip/static/src/voip_service.js',
+            'voip/static/src/components/*/*',
+            'voip/static/src/xml/*.xml',
+        ],
+        'web.assets_backend_prod_only': [
+            'voip/static/src/main.js',
+        ],
+        'web.tests_assets': [
+            'voip/static/tests/helpers/*.js',
+        ],
+         "web.dark_mode_assets_backend": [
+            'voip/static/src/scss/voip.dark.scss',
         ],
         'web.qunit_suite_tests': [
-            'voip/static/src/components/*/tests/*.js',
-            'voip/static/tests/**/*.js',
-        ],
-        'web.assets_qweb': [
-            'voip/static/src/components/*/*.xml',
-            'voip/static/src/xml/*.xml',
+            'voip/static/tests/qunit_suite_tests/**/*.js',
         ],
     }
 }

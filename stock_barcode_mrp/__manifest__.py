@@ -7,11 +7,14 @@
     'version': '1.0',
     'depends': ['stock_barcode', 'mrp'],
     'auto_install': True,
-    'application': False,
     'license': 'OEEL-1',
     'assets': {
-        'web.assets_qweb': [
+        'web.assets_backend': [
+            'stock_barcode_mrp/static/src/**/*.js',
             'stock_barcode_mrp/static/src/**/*.xml',
+        ],
+        'web.assets_tests': [
+            'stock_barcode_mrp/static/tests/tours/**/*',
         ],
     }
 }

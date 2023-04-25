@@ -4,11 +4,11 @@
         <field name="model">worksheet.template</field>
         <field name="priority">10</field>
         <field name="arch" type="xml">
-            <form create='0'>
+            <form create="0" duplicate="0">
                 <header>
                     <field name="model_id" invisible="True"/>
                     <widget name="open_studio_button" attrs="{'invisible': [('model_id', '=', False)]}" groups="base.group_system"/>
-                    <button name="action_analysis_report" type="object" string="Analysis"/>
+                    <button name="action_analysis_report" type="object" string="Analysis" data-hotkey="r"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -22,7 +22,7 @@
                     <widget name="web_ribbon" title="Archived" bg_color="bg-danger" attrs="{'invisible': [('active', '=', True)]}"/>
                     <group>
                         <group>
-                            <field name="name"/>
+                            <field name="name" placeholder="e.g Device Installation"/>
                             <field name="active" invisible="1"/>
                             <field name="company_ids" widget="many2many_tags" options="{'no_create': 1, 'no_edit': 1, 'no_open': 1}"/>
                             <field name="color"  widget="color_picker"/>
@@ -42,10 +42,11 @@
         <field name="model">worksheet.template</field>
         <field name="arch" type="xml">
             <tree multi_edit="1" sample="1">
+                <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="company_ids" widget="many2many_tags" options="{'no_create': 1, 'no_edit': 1, 'no_open': 1}"/>
-                <field name="worksheet_count" string="Worksheets"/>
-                <field name="color" widget="color_picker"/>
+                <field name="company_ids" widget="many2many_tags" options="{'no_create': 1, 'no_edit': 1, 'no_open': 1}" optional="show"/>
+                <field name="worksheet_count" string="Worksheets" optional="show"/>
+                <field name="color" widget="color_picker" optional="show"/>
             </tree>
         </field>
     </record>
@@ -56,6 +57,7 @@
         <field name="arch" type="xml">
             <search string="Worksheet Template Search">
                 <field name="name"/>
+                <field name="company_ids"/>
                 <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
             </search>

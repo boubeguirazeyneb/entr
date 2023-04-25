@@ -3,7 +3,8 @@
 
 import requests
 
-from odoo import models, fields
+from odoo import _, api, models, fields
+from odoo.exceptions import UserError
 from odoo.http import request
 from werkzeug.urls import url_join
 
@@ -20,6 +21,18 @@ class SocialStreamPostTwitter(models.Model):
     twitter_comments_count = fields.Integer('Twitter Comments')
     twitter_retweet_count = fields.Integer('Re-tweets')
 
+    twitter_retweeted_tweet_id_str = fields.Char('Twitter Retweet ID')
+    twitter_can_retweet = fields.Boolean(compute='_compute_twitter_can_retweet')
+    twitter_quoted_tweet_id_str = fields.Char('Twitter Quoted Tweet ID')
+    twitter_quoted_tweet_message = fields.Text('Quoted tweet message')
+    twitter_quoted_tweet_author_name = fields.Char('Quoted tweet author Name')
+    twitter_quoted_tweet_author_link = fields.Char('Quoted tweet author Link')
+    twitter_quoted_tweet_profile_image_url = fields.Char('Quoted tweet profile image URL')
+
+    _sql_constraints = [
+        ('tweet_uniq', 'UNIQUE (twitter_tweet_id, stream_id)', 'You can not store two times the same tweet on the same stream!')
+    ]
+
     def _compute_author_link(self):
         twitter_posts = self._filter_by_media_types(['twitter'])
         super(SocialStreamPostTwitter, (self - twitter_posts))._compute_author_link()
@@ -34,6 +47,38 @@ class SocialStreamPostTwitter(models.Model):
         for post in twitter_posts:
             post.post_link = 'https://www.twitter.com/%s/statuses/%s' % (post.twitter_author_id, post.twitter_tweet_id)
 
+    @api.depends('twitter_retweeted_tweet_id_str', 'twitter_tweet_id')
+    def _compute_twitter_can_retweet(self):
+        tweets = self.filtered(lambda post: post.twitter_tweet_id)
+        (self - tweets).twitter_can_retweet = False
+        if not tweets:
+            return
+
+        tweet_ids = set(tweets.mapped('twitter_tweet_id')) | set(tweets.mapped('twitter_retweeted_tweet_id_str'))
+        twitter_author_ids = set(tweets.stream_id.account_id.mapped('twitter_user_id'))
+
+        potential_retweets = self.search([
+            ('twitter_author_id', 'in', list(twitter_author_ids)),
+            '|',
+                ('twitter_tweet_id', 'in', list(tweet_ids)),
+                ('twitter_retweeted_tweet_id_str', 'in', list(tweet_ids)),
+        ])
+
+        for tweet in tweets:
+            account = tweet.stream_id.account_id
+            if tweet.twitter_retweeted_tweet_id_str and tweet.twitter_author_id == account.twitter_user_id:
+                # If the tweet is a retweet and has been posted with the given account, the user will not
+                # be allowed to retweet the tweet.
+                tweet.twitter_can_retweet = False
+                continue
+            # Otherwise, the user will be allowed to retweet the tweet if there does not exist a retweet
+            # of that tweet posted with the given account.
+            original_tweet_id = tweet.twitter_retweeted_tweet_id_str or tweet.twitter_tweet_id
+            tweet.twitter_can_retweet = not any(
+                current.twitter_retweeted_tweet_id_str == original_tweet_id and \
+                current.twitter_author_id == account.twitter_user_id for current in potential_retweets
+            )
+
     # ========================================================
     # COMMENTS / LIKES
     # ========================================================
@@ -41,7 +86,6 @@ class SocialStreamPostTwitter(models.Model):
     def _twitter_comment_add(self, stream, comment_id, message):
         self.ensure_one()
         tweet_id = comment_id or self.twitter_tweet_id
-        message = self.env["social.live.post"]._remove_mentions(message)
         params = {
             'status': message,
             'in_reply_to_status_id': tweet_id,
@@ -70,11 +114,24 @@ class SocialStreamPostTwitter(models.Model):
             timeout=5
         )
 
-        tweet = result.json()
+        if result.ok:
+            return self.env['social.media']._format_tweet(result.json())
 
-        formatted_tweet = self.env['social.media']._format_tweet(tweet)
+        # Parse the code error returned by the Twitter API.
+        errors = result.json().get('errors')
+        if errors and errors[0].get('code'):
+            ERROR_MESSAGES = {
+                170: _("The tweet is empty. Add a message and try posting again."),
+                187: _("Looks like this Tweet is a duplicate. Edit its content and try posting again."),
+            }
+            message = errors[0].get('message') or _("Code %i", errors[0].get('code'))
+            return {
+                'error': ERROR_MESSAGES.get(
+                    errors[0]['code'],
+                    _("An error occurred (%s)", message))
+            }
 
-        return formatted_tweet
+        return {'error': _('Unknown error')}
 
     def _twitter_comment_fetch(self, page=1):
         """ As of today (07/2019) Twitter does not provide an endpoint to get the 'answers' to a tweet.
@@ -87,7 +144,7 @@ class SocialStreamPostTwitter(models.Model):
         We accumulate up to 1000 tweets matching that rule, 100 at a time (API limit).
 
         Then, it gets even more complicated, because the first result batch does not include tweets
-        made by our use (twitter_screen_name) as replies to his own root tweet.
+        made by our use (twitter_screen_name) as replies to their own root tweet.
         That's why we have to do a second request to get the tweets FROM out user, after the root tweet.
         We also accumulate up to 1000 tweets.
 
@@ -176,6 +233,95 @@ class SocialStreamPostTwitter(models.Model):
 
         return True
 
+    def _twitter_do_retweet(self):
+        """ Creates a new retweet for the given stream post on Twitter. """
+        if not self.twitter_can_retweet:
+            raise UserError(_('A retweet already exists'))
+
+        retweet_endpoint = url_join(self.env['social.media']._TWITTER_ENDPOINT, (
+            '1.1/statuses/retweet/%s.json' % self.twitter_tweet_id
+        ))
+
+        account = self.stream_id.account_id
+        headers = account._get_twitter_oauth_header(retweet_endpoint)
+        result = requests.post(retweet_endpoint, headers=headers, timeout=5)
+
+        if result.ok: # 200-series HTTP code
+            return True
+        elif result.status_code == 401:
+            account.write({'is_media_disconnected': True})
+            raise UserError(_('You are not authenticated'))
+
+        errors = result.json().get('errors')
+        if errors and errors[0].get('code'):
+            raise UserError(errors[0].get('message') or _('Code %i', errors[0].get('code')))
+
+        raise UserError(_('Unknown error'))
+
+    def _twitter_undo_retweet(self):
+        """ Deletes the retweet of the given stream post from Twitter """
+        unretweet_endpoint = url_join(self.env['social.media']._TWITTER_ENDPOINT, (
+            '1.1/statuses/unretweet/%s.json' % (self.twitter_tweet_id)
+        ))
+
+        account = self.stream_id.account_id
+        headers = account._get_twitter_oauth_header(unretweet_endpoint)
+        result = requests.post(unretweet_endpoint, headers=headers, timeout=5)
+
+        if result.status_code == 401:
+            account.write({'is_media_disconnected': True})
+            raise UserError(_('You are not authenticated'))
+
+        errors = result.json().get('errors')
+        if errors and errors[0].get('code'):
+            if errors[0].get('code') != 144:
+                # Error code 144: 'No status found with that ID'
+                # If the error code is 144, it means that the tweet has probably been deleted from Twitter.
+                # In that case, we do not catch the error and we simply remove the tweet (see below).
+                raise UserError(errors[0].get('message') or _('Code %i', errors[0].get('code')))
+
+        retweets = self.search([
+            ('twitter_author_id', '=', self.stream_id.account_id.twitter_user_id),
+            ('twitter_retweeted_tweet_id_str', '=', self.twitter_retweeted_tweet_id_str or self.twitter_tweet_id),
+        ])
+        retweets.unlink()
+        return True
+
+    def _twitter_tweet_quote(self, message, attachment=None):
+        """
+        :param werkzeug.datastructures.FileStorage attachment:
+        Creates a new quotes for the current stream post on Twitter.
+        If the stream post does not have any message, a retweet will be created instead of a quote.
+        """
+        if not message:
+            return self._twitter_do_retweet()
+
+        params = {
+            'status': message,
+            'attachment_url': 'https://twitter.com/%s/status/%s' % (
+                self.twitter_author_id,
+                self.twitter_tweet_id
+            )
+        }
+
+        account = self.stream_id.account_id
+        if attachment:
+            images_attachments_ids = account._format_bytes_to_images_twitter(attachment)
+            if images_attachments_ids:
+                params['media_ids'] = ','.join(images_attachments_ids)
+
+        quote_endpoint_url = url_join(self.env['social.media']._TWITTER_ENDPOINT, '/1.1/statuses/update.json')
+        headers = account._get_twitter_oauth_header(quote_endpoint_url, params=params)
+        result = requests.post(quote_endpoint_url, data=params, headers=headers, timeout=5)
+
+        if result.ok: # 200-series HTTP code
+            return True
+        elif result.status_code == 401:
+            account.write({'is_media_disconnected': True})
+            raise UserError(_('You are not authenticated'))
+
+        raise UserError(_('Unknown error'))
+
     # ========================================================
     # UTILITY / MISC
     # ========================================================
@@ -245,3 +391,13 @@ class SocialStreamPostTwitter(models.Model):
                 query_count=(query_count + 1),
                 force_max_id=str(max_id)
             )
+
+    def _fetch_matching_post(self):
+        self.ensure_one()
+
+        if self.account_id.media_type == 'twitter' and self.twitter_tweet_id:
+            return self.env['social.live.post'].search(
+                [('twitter_tweet_id', '=', self.twitter_tweet_id)], limit=1
+            ).post_id
+        else:
+            return super(SocialStreamPostTwitter, self)._fetch_matching_post()

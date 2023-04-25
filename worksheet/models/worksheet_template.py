@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+import collections
 from ast import literal_eval
 from collections import defaultdict
 from lxml import etree
@@ -13,13 +14,14 @@ from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 class WorksheetTemplate(models.Model):
     _name = 'worksheet.template'
     _description = 'Worksheet Template'
+    _order = 'sequence, name'
 
     def _get_default_color(self):
         return randint(1, 11)
 
     name = fields.Char(string='Name', required=True)
     sequence = fields.Integer()
-    worksheet_count = fields.Integer(compute='_compute_worksheet_count')
+    worksheet_count = fields.Integer(compute='_compute_worksheet_count', compute_sudo=True)
     model_id = fields.Many2one('ir.model', ondelete='cascade', readonly=True, domain=[('state', '=', 'manual')])
     action_id = fields.Many2one('ir.actions.act_window', readonly=True)
     company_ids = fields.Many2many('res.company', string='Companies', domain=lambda self: [('id', 'in', self.env.companies.ids)])
@@ -46,12 +48,13 @@ class WorksheetTemplate(models.Model):
         if any(model_name not in ir_model_names for model_name in res_models):
             raise ValidationError(_('The host model name should be an existing model.'))
 
-    @api.model
-    def create(self, vals):
-        template = super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        templates = super().create(vals_list)
         if not self.env.context.get('worksheet_no_generation'):
-            template._generate_worksheet_model()
-        return template
+            for template in templates:
+                template._generate_worksheet_model()
+        return templates
 
     def write(self, vals):
         res = super().write(vals)
@@ -105,107 +108,104 @@ class WorksheetTemplate(models.Model):
         self.ensure_one()
         res_model = self.res_model.replace('.', '_')
         name = 'x_%s_worksheet_template_%d' % (res_model, self.id)
-        # while creating model it will initialize the init_models method from create of ir.model
-        # and there is related field of model_id in mail template so it's going to recursive loop while recompute so used flush
-        self.flush()
-
-        # generate the ir.model (and so the SQL table)
-        model = self.env['ir.model'].sudo().create({
-            'name': self.name,
-            'model': name,
-            'field_id': self._prepare_default_fields_values()
-        })
-        model.write({'field_id': [
-            (0, 0, {
-                'name': 'x_name',
-                'field_description': 'Name',
-                'ttype': 'char',
-                'related': 'x_%s_id.name' % res_model,
-            }),
-        ]})
 
         # create access rights and rules
-        if not hasattr(self, '_get_%s_manager_group' % res_model):
-            raise NotImplementedError('Method _get_%s_manager_group not implemented on %s' % (res_model, res_model))
-        if not hasattr(self, '_get_%s_user_group' % res_model):
-            raise NotImplementedError('Method _get_%s_user_group not implemented on %s' % (res_model, res_model))
-        if not hasattr(self, '_get_%s_access_all_groups' % res_model):
-            raise NotImplementedError('Method _get_%s_access_all_groups not implemented on %s' % (res_model, res_model))
+        if not hasattr(self, f'_get_{res_model}_manager_group'):
+            raise NotImplementedError(f'Method _get_{res_model}_manager_group not implemented on {res_model}')
+        if not hasattr(self, f'_get_{res_model}_user_group'):
+            raise NotImplementedError(f'Method _get_{res_model}_user_group not implemented on {res_model}')
+        if not hasattr(self, f'_get_{res_model}_access_all_groups'):
+            raise NotImplementedError(f'Method _get_{res_model}_access_all_groups not implemented on {res_model}')
 
-        self.env['ir.model.access'].sudo().create({
-            'name': name + '_access',
+        # while creating model it will initialize the init_models method from create of ir.model
+        # and there is related field of model_id in mail template so it's going to recursive loop while recompute so used flush
+        self.env.flush_all()
+
+        # Generate xml ids for some records: views, actions and models. This will let the ORM handle
+        # the module uninstallation (removing all data belonging to the module using their xml ids).
+        # NOTE: this is not needed for ir.model.fields, ir.model.access and ir.rule, as they are in
+        # delete 'cascade' mode, so their database entries will removed (no need their xml id).
+        module_name = getattr(self, f'_get_{res_model}_module_name')()
+        xid_values = []
+        model_counter = collections.Counter()
+        def register_xids(records):
+            for record in records:
+                model_counter[record._name] += 1
+                xid_values.append({
+                    'name': "{}_{}_{}".format(
+                        name,
+                        record._name.replace('.', '_'),
+                        model_counter[record._name],
+                    ),
+                    'module': module_name,
+                    'model': record._name,
+                    'res_id': record.id,
+                    'noupdate': True,
+                })
+            return records
+
+        # generate the ir.model (and so the SQL table)
+        model = register_xids(self.env['ir.model'].sudo().create({
+            'name': self.name,
+            'model': name,
+            'field_id': self._prepare_default_fields_values() + [
+                (0, 0, {
+                    'name': 'x_name',
+                    'field_description': 'Name',
+                    'ttype': 'char',
+                    'related': 'x_%s_id.name' % res_model,
+                }),
+            ]
+        }))
+
+        self.env['ir.model.access'].sudo().create([{
+            'name': name + '_manager_access',
             'model_id': model.id,
             'group_id': getattr(self, '_get_%s_manager_group' % res_model)().id,
             'perm_create': True,
             'perm_write': True,
             'perm_read': True,
             'perm_unlink': True,
-        })
-        self.env['ir.model.access'].sudo().create({
-            'name': name + '_access',
+        }, {
+            'name': name + '_user_access',
             'model_id': model.id,
             'group_id': getattr(self, '_get_%s_user_group' % res_model)().id,
             'perm_create': True,
             'perm_write': True,
             'perm_read': True,
             'perm_unlink': True,
-        })
-        self.env['ir.rule'].sudo().create({
+        }])
+        self.env['ir.rule'].create([{
             'name': name + '_own',
             'model_id': model.id,
             'domain_force': "[('create_uid', '=', user.id)]",
             'groups': [(6, 0, [getattr(self, '_get_%s_user_group' % res_model)().id])]
-        })
-        self.env['ir.rule'].sudo().create({
+        }, {
             'name': name + '_all',
             'model_id': model.id,
             'domain_force': [(1, '=', 1)],
             'groups': [(6, 0, getattr(self, '_get_%s_access_all_groups' % res_model)().ids)],
-        })
+        }])
 
         # create the view to extend by 'studio' and add the user custom fields
-        form_view_values = self._prepare_default_form_view_values(model)
-        form_view = self.env['ir.ui.view'].sudo().create(form_view_values)
-        action = self.env['ir.actions.act_window'].sudo().create({
+        __, __, search_view = register_xids(self.env['ir.ui.view'].sudo().create([
+            self._prepare_default_form_view_values(model),
+            self._prepare_default_tree_view_values(model),
+            self._prepare_default_search_view_values(model)
+        ]))
+        action = register_xids(self.env['ir.actions.act_window'].sudo().create({
             'name': 'Worksheets',
             'res_model': model.model,
-            'view_mode': 'tree,form',
-            'target': 'current',
+            'search_view_id': search_view.id,
             'context': {
                 'edit': False,
                 'create': False,
                 'delete': False,
                 'duplicate': False,
             }
-        })
+        }))
 
-        # Generate xml ids for some records: views, actions and models. This will let the ORM handle
-        # the module uninstallation (removing all data belonging to the module using their xml ids).
-        # NOTE: this is not needed for ir.model.fields, ir.model.access and ir.rule, as they are in
-        # delete 'cascade' mode, so their database entries will removed (no need their xml id).
-        module_name = getattr(self, '_get_%s_module_name' % res_model)()
-        action_xmlid_values = {
-            'name': 'template_action_' + "_".join(self.name.split(' ')),
-            'model': 'ir.actions.act_window',
-            'module': module_name,
-            'res_id': action.id,
-            'noupdate': True,
-        }
-        model_xmlid_values = {
-            'name': 'model_x_custom_worksheet_' + "_".join(model.model.split('.')),
-            'model': 'ir.model',
-            'module': module_name,
-            'res_id': model.id,
-            'noupdate': True,
-        }
-        view_xmlid_values = {
-            'name': 'form_view_custom_' + "_".join(model.model.split('.')),
-            'model': 'ir.ui.view',
-            'module': module_name,
-            'res_id': form_view.id,
-            'noupdate': True,
-        }
-        self.env['ir.model.data'].sudo().create([action_xmlid_values, model_xmlid_values, view_xmlid_values])
+        self.env['ir.model.data'].sudo().create(xid_values)
 
         # link the worksheet template to its generated model and action
         self.write({
@@ -239,7 +239,7 @@ class WorksheetTemplate(models.Model):
             }),
             (0, 0, {
                 'name': 'x_comments',
-                'ttype': 'text',
+                'ttype': 'html',
                 'field_description': 'Comments',
             }),
         ] + (fields_func and fields_func() or [])
@@ -254,7 +254,7 @@ class WorksheetTemplate(models.Model):
             'name': 'template_view_' + "_".join(self.name.split(' ')),
             'model': model.model,
             'arch': form_arch_func and form_arch_func() or """
-                <form create="false">
+                <form create="false" duplicate="false">
                     <sheet>
                         <h1 invisible="context.get('studio') or context.get('default_x_%s_id')">
                             <field name="x_%s_id"/>
@@ -265,6 +265,39 @@ class WorksheetTemplate(models.Model):
                     </sheet>
                 </form>
             """ % (res_model_name, res_model_name)
+        }
+
+    def _prepare_default_tree_view_values(self, model):
+        """Create a default list view for the model created from the template."""
+        res_model_name = self.res_model.replace('.', '_')
+        tree_arch_func = getattr(self, f'_default_{res_model_name}_worksheet_tree_arch', False)
+        return {
+            'type': 'tree',
+            'name': 'tree_view_' + self.name.replace(' ', '_'),
+            'model': model.model,
+            'arch': tree_arch_func and tree_arch_func() or """
+                <tree>
+                    <field name="create_date" widget="date"/>
+                    <field name="x_name"/>
+                </tree>
+            """
+        }
+
+    def _prepare_default_search_view_values(self, model):
+        """Create a default search view for the model created from the template."""
+        res_model_name = self.res_model.replace('.', '_')
+        search_arch_func = getattr(self, f'_default_{res_model_name}_worksheet_search_arch', False)
+        return {
+            'type': 'search',
+            'name': 'search_view_' + self.name.replace(' ', '_'),
+            'model': model.model,
+            'arch': search_arch_func and search_arch_func() or """
+                <search>
+                    <field name="x_name"/>
+                    <filter string="Created on" date="create_date" name="create_date"/>
+                    <filter name="group_by_month" string="Created on" context="{'group_by': 'create_date:month'}"/>
+                </search>
+            """
         }
 
     @api.model
@@ -283,14 +316,18 @@ class WorksheetTemplate(models.Model):
             'type': 'ir.actions.act_window',
             'view_mode': 'graph,pivot,list,form',
             'res_model': self.sudo().model_id.model,
+            'context': "{'search_default_group_by_month': True}",
         }
 
     def action_view_worksheets(self):
         action = self.action_id.sudo().read()[0]
         # modify context to force no create/import button
-        context = literal_eval(action.get('context', '{}'))
-        context['create'] = 0
-        action['context'] = context
+        action['context'] = dict(literal_eval(action.get('context', '{}')), search_default_group_by_month=True)
+        if self.worksheet_count == 1:
+            action.update({
+                'views': [(False, 'form')],
+                'res_id': self.env[action['res_model']].search([], limit=1).id,
+            })
         return action
 
     # ---------------------------------------------------------
@@ -315,19 +352,19 @@ class WorksheetTemplate(models.Model):
         field_name = field_node.attrib['name']
         new_container_col = container_col
         if field_name not in self._get_qweb_arch_omitted_fields():
-            field_info = form_view_fields[field_name]
+            field_info = form_view_fields.get(field_name)
             widget = field_node.attrib.get('widget', False)
             is_signature = False
             # adapt the widget syntax
             if widget:
                 if widget == 'signature':
                     is_signature = True
-                # no signature or image widgets in qweb
-                if is_signature or widget == "image":
-                    field_node.attrib['t-options'] = "{'widget': '%s'}" % (widget if not is_signature else 'image')
                     field_node.attrib.pop('widget')
+                elif widget == "image":
+                    # image widgets in qweb (only with t-out)
+                    field_node.attrib['t-options-widget'] = "'image'"
             # basic form view -> qweb node transformation
-            if field_info['type'] != 'binary' or widget in ['image', 'signature']:
+            if field_info and field_info.get('type') != 'binary' or widget in ['image', 'signature']:
                 # adapt the field node itself
                 field_name = 'worksheet.' + field_node.attrib['name']
                 field_node.attrib.pop('name')
@@ -336,19 +373,19 @@ class WorksheetTemplate(models.Model):
                     field_node.attrib['style'] = 'width: 250px;'
                     field_node.attrib['t-att-src'] = 'image_data_uri(%s)' % field_name
                     field_node.attrib['t-if'] = field_name
-                elif field_info['type'] == 'boolean':
+                elif field_info.get('type') == 'boolean':
                     field_node.tag = 'i'
                     field_node.attrib[
-                        't-att-class'] = "'text-wrap col-lg-7 col-12 fa ' + ('fa-check-square' if %s else 'fa-square-o')" % field_name
+                        't-att-class'] = "'col-lg-7 col-12 fa ' + ('fa-check-square' if %s else 'fa-square-o')" % field_name
                 else:
                     field_node.tag = 'div'
-                    field_node.attrib['class'] = 'text-wrap col-lg-7 col-12'
+                    field_node.attrib['t-att-class'] = "'col-7' if report_type == 'pdf' else 'col-lg-7 col-12'"
                     field_node.attrib['t-field'] = field_name
                 # generate a description
-                description = etree.Element('div', {'class': 'col-lg-5 col-12 font-weight-bold mt-1'})
-                description.text = field_info['string']
+                description = etree.Element('div', {'t-att-class': "('col-5' if report_type == 'pdf' else 'col-lg-5 col-12') + ' font-weight-bold'"})
+                description.text = field_info and field_info.get('string')
                 # insert all that in a container
-                container = etree.Element('div', {'class': 'row mb-2', 'style': 'page-break-inside: avoid'})
+                container = etree.Element('div', {'class': 'row mb-3', 'style': 'page-break-inside: avoid'})
                 container.append(description)
                 container.append(field_node)
                 new_container_col.append(container)
@@ -360,12 +397,14 @@ class WorksheetTemplate(models.Model):
             :param ir_model: ir.model record
             :returns the arch of the template qweb (t-name included)
         """
-        fields_view_get_result = self.env[ir_model.model].fields_view_get(view_id=form_view_id, view_type='form', toolbar=False, submenu=False)
-        form_view_arch = fields_view_get_result['arch']
-        form_view_fields = fields_view_get_result['fields']
+        view_get_result = self.env[ir_model.model].get_view(form_view_id, 'form')
+        form_view_arch = view_get_result['arch']
+        node = etree.fromstring(form_view_arch)
+        form_view_fields = set(el.get('name') for el in node.xpath('.//field[not(ancestor::field)]'))
+        form_view_fields = {fname: field_info for fname, field_info in self.env[ir_model.model].fields_get().items() if fname in form_view_fields}
 
         qweb_arch = etree.Element("div")
-        for row_node in etree.fromstring(form_view_arch).xpath('//group[not(ancestor::group)]|//field[not(ancestor::group)]'):
+        for row_node in node.xpath('//group[not(ancestor::group)]|//field[not(ancestor::group)]'):
             container_row = etree.Element('div')
             container_col = etree.Element('div')
             # pattern A: field is not in any element group --> field take full width
@@ -384,7 +423,7 @@ class WorksheetTemplate(models.Model):
                         container_row.append(container_col)
                         for field_node in col_node.xpath('./field'):
                             new_container_col = self._add_field_node_to_container(field_node, form_view_fields, container_col)
-                        container_row.append(new_container_col)
+                            container_row.append(new_container_col)
                     qweb_arch.append(container_row)
                 # pattern C: whe have a field inside an element group --> field take full width
                 else:
@@ -399,7 +438,8 @@ class WorksheetTemplate(models.Model):
     def _generate_qweb_report_template(self):
         for worksheet_template in self:
             report_name = worksheet_template.model_id.model.replace('.', '_')
-            new_arch = self._get_qweb_arch(worksheet_template.model_id, report_name)
+            form_view_id = self.env.context.get("qweb_report_template_form_view_id", False)
+            new_arch = self._get_qweb_arch(worksheet_template.model_id, report_name, form_view_id)
             if worksheet_template.report_view_id:  # update existing one
                 worksheet_template.report_view_id.write({'arch': new_arch})
             else:  # create the new one

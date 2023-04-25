@@ -19,6 +19,16 @@ class PosSession(models.Model):
 
         return amount
 
+    def _loader_params_product_product(self):
+        result = super()._loader_params_product_product()
+        result['search_params']['fields'].append('type')
+        return result
+
+    def _loader_params_account_tax(self):
+        result = super()._loader_params_account_tax()
+        result['search_params']['fields'].append('identification_letter')
+        return result
+
 
 class PosDailyReport(models.TransientModel):
     _name = 'pos.daily.reports.wizard'
@@ -55,16 +65,6 @@ class ReportSaleDetails(models.AbstractModel):
             data.update(report_update)
         return data
 
-    @api.model
-    def _get_report_values(self, docids, data=None):
-        data = dict(data or {})
-        configs = self.env['pos.config'].browse(data['config_ids'])
-        if 'session_ids' in data:
-            data.update(self.get_sale_details(data['date_start'], data['date_stop'], configs.ids, data['session_ids']))
-        else:
-            data.update(self.get_sale_details(data['date_start'], data['date_stop'], configs.ids))
-        return data
-
 
 class PosConfig(models.Model):
     _inherit = 'pos.config'
@@ -78,16 +78,17 @@ class PosConfig(models.Model):
         domain="[('type', '=', 'fiscal_data_module'), '|', ('company_id', '=', False), ('company_id', '=', company_id)]",
     )
 
-    @api.model
-    def create(self, values):
-        proforma_sequence = self.env['ir.sequence'].create({
-            'name': _('POS Profo Order %s', self.name),
+    @api.model_create_multi
+    def create(self, vals_list):
+        proforma_sequences = self.env['ir.sequence'].create([{
+            'name': _('POS Profo Order %s', vals['name']),
             'padding': 4,
-            'prefix': "Profo %s/" % self.name,
+            'prefix': "Profo %s/" % vals['name'],
             'code': "pos.order_pro_forma",
-        })
-        values["proformat_sequence"] = proforma_sequence.id
-        return super(PosConfig, self).create(values)
+        } for vals in vals_list])
+        for proforma_sequence, vals in zip(proforma_sequences, vals_list):
+            vals["proformat_sequence"] = proforma_sequence.id
+        return super().create(vals_list)
 
     def _compute_iot_device_ids(self):
         super(PosConfig, self)._compute_iot_device_ids()
@@ -95,11 +96,10 @@ class PosConfig(models.Model):
             if config.is_posbox:
                 config.iot_device_ids += config.iface_sweden_fiscal_data_module
 
-    def open_session_cb(self, check_coa=False):
-        for config in self:
-            if config.iface_sweden_fiscal_data_module:
-                config._check_pos_settings_for_sweden()
-            return super(PosConfig, self).open_session_cb(check_coa)
+    def _check_before_creating_new_session(self):
+        if self.iface_sweden_fiscal_data_module:
+            self._check_pos_settings_for_sweden()
+        return super()._check_before_creating_new_session()
 
     def _check_pos_settings_for_sweden(self):
         if self.iface_sweden_fiscal_data_module and not self.company_id.vat:
@@ -108,12 +108,6 @@ class PosConfig(models.Model):
             raise ValidationError(_("You cannot use the sweden blackbox without cash control."))
         if self.iface_sweden_fiscal_data_module and self.iface_splitbill:
             raise ValidationError(_("You cannot use the sweden blackbox with the bill splitting setting."))
-
-    @api.onchange('iface_sweden_fiscal_data_module', 'is_posbox')
-    def _check_iot_and_sweden_status(self):
-        for config in self:
-            if config.iface_sweden_fiscal_data_module and not config.is_posbox:
-                config.iface_sweden_fiscal_data_module = False
 
     def get_order_sequence_number(self):
         return self.sequence_id.number_next_actual
@@ -250,14 +244,15 @@ class PosOrderLineProforma(models.Model):
 
     order_id = fields.Many2one('pos.order_pro_forma')
 
-    @api.model
-    def create(self, values):
+    @api.model_create_multi
+    def create(self, vals_list):
         # the pos.order.line create method consider 'order_id' is a pos.order
         # override to bypass it and generate a name
-        if values.get('order_id') and not values.get('name'):
-            name = self.env['pos.order_pro_forma'].browse(values['order_id']).name
-            values['name'] = "%s-%s" % (name, values.get('id'))
-        return super(PosOrderLineProforma, self).create(values)
+        for vals in vals_list:
+            if vals.get('order_id') and not vals.get('name'):
+                name = self.env['pos.order_pro_forma'].browse(vals['order_id']).name
+                vals['name'] = "%s-%s" % (name, vals.get('id'))
+        return super().create(vals_list)
 
 
 class AccountTax(models.Model):

@@ -3,11 +3,11 @@ odoo.define('pos_hr_mobile.LoginScreen', function (require) {
 
     const Registries = require('point_of_sale.Registries');
     const LoginScreen = require('pos_hr.LoginScreen');
-    const BarcodeScanner = require('@web_enterprise/webclient/barcode/barcode_scanner');
+    const BarcodeScanner = require('@web/webclient/barcode/barcode_scanner');
 
     const LoginScreenMobile = LoginScreen => class extends LoginScreen {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             this.hasMobileScanner = BarcodeScanner.isBarcodeScannerSupported();
         }
 
@@ -28,7 +28,7 @@ odoo.define('pos_hr_mobile.LoginScreen', function (require) {
                 throw error;
             }
             if (data) {
-                this.env.pos.barcode_reader.scan(data);
+                this.env.barcode_reader.scan(data);
                 if ('vibrate' in window.navigator) {
                     window.navigator.vibrate(100);
                 }

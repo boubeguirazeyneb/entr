@@ -10,7 +10,6 @@ Allows use of stock application to manage rentals inventory
 
     """,
 
-    'author': "Odoo S.A.",
     'website': "https://www.odoo.com",
 
     'category': 'Sales/Sales',
@@ -26,8 +25,8 @@ Allows use of stock application to manage rentals inventory
         'report/rental_report_views.xml',
         'report/rental_order_report_templates.xml',
         'views/res_config_settings_views.xml',
-        'views/sale_views.xml',
-        'views/product_views.xml',
+        'views/sale_order_views.xml',
+        'views/product_template_views.xml',
     ],
     'demo': [
         'data/rental_stock_demo.xml',
@@ -36,10 +35,7 @@ Allows use of stock application to manage rentals inventory
     'post_init_hook': '_ensure_rental_stock_moves_consistency',
     'assets': {
         'web.assets_backend': [
-            'sale_stock_renting/static/src/js/**/*',
-        ],
-        'web.assets_qweb': [
-            'sale_stock_renting/static/src/xml/**/*',
+            'sale_stock_renting/static/src/**/*',
         ],
     },
     'license': 'OEEL-1',

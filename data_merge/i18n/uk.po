@@ -3,18 +3,17 @@
 # 	* data_merge
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Bohdan Lisnenko, 2021
-# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022\n"
-"Language-Team: Ukrainian (https://www.transifex.com/odoo/teams/41243/uk/)\n"
+"POT-Creation-Date: 2022-12-15 13:28+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022\n"
+"Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -22,14 +21,15 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_model.py:0
 #, python-format
 msgid "%s (copy)"
 msgstr "%s (копія)"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
 #, python-format
 msgid "%s records have been merged"
 msgstr "%s записи об'єднано"
@@ -54,8 +54,8 @@ msgstr ""
 
 #. module: data_merge
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_model_form
-msgid "<span class=\"mr-1\">Every</span>"
-msgstr "<span class=\"mr-1\">Кожен</span>"
+msgid "<span class=\"me-1\">Every</span>"
+msgstr "<span class=\"me-1\">Кожен</span>"
 
 #. module: data_merge
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_model_form
@@ -86,8 +86,8 @@ msgid "Archived"
 msgstr "Заархівовано"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
 #, python-format
 msgid ""
 "Are you sure that you want to merge the selected records in their respective"
@@ -96,8 +96,8 @@ msgstr ""
 "Ви впевнені, що хочете об'єднати обрані записи у їх відповідній групі?"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
 #, python-format
 msgid "Are you sure that you want to merge these records?"
 msgstr "Ви впевнені, що хочете об'єднати ці записи?"
@@ -114,10 +114,16 @@ msgid "Can Be Merged"
 msgstr "Можна об'єднати"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_rule.py:0
 #, python-format
 msgid "Case/Accent Insensitive Match"
 msgstr "Співставити регістр/невиразне виділення"
+
+#. module: data_merge
+#: model:ir.model.fields,field_description:data_merge.field_data_merge_record__company_id
+msgid "Company"
+msgstr "Компанія"
 
 #. module: data_merge
 #: model_terms:ir.actions.act_window,help:data_merge.action_data_merge_record
@@ -177,14 +183,12 @@ msgstr "Метод кастомного злиття"
 #. module: data_merge
 #: model:ir.actions.server,name:data_merge.ir_cron_cleanup_ir_actions_server
 #: model:ir.cron,cron_name:data_merge.ir_cron_cleanup
-#: model:ir.cron,name:data_merge.ir_cron_cleanup
 msgid "Data Merge: Cleanup Records"
 msgstr "Об'єднання даних: Записи очищення"
 
 #. module: data_merge
 #: model:ir.actions.server,name:data_merge.ir_cron_find_duplicates_ir_actions_server
 #: model:ir.cron,cron_name:data_merge.ir_cron_find_duplicates
-#: model:ir.cron,name:data_merge.ir_cron_find_duplicates
 msgid "Data Merge: Find Duplicate Records"
 msgstr "Об'єднання даних: Знайти записи дублікатів"
 
@@ -194,6 +198,7 @@ msgid "Days"
 msgstr "Дні"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_model_form
 #, python-format
@@ -237,6 +242,13 @@ msgid "Deduplication Rules"
 msgstr "Правила дублювання"
 
 #. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_model.py:0
+#, python-format
+msgid "Deduplication is forbidden on the model: %s"
+msgstr "У моделі заборонено дедуплікацію: %s"
+
+#. module: data_merge
 #: model:ir.model.fields.selection,name:data_merge.selection__data_merge_model__removal_mode__delete
 msgid "Delete"
 msgstr "Видалити"
@@ -273,7 +285,7 @@ msgstr "Відмінено"
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_record__display_name
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_rule__display_name
 msgid "Display Name"
-msgstr "Відобразити назву"
+msgstr "Назва для відображення"
 
 #. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_group__divergent_fields
@@ -309,6 +321,7 @@ msgid "Enable Merge"
 msgstr "Увімкнути об’єднання"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_rule.py:0
 #, python-format
 msgid "Exact Match"
@@ -386,7 +399,7 @@ msgstr "Основний"
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_record____last_update
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_rule____last_update
 msgid "Last Modified on"
-msgstr "Останні зміни"
+msgstr "Остання модифікація"
 
 #. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_model__last_notification
@@ -422,27 +435,36 @@ msgstr ""
 "об'єднання"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/xml/data_merge_list_views.xml:0
-#, python-format
-msgid "Main actions"
-msgstr "Основні дії"
-
-#. module: data_merge
 #: model:ir.model.fields.selection,name:data_merge.selection__data_merge_model__merge_mode__manual
 msgid "Manual"
 msgstr "Вручну"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
 msgid "Manual Selection - %s"
 msgstr "Ручний вибір - %s"
 
 #. module: data_merge
-#. openerp-web
+#. odoo-javascript
+#. odoo-python
 #: code:addons/data_merge/models/ir_model.py:0
-#: code:addons/data_merge/static/src/xml/data_merge_list_views.xml:0
+#: code:addons/data_merge/static/src/views/data_merge_list_view.xml:0
+#: model:ir.actions.server,name:data_merge.merge_action_crm_lost_reason
+#: model:ir.actions.server,name:data_merge.merge_action_crm_tag
+#: model:ir.actions.server,name:data_merge.merge_action_helpdesk_tag
+#: model:ir.actions.server,name:data_merge.merge_action_helpdesk_ticket
+#: model:ir.actions.server,name:data_merge.merge_action_project_tags
+#: model:ir.actions.server,name:data_merge.merge_action_project_task
+#: model:ir.actions.server,name:data_merge.merge_action_res_country
+#: model:ir.actions.server,name:data_merge.merge_action_res_country_state
+#: model:ir.actions.server,name:data_merge.merge_action_res_partner_category
+#: model:ir.actions.server,name:data_merge.merge_action_res_partner_industry
+#: model:ir.actions.server,name:data_merge.merge_action_res_partner_title
+#: model:ir.actions.server,name:data_merge.merge_action_utm_campaign
+#: model:ir.actions.server,name:data_merge.merge_action_utm_medium
+#: model:ir.actions.server,name:data_merge.merge_action_utm_source
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_record_list
 #, python-format
 msgid "Merge"
@@ -479,6 +501,13 @@ msgid "Merge action attached"
 msgstr "Прикріплення дії об'єднання"
 
 #. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_model.py:0
+#, python-format
+msgid "Missing required PostgreSQL extension: unaccent"
+msgstr "Відсутнє обов’язкове розширення PostgreSQL: без акценту"
+
+#. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_group__res_model_id
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_model__res_model_id
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_record__res_model_id
@@ -512,6 +541,7 @@ msgid "Name"
 msgstr "Назва"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #: model_terms:ir.actions.act_window,help:data_merge.action_data_merge_record
 #: model_terms:ir.actions.act_window,help:data_merge.action_data_merge_record_notification
@@ -533,6 +563,14 @@ msgstr "Сповіщати періодично"
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_model__notify_user_ids
 msgid "Notify Users"
 msgstr "Сповістити користувачів"
+
+#. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
+#: code:addons/data_merge/models/data_merge_record.py:0
+#, python-format
+msgid "Query Failed."
+msgstr "Помилка запиту."
 
 #. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_group__record_ids
@@ -563,7 +601,14 @@ msgstr "Підрахунок записів для об'єднання"
 #. module: data_merge
 #: model:ir.model.fields,help:data_merge.field_data_merge_model__domain
 msgid "Records eligible for the deduplication process"
-msgstr "Записи, придатні для процесу видалення дублікатів"
+msgstr "Записи, придатні для процесу дедуплікації"
+
+#. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
+#, python-format
+msgid "Records must be of the same model"
+msgstr "Записи мають бути тієї ж моделі"
 
 #. module: data_merge
 #: model:ir.model.fields,help:data_merge.field_data_merge_model__merge_threshold
@@ -621,22 +666,37 @@ msgid "The notification frequency should be greater than 0"
 msgstr "Період сповіщень повинен бути більше 0."
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
-msgid "The selected"
-msgstr "Обраний"
+msgid "The referenced record does not exist"
+msgstr "Запис, на який посилається, не існує"
 
 #. module: data_merge
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
+#, python-format
+msgid "The selected records have been merged"
+msgstr "Вибрані записи об'єднані"
+
+#. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
 msgid "The target model does not exists."
 msgstr "Цільова модель не існує."
 
 #. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
+#, python-format
+msgid "There is not referenced record"
+msgstr "Немає записів, що посилаються"
+
+#. module: data_merge
 #: model:ir.model.constraint,message:data_merge.constraint_data_merge_model_uniq_name
 msgid "This name is already taken"
-msgstr "Ця назва вже використовується"
+msgstr "Цю назву уже взяли"
 
 #. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_rule__field_id
@@ -644,8 +704,8 @@ msgid "Unique ID Field"
 msgstr "Унікальне поле ID"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/xml/data_merge_list_views.xml:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.xml:0
 #, python-format
 msgid "Unselect"
 msgstr "Не обрано"
@@ -673,9 +733,10 @@ msgstr "Тижні"
 #. module: data_merge
 #: model:ir.model.fields,help:data_merge.field_data_merge_model__mix_by_company
 msgid "When enabled, duplicates across different companies will be suggested"
-msgstr "Коли буде включено, будуть запропоновані дублікати різних компаній"
+msgstr "Коли буде включено, дублікати різних компаній будуть запропоновані"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
 msgid "You must select at least two %s in order to merge them."

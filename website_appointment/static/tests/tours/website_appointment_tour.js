@@ -12,7 +12,7 @@ tour.register('website_appointment_tour', {
         trigger: '.o_app[data-menu-xmlid="calendar.mail_menu_calendar"]',
         content: 'click on calendar app',
     }, {
-        trigger: 'a[data-menu-xmlid="website_appointment.appointment_type_menu"]',
+        trigger: 'a[data-menu-xmlid="appointment.appointment_type_menu"]',
         content: 'click on Online Appointment',
     }, {
         trigger: '.o-kanban-button-new',
@@ -25,14 +25,14 @@ tour.register('website_appointment_tour', {
         content: 'set max scheduled days',
         run: 'text 45',
     }, {
-        trigger: 'div[name="employee_ids"] a',
-        content: 'add employees',
+        trigger: 'div[name="staff_user_ids"] a',
+        content: 'add users to the appointment_type',
     }, {
         trigger: '.o_list_record_selector',
-        content: 'select employees',
+        content: 'select users',
     }, {
         trigger: '.o_select_button',
-        content: 'save new employees for the appointment type',
+        content: 'save new users for the appointment type',
     }, {
         trigger: 'a:contains("Availability")',
         content: 'go to slots tab',
@@ -44,32 +44,28 @@ tour.register('website_appointment_tour', {
         content: 'save appointment type',
     }, {
         trigger: 'button[name="is_published"]',
-        extra_trigger: 'button.o_form_button_edit',
+        extra_trigger: 'button.o_form_button_create',
         content: 'go to the frontend',
     }, {
-        trigger: 'td.o_day:first',
+        trigger: 'iframe td.o_day:first',
         content: 'click on first date available',
     }, {
-        trigger: '.o_slots_list a:first',
+        trigger: 'iframe .o_slots_list a:first',
         content: 'click on first slot available',
     }, {
-        trigger: 'input[id="phone_field"]',
+        trigger: 'iframe input[id="phone_field"]',
         content: 'fill tel field',
         run: 'text 0123456789'
     }, {
-        trigger: 'button[type="submit"]',
+        trigger: 'iframe button[type="submit"]',
         content: 'confirm appointment',
         run: 'click',
     }, {
-        trigger: 'a:contains("Cancel") i',
+        trigger: 'iframe a:contains("Cancel") i',
         content: 'cancel appointment',
         run: 'click',
     }, {
-        trigger: 'a.css_edit_dynamic',
-        content: 'open edit dropdown',
-        run: 'click',
-    }, {
-        trigger: 'a[id="edit-in-backend"]',
+        trigger: '.o_website_edit_in_backend > a',
         content: 'return in backend',
         run: 'click',
     }, {

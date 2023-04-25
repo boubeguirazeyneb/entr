@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from freezegun import freeze_time
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
@@ -12,59 +13,60 @@ from odoo.tests.common import TransactionCase
 class TestHrAppraisal(TransactionCase):
     """ Test used to check that when doing appraisal creation."""
 
-    def setUp(self):
-        super(TestHrAppraisal, self).setUp()
-        self.HrEmployee = self.env['hr.employee']
-        self.HrAppraisal = self.env['hr.appraisal']
-        self.main_company = self.env.ref('base.main_company')
+    @classmethod
+    def setUpClass(cls):
+        super(TestHrAppraisal, cls).setUpClass()
+        cls.HrEmployee = cls.env['hr.employee']
+        cls.HrAppraisal = cls.env['hr.appraisal']
+        cls.main_company = cls.env.ref('base.main_company')
 
-        self.dep_rd = self.env['hr.department'].create({'name': 'RD Test'})
-        self.manager_user = self.env['res.users'].create({
+        cls.dep_rd = cls.env['hr.department'].create({'name': 'RD Test'})
+        cls.manager_user = cls.env['res.users'].create({
             'name': 'Manager User',
             'login': 'manager_user',
             'password': 'manager_user',
             'email': 'demo@demo.com',
-            'partner_id': self.env['res.partner'].create({'name': 'Manager Partner'}).id,
+            'partner_id': cls.env['res.partner'].create({'name': 'Manager Partner'}).id,
         })
-        self.manager = self.env['hr.employee'].create({
+        cls.manager = cls.env['hr.employee'].create({
             'name': 'Manager Test',
-            'department_id': self.dep_rd.id,
-            'user_id': self.manager_user.id,
+            'department_id': cls.dep_rd.id,
+            'user_id': cls.manager_user.id,
         })
 
-        self.job = self.env['hr.job'].create({'name': 'Developer Test', 'department_id': self.dep_rd.id})
-        self.colleague = self.env['hr.employee'].create({'name': 'Colleague Test', 'department_id': self.dep_rd.id})
+        cls.job = cls.env['hr.job'].create({'name': 'Developer Test', 'department_id': cls.dep_rd.id})
+        cls.colleague = cls.env['hr.employee'].create({'name': 'Colleague Test', 'department_id': cls.dep_rd.id})
 
-        group = self.env.ref('hr_appraisal.group_hr_appraisal_user').id
-        self.user = self.env['res.users'].create({
+        group = cls.env.ref('hr_appraisal.group_hr_appraisal_user').id
+        cls.user = cls.env['res.users'].create({
             'name': 'Michael Hawkins',
             'login': 'test',
             'groups_id': [(6, 0, [group])],
             'notification_type': 'email',
         })
 
-        self.hr_employee = self.HrEmployee.create(dict(
+        cls.hr_employee = cls.HrEmployee.create(dict(
             name="Michael Hawkins",
-            user_id=self.user.id,
-            department_id=self.dep_rd.id,
-            parent_id=self.manager.id,
-            job_id=self.job.id,
+            user_id=cls.user.id,
+            department_id=cls.dep_rd.id,
+            parent_id=cls.manager.id,
+            job_id=cls.job.id,
             work_phone="+3281813700",
             work_email='michael@odoo.com',
             create_date=date.today() + relativedelta(months=-6),
             last_appraisal_date=date.today() + relativedelta(months=-6)
         ))
-        self.hr_employee.write({'work_location_id': [(0, 0, {'name': "Grand-Rosière"})]})
+        cls.hr_employee.write({'work_location_id': [(0, 0, {'name': "Grand-Rosière"})]})
 
-        self.env.company.appraisal_plan = True
-        self.env['ir.config_parameter'].sudo().set_param("hr_appraisal.appraisal_create_in_advance_days", 8)
-        self.duration_after_recruitment = 6
-        self.duration_first_appraisal = 9
-        self.duration_next_appraisal = 12
-        self.env.company.write({
-            'duration_after_recruitment': self.duration_after_recruitment,
-            'duration_first_appraisal': self.duration_first_appraisal,
-            'duration_next_appraisal': self.duration_next_appraisal,
+        cls.env.company.appraisal_plan = True
+        cls.env['ir.config_parameter'].sudo().set_param("hr_appraisal.appraisal_create_in_advance_days", 8)
+        cls.duration_after_recruitment = 6
+        cls.duration_first_appraisal = 9
+        cls.duration_next_appraisal = 12
+        cls.env.company.write({
+            'duration_after_recruitment': cls.duration_after_recruitment,
+            'duration_first_appraisal': cls.duration_first_appraisal,
+            'duration_next_appraisal': cls.duration_next_appraisal,
         })
 
     def test_hr_appraisal(self):
@@ -107,22 +109,51 @@ class TestHrAppraisal(TransactionCase):
 
         self.assertEqual(hr_employee3.last_appraisal_date, date.today())
 
-    def test_01_appraisal_generation(self):
+    def test_01_appraisal_next_appraisal_date(self):
         """
-            Set appraisal date at the exact time it should be to 
-            generate a new appraisal
-            Run the cron and check that the next appraisal_date is set properly
+            An employee has just started working.
+            Check that next_appraisal_date is set properly.
+            Also, When there is ongoing appraisal for an employee,
+            it means that there is no appraisal plan yet.
+            Thus, next_appraisal_date should be empty.
         """
-        self.hr_employee.last_appraisal_date = date.today() - relativedelta(months=6, days=-8)
-        self.env['res.company']._run_employee_appraisal_plans()
-        appraisals = self.HrAppraisal.search([('employee_id', '=', self.hr_employee.id)])
-        self.assertTrue(appraisals, "Appraisal not created")
-        self.assertEqual(appraisals.date_close, date.today() + relativedelta(days=8))
-        self.assertEqual(self.hr_employee.next_appraisal_date, date.today() + relativedelta(days=8))
+        self.hr_employee.create_date = date.today()
+        self.hr_employee.last_appraisal_date = date.today()
 
-        self.env['res.company']._run_employee_appraisal_plans()
-        appraisals_2 = self.HrAppraisal.search([('employee_id', '=', self.hr_employee.id)])
-        self.assertEqual(len(appraisals), len(appraisals_2))
+        months = self.hr_employee.company_id.duration_after_recruitment
+        days = int(self.env['ir.config_parameter'].sudo().get_param('hr_appraisal.appraisal_create_in_advance_days', 8))
+        upcoming_appraisal_date = date.today() + relativedelta(months=months, days=-days)
+
+        self.assertEqual(self.hr_employee.next_appraisal_date, upcoming_appraisal_date, 'next_appraisal_date is not set properly for an employee that has just started')
+
+        # create appraisal manually
+        self.HrAppraisal.create({
+            'employee_id': self.hr_employee.id,
+            'date_close': date.today() + relativedelta(months=1),
+            'state': 'new'
+        })
+        self.assertEqual(self.hr_employee.next_appraisal_date, False, 'There is an ongoing appraisal for an employee, next_appraisal_date should be empty.')
+
+    def test_appraisal_next_appraisal_date_uppcoming_appraisal(self):
+        """
+        Check that next_appraisal_date is correct and that indeed,
+        appraisal plan generates appraisal at that time.
+        """
+
+        self.hr_employee.create_date = date.today()
+        self.hr_employee.last_appraisal_date = date.today()
+
+        month = self.hr_employee.company_id.duration_after_recruitment
+        days = int(self.env['ir.config_parameter'].sudo().get_param('hr_appraisal.appraisal_create_in_advance_days', 8))
+
+        upcoming_appraisal_date = date.today() + relativedelta(months=month, days=-days)
+
+        self.assertEqual(self.hr_employee.next_appraisal_date, upcoming_appraisal_date, 'next_appraisal_date is not set properly')
+
+        with freeze_time(self.hr_employee.next_appraisal_date):
+            self.env['res.company']._run_employee_appraisal_plans()
+            appraisals = self.HrAppraisal.search([('employee_id', '=', self.hr_employee.id)])
+            self.assertTrue(appraisals, "Appraisal not created by appraisal plan at next_appraisal_date")
 
     def test_02_no_appraisal_generation(self):
         """
@@ -150,23 +181,9 @@ class TestHrAppraisal(TransactionCase):
         appraisals = self.HrAppraisal.search([('employee_id', '=', self.hr_employee.id)])
         self.assertTrue(appraisals, "Appraisal not created")
         self.assertEqual(appraisals.date_close, date.today() + relativedelta(days=8))
-        self.assertEqual(self.hr_employee.next_appraisal_date, date.today() + relativedelta(days=8))
-
         self.env['res.company']._run_employee_appraisal_plans()
         appraisals_2 = self.HrAppraisal.search([('employee_id', '=', self.hr_employee.id)])
         self.assertEqual(len(appraisals), len(appraisals_2))
-
-    def test_07_check_manual_appraisal_set_appraisal_date(self):
-        """
-            Create manualy an appraisal with a date_close
-            Check the appraisal_date is set properly
-        """
-        future_appraisal = self.HrAppraisal.create({
-            'employee_id': self.hr_employee.id,
-            'date_close': date.today() + relativedelta(months=1),
-            'state': 'new'
-        })
-        self.assertEqual(self.hr_employee.next_appraisal_date, date.today() + relativedelta(months=1))
 
     def test_08_check_new_employee_no_appraisal(self):
         """

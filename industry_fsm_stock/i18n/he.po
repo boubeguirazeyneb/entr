@@ -3,22 +3,24 @@
 # 	* industry_fsm_stock
 # 
 # Translators:
-# Martin Trigaux, 2021
-# ExcaliberX <excaliberx@gmail.com>, 2021
-# Yihya Hugirat <hugirat@gmail.com>, 2021
-# ZVI BLONDER <ZVIBLONDER@gmail.com>, 2021
-# Lilach Gilliam <lilach.gilliam@gmail.com>, 2021
-# david danilov, 2021
+# hed shefer <hed@laylinetech.com>, 2022
 # דודי מלכה <Dudimalka6@gmail.com>, 2022
+# ExcaliberX <excaliberx@gmail.com>, 2022
+# david danilov, 2022
+# NoaFarkash, 2022
+# Yihya Hugirat <hugirat@gmail.com>, 2022
+# ZVI BLONDER <ZVIBLONDER@gmail.com>, 2022
+# Lilach Gilliam <lilach.gilliam@gmail.com>, 2022
+# Martin Trigaux, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 09:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: דודי מלכה <Dudimalka6@gmail.com>, 2022\n"
-"Language-Team: Hebrew (https://www.transifex.com/odoo/teams/41243/he/)\n"
+"POT-Creation-Date: 2022-09-23 08:24+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Martin Trigaux, 2022\n"
+"Language-Team: Hebrew (https://app.transifex.com/odoo/teams/41243/he/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -28,7 +30,7 @@ msgstr ""
 #. module: industry_fsm_stock
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_view_form
 msgid "Already Delivered"
-msgstr ""
+msgstr "כבר נשלח"
 
 #. module: industry_fsm_stock
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_view_form
@@ -84,7 +86,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__id
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__id
 msgid "ID"
-msgstr "תעודה מזהה"
+msgstr "מזהה"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking____last_update
@@ -115,11 +117,25 @@ msgid "Lot/Serial Number"
 msgstr "מס' אצווה/ סידורי"
 
 #. module: industry_fsm_stock
-#: model:ir.model,name:industry_fsm_stock.model_product_product
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "Lot/Serial number"
+msgstr "מספר סידורי/אצווה"
+
+#. module: industry_fsm_stock
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "On hand:"
+msgstr "במלאי"
+
+#. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__product_id
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__product_id
 msgid "Product"
 msgstr "מוצר"
+
+#. module: industry_fsm_stock
+#: model:ir.model,name:industry_fsm_stock.model_product_product
+msgid "Product Variant"
+msgstr "וריאנט מוצר"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__quantity
@@ -140,11 +156,6 @@ msgstr "שורת פריט בהזמנה"
 #: model:ir.model,name:industry_fsm_stock.model_sale_order_line
 msgid "Sales Order Line"
 msgstr "שורת הזמנת לקוח"
-
-#. module: industry_fsm_stock
-#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
-msgid "Serial"
-msgstr ""
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_product_product__serial_missing
@@ -168,11 +179,19 @@ msgid "Task Done"
 msgstr "משימה בוצעה"
 
 #. module: industry_fsm_stock
+#: code:addons/industry_fsm_stock/models/product.py:0
+#, python-format
+msgid ""
+"The ordered quantity cannot be decreased below the amount already delivered."
+" Instead, create a return in your inventory."
+msgstr ""
+
+#. module: industry_fsm_stock
 #: model:ir.model,name:industry_fsm_stock.model_fsm_stock_tracking
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_line_view_form
 #: model_terms:ir.ui.view,arch_db:industry_fsm_stock.fsm_stock_tracking_line_view_form
 msgid "Track Stock"
-msgstr ""
+msgstr "עקוב אחר מלאי"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__tracking
@@ -207,9 +226,6 @@ msgid "Validated Tracking Line"
 msgstr "שורת מעקב מאומתת "
 
 #. module: industry_fsm_stock
-#: code:addons/industry_fsm_stock/models/product.py:0
-#, python-format
-msgid ""
-"You can no longer decrease the delivered quantity of a product once the task"
-" is marked as done. Please, create a return in your Inventory instead."
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "View Availability"
 msgstr ""

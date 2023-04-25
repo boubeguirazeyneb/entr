@@ -7,16 +7,10 @@ from odoo.tests.common import Form, TransactionCase
 class TestCommissionsSetup(TransactionCase):
 
     def _setup_accounting(self):
-        self.account_type_receivable = self.env['account.account.type'].create({
-            'name': 'receivable',
-            'type': 'receivable',
-            'internal_group': 'income',
-        })
-
         self.account_receivable = self.env['account.account'].create({
             'code': '...',
             'name': '...',
-            'user_type_id': self.account_type_receivable.id,
+            'account_type': 'asset_receivable',
             'company_id': self.company.id,
             'reconcile': True,
         })
@@ -25,7 +19,7 @@ class TestCommissionsSetup(TransactionCase):
             'code': 'SAL',
             'name': 'sales',
             'reconcile': True,
-            'user_type_id': self.env.ref('account.data_account_type_revenue').id,
+            'account_type': 'income',
         })
 
         self.bank_journal = self.env['account.journal'].create({
@@ -43,6 +37,15 @@ class TestCommissionsSetup(TransactionCase):
         (self.bank_journal.inbound_payment_method_line_ids + self.bank_journal.outbound_payment_method_line_ids)\
             .filtered(lambda x: x.code != 'manual')\
             .unlink()
+
+        account_journal_payment_debit_account = self.env['account.account'].create({
+            'name': 'Test account',
+            'account_type': 'asset_receivable',
+            'company_id': self.company.id,
+            'reconcile': True,
+            'code': 'testCode',
+        })
+        self.company.account_journal_payment_debit_account_id = account_journal_payment_debit_account.id
 
     def _make_partners(self):
         self.referrer = self.env['res.partner'].create({
@@ -71,12 +74,13 @@ class TestCommissionsSetup(TransactionCase):
         })
 
         # subscription templates
-        self.template_yearly = self.env['sale.subscription.template'].create({
+        self.template_yearly = self.env['sale.order.template'].create({
             'name': 'Odoo yearly',
-            'code': 'OY',
-            'recurring_rule_type': 'yearly',
-            'recurring_interval': 1,
+            'note': 'OY',
+            'recurring_rule_type': 'year',
+            'recurring_rule_count': 1,
             'recurring_rule_boundary': 'unlimited',
+            'recurrence_id': self.recurrence_year.id
         })
 
         # odoo sh
@@ -91,10 +95,9 @@ class TestCommissionsSetup(TransactionCase):
             'recurring_invoice': True,
             'purchase_ok': True,
             'property_account_income_id': self.account_sale.id,
-            'subscription_template_id': self.template_yearly.id,
             'invoice_policy': 'order',
         })
-
+        self.worker_pricing = self.env['product.pricing'].create({'recurrence_id': self.recurrence_year.id, 'price': 100, 'product_template_id': self.worker.product_tmpl_id.id})
         self.staging = self.env['product.product'].create({
             'name': 'Odoo.sh Staging Branch',
             'categ_id': self.odoo_sh.id,
@@ -102,9 +105,10 @@ class TestCommissionsSetup(TransactionCase):
             'recurring_invoice': True,
             'purchase_ok': True,
             'property_account_income_id': self.account_sale.id,
-            'subscription_template_id': self.template_yearly.id,
             'invoice_policy': 'order',
         })
+        self.staging_pricing = self.env['product.pricing'].create(
+            {'recurrence_id': self.recurrence_year.id, 'price': 420, 'product_template_id': self.staging.product_tmpl_id.id})
 
         # apps support
         self.apps_support = self.env['product.category'].create({
@@ -118,9 +122,10 @@ class TestCommissionsSetup(TransactionCase):
             'recurring_invoice': True,
             'purchase_ok': True,
             'property_account_income_id': self.account_sale.id,
-            'subscription_template_id': self.template_yearly.id,
             'invoice_policy': 'order',
         })
+        self.crm_pricing = self.env['product.pricing'].create(
+            {'recurrence_id': self.recurrence_month.id, 'price': 15, 'product_template_id': self.crm.product_tmpl_id.id})
 
         self.invoicing = self.env['product.product'].create({
             'name': 'Invoicing',
@@ -129,9 +134,10 @@ class TestCommissionsSetup(TransactionCase):
             'recurring_invoice': True,
             'purchase_ok': True,
             'property_account_income_id': self.account_sale.id,
-            'subscription_template_id': self.template_yearly.id,
             'invoice_policy': 'order',
         })
+        self.invoicing_pricing = self.pricing_worker = self.env['product.pricing'].create(
+            {'recurrence_id': self.recurrence_month.id, 'price': 20, 'product_template_id': self.invoicing.product_tmpl_id.id})
 
     def _make_commission_plans(self):
         self.learning_plan = self.env['commission.plan'].create({
@@ -224,13 +230,19 @@ class TestCommissionsSetup(TransactionCase):
             self.ref('account.group_account_invoice'),
             # Sales: User: All Documents
             self.ref('sales_team.group_sale_salesman_all_leads'),
-            # Subscription: See Subscriptions
-            self.ref('sale_subscription.group_sale_subscription_view'),
+            # Sales: See SO
+            self.ref('sales_team.group_sale_salesman'),
             # Show Full Accounting Features
             self.ref('account.group_account_user'),
             # Billing Administrator
             self.ref('account.group_account_manager'),
         ]
+        currency_usd_id = self.env.ref("base.USD")
+        currency_usd_id.active = True
+        currency_eur_id = self.env.ref("base.EUR")
+        currency_eur_id.active = True
+        self.recurrence_month = self.env['sale.temporal.recurrence'].create({'duration': 1, 'unit': 'month'})
+        self.recurrence_year = self.env['sale.temporal.recurrence'].create({'duration': 1, 'unit': 'year'})
 
         self.salesman = self.env['res.users'].create({
             'name': '...',
@@ -256,6 +268,8 @@ class TestCommissionsSetup(TransactionCase):
         form = Form(self.env['sale.order'].with_user(self.salesman).with_context(tracking_disable=True))
         form.partner_id = self.customer
         form.referrer_id = self.referrer
+        # commission_plan_frozen is False by default
+        # it's not visible if the sale order is not a recurring subscription / until it has recurring lines
 
         for l in spec.lines:
             with form.order_line.new() as line:

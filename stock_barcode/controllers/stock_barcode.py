@@ -18,22 +18,42 @@ class StockBarcodeController(http.Controller):
         """ Receive a barcode scanned from the main menu and return the appropriate
             action (open an existing / new picking) or warning.
         """
-        ret_open_picking = self._try_open_picking(barcode)
-        if ret_open_picking:
-            return ret_open_picking
+        barcode_type = None
+        nomenclature = request.env.company.nomenclature_id
+        if nomenclature.is_gs1_nomenclature:
+            parsed_results = nomenclature.parse_barcode(barcode)
+            if parsed_results:
+                # search with the last feasible rule
+                for result in parsed_results[::-1]:
+                    if result['rule'].type in ['product', 'package', 'location', 'dest_location']:
+                        barcode_type = result['rule'].type
+                        break
 
-        ret_open_picking_type = self._try_open_picking_type(barcode)
-        if ret_open_picking_type:
-            return ret_open_picking_type
+        if not barcode_type:
+            ret_open_picking = self._try_open_picking(barcode)
+            if ret_open_picking:
+                return ret_open_picking
 
-        if request.env.user.has_group('stock.group_stock_multi_locations'):
+            ret_open_picking_type = self._try_open_picking_type(barcode)
+            if ret_open_picking_type:
+                return ret_open_picking_type
+
+        if request.env.user.has_group('stock.group_stock_multi_locations') and \
+           (not barcode_type or barcode_type in ['location', 'dest_location']):
             ret_new_internal_picking = self._try_new_internal_picking(barcode)
             if ret_new_internal_picking:
                 return ret_new_internal_picking
 
-        ret_open_product_location = self._try_open_product_location(barcode)
-        if ret_open_product_location:
-            return ret_open_product_location
+        if not barcode_type or barcode_type == 'product':
+            ret_open_product_location = self._try_open_product_location(barcode)
+            if ret_open_product_location:
+                return ret_open_product_location
+
+        if request.env.user.has_group('stock.group_tracking_lot') and \
+           (not barcode_type or barcode_type == 'package'):
+            ret_open_package = self._try_open_package(barcode)
+            if ret_open_package:
+                return ret_open_package
 
         if request.env.user.has_group('stock.group_stock_multi_locations'):
             return {'warning': _('No picking or location or product corresponding to barcode %(barcode)s') % {'barcode': barcode}}
@@ -57,9 +77,9 @@ class StockBarcodeController(http.Controller):
         }
         """
         if not res_id:
-            target_record = request.env[model].with_company(self._get_allowed_company_ids()[0])
+            target_record = request.env[model].with_context(allowed_company_ids=self._get_allowed_company_ids())
         else:
-            target_record = request.env[model].browse(res_id).with_company(self._get_allowed_company_ids()[0])
+            target_record = request.env[model].browse(res_id).with_context(allowed_company_ids=self._get_allowed_company_ids())
         data = target_record._get_stock_barcode_data()
         data['records'].update(self._get_barcode_nomenclature())
         return {
@@ -129,18 +149,17 @@ class StockBarcodeController(http.Controller):
 
         # get picking types barcodes
         picking_type_ids = request.env['stock.picking.type'].search(domain)
-        picking_report = request.env.ref('stock.action_report_picking_type_label', raise_if_not_found=True)
+        Report = request.env['ir.actions.report']
         for picking_type_batch in split_every(100, picking_type_ids.ids):
-            picking_types_pdf, _ = picking_report._render_qweb_pdf(picking_type_batch)
+            picking_types_pdf, _ = Report._render_qweb_pdf('stock.action_report_picking_type_label', picking_type_batch)
             if picking_types_pdf:
                 barcode_pdfs.append(picking_types_pdf)
 
         # get locations barcodes
         if request.env.user.has_group('stock.group_stock_multi_locations'):
             locations_ids = request.env['stock.location'].search(domain)
-            locations_report = request.env.ref('stock.action_report_location_barcode', raise_if_not_found=True)
             for location_ids_batch in split_every(100, locations_ids.ids):
-                locations_pdf, _ = locations_report._render_qweb_pdf(location_ids_batch)
+                locations_pdf, _ = Report._render_qweb_pdf('stock.action_report_location_barcode', location_ids_batch)
                 if locations_pdf:
                     barcode_pdfs.append(locations_pdf)
 
@@ -199,6 +218,24 @@ class StockBarcodeController(http.Controller):
             return {'action': action}
         return False
 
+    def _try_open_package(self, barcode):
+        """ If barcode represents a package, open it.
+        """
+        package = request.env['stock.quant.package'].search([('name', '=', barcode)], limit=1)
+        if package:
+            view_id = request.env.ref('stock.view_quant_package_form').id
+            return {
+                'action': {
+                    'name': 'Open package',
+                    'res_model': 'stock.quant.package',
+                    'views': [(view_id, 'form')],
+                    'type': 'ir.actions.act_window',
+                    'res_id': package.id,
+                    'context': {'active_id': package.id}
+                }
+            }
+        return False
+
     def _try_new_internal_picking(self, barcode):
         """ If barcode represents a location, open a new picking from this location
         """
@@ -249,6 +286,7 @@ class StockBarcodeController(http.Controller):
             'group_tracking_lot': request.env.user.has_group('stock.group_tracking_lot'),
             'group_production_lot': request.env.user.has_group('stock.group_production_lot'),
             'group_uom': request.env.user.has_group('uom.group_uom'),
+            'group_stock_packaging': request.env.user.has_group('product.group_stock_packaging'),
         }
 
     def _get_barcode_nomenclature(self):
@@ -265,7 +303,7 @@ class StockBarcodeController(http.Controller):
             'product.product',
             'product.packaging',
             'stock.picking',
-            'stock.production.lot',
+            'stock.lot',
             'stock.quant.package',
         ]
         return {model: request.env[model]._barcode_field for model in list_model if hasattr(request.env[model], '_barcode_field')}

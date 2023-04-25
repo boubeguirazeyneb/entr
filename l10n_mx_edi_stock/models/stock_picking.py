@@ -2,13 +2,12 @@
 
 import base64
 import json
-import pytz
 import re
 import requests
 from lxml import etree, objectify
 from werkzeug.urls import url_quote
 
-from odoo import api, models, fields, tools, _
+from odoo import api, models, fields, _
 from odoo.exceptions import UserError
 
 CFDI_XSLT_CADENA = 'l10n_mx_edi_stock/data/cadenaoriginal_cartaporte.xslt'
@@ -19,7 +18,7 @@ MAPBOX_MATRIX_URL = 'https://api.mapbox.com/directions-matrix/v1/mapbox/driving/
 class Picking(models.Model):
     _inherit = 'stock.picking'
 
-    country_code = fields.Char(related='company_id.country_id.code')
+    country_code = fields.Char(related='company_id.country_id.code', depends=['company_id.country_id'])
     l10n_mx_edi_is_export = fields.Char(compute='_l10n_mx_edi_compute_is_export')
     l10n_mx_edi_content = fields.Binary(compute='_l10n_mx_edi_compute_edi_content', compute_sudo=True)
     l10n_mx_edi_error = fields.Char(copy=False)
@@ -117,7 +116,7 @@ class Picking(models.Model):
                 raise UserError(_('You must select a transport type to generate the delivery guide'))
             if record.move_line_ids.mapped('product_id').filtered(lambda product: not product.unspsc_code_id):
                 raise UserError(_('All products require a UNSPSC Code'))
-            if not record.company_id.l10n_mx_edi_certificate_ids.sudo().get_valid_certificate():
+            if not record.company_id.l10n_mx_edi_certificate_ids.sudo()._get_valid_certificate():
                 raise UserError(_('A valid certificate was not found'))
             if record.l10n_mx_edi_transport_type == '01' and not record.l10n_mx_edi_distance:
                 raise UserError(_('Distance in KM must be specified when using federal transport'))
@@ -126,8 +125,7 @@ class Picking(models.Model):
         for pick in self:
             if pick.l10n_mx_edi_cfdi_uuid:
                 replaced_pick = pick.search(
-                    [('l10n_mx_edi_origin', 'like', '04|%'),
-                     ('l10n_mx_edi_origin', 'like', '%' + pick.l10n_mx_edi_cfdi_uuid + '%'),
+                    [('l10n_mx_edi_origin', '=like', '04|%' + pick.l10n_mx_edi_cfdi_uuid + '%'),
                      ('company_id', '=', pick.company_id.id)],
                     limit=1,
                 )
@@ -138,12 +136,18 @@ class Picking(models.Model):
     # -------------------------------------------------------------------------
     # XML
     # -------------------------------------------------------------------------
+    def _l10n_mx_edi_get_cadena_xslt(self):
+        return CFDI_XSLT_CADENA
+
+    def _l10n_mx_edi_dg_render(self, values):
+        return self.env['ir.qweb']._render('l10n_mx_edi_stock.cfdi_cartaporte', values)
+
     def _l10n_mx_edi_create_delivery_guide(self):
         def format_float(val, digits=2):
             return '%.*f' % (digits, val)
 
         for record in self:
-            name_numbers = list(re.finditer('\d+', record.name))
+            name_numbers = list(re.finditer(r'\d+', record.name))
             mx_tz = self.env['account.move']._l10n_mx_edi_get_cfdi_partner_timezone(record.picking_type_id.warehouse_id.partner_id or record.company_id.partner_id)
             date_fmt = '%Y-%m-%dT%H:%M:%S'
             warehouse_zip = record.picking_type_id.warehouse_id.partner_id and record.picking_type_id.warehouse_id.partner_id.zip or record.company_id.zip
@@ -159,19 +163,19 @@ class Picking(models.Model):
                 'folio_number': name_numbers[-1].group(),
                 'origin_type': origin_type,
                 'origin_uuids': origin_uuids,
-                'serie': re.sub('\W+', '', record.name[:name_numbers[-1].start()]),
+                'serie': re.sub(r'\W+', '', record.name[:name_numbers[-1].start()]),
                 'lugar_expedicion': warehouse_zip,
                 'supplier': record.company_id,
                 'customer': record.partner_id.commercial_partner_id,
-                'moves': record.move_lines.filtered(lambda ml: ml.quantity_done > 0),
+                'moves': record.move_ids.filtered(lambda ml: ml.quantity_done > 0),
                 'record': record,
                 'format_float': format_float,
                 'weight_uom': self.env['product.template']._get_weight_uom_id_from_ir_config_parameter(),
             }
-            xml = self.env.ref('l10n_mx_edi_stock.cfdi_cartaporte')._render(values)
-            certificate = record.company_id.l10n_mx_edi_certificate_ids.sudo().get_valid_certificate()
+            xml = self._l10n_mx_edi_dg_render(values)
+            certificate = record.company_id.l10n_mx_edi_certificate_ids.sudo()._get_valid_certificate()
             if certificate:
-                xml = certificate._certify_and_stamp(xml, CFDI_XSLT_CADENA)
+                xml = certificate._certify_and_stamp(xml, self._l10n_mx_edi_get_cadena_xslt())
             return xml
 
     def _l10n_mx_edi_validate_with_xsd(self, xml_str, raise_error=False):
@@ -195,16 +199,6 @@ class Picking(models.Model):
             xmlschema.assertValid(xml_doc)  #if the document is invalid, raise the error for debugging
         return result
 
-    def _l10n_mx_edi_get_signed_cfdi_data(self):
-        self.ensure_one()
-        if self.l10n_mx_edi_status == 'sent':
-            return base64.decodebytes(self.env['ir.attachment'].search([
-                ('name', '=', ATTACHMENT_NAME.format(self.l10n_mx_edi_cfdi_uuid)),
-                ('res_model', '=', self._name),
-                ('res_id', '=', self.id)
-            ], limit=1).datas)
-        return None
-
     def _l10n_mx_edi_decode_cfdi(self, cfdi_data=None):
         ''' Helper to extract relevant data from the CFDI to be used, for example, when printing the picking.
         TODO replace this function in l10n_mx_edi.account_move with a reusable model method
@@ -222,7 +216,7 @@ class Picking(models.Model):
 
         # Get the signed cfdi data.
         if not cfdi_data:
-            cfdi_data = self._l10n_mx_edi_get_signed_cfdi_data()
+            cfdi_data = self.l10n_mx_edi_cfdi_file_id.raw
 
         # Nothing to decode.
         if not cfdi_data:
@@ -246,7 +240,7 @@ class Picking(models.Model):
             'bank_account': cfdi_node.get('NumCtaPago'),
             'sello': cfdi_node.get('sello', cfdi_node.get('Sello', 'No identificado')),
             'sello_sat': tfd_node is not None and tfd_node.get('selloSAT', tfd_node.get('SelloSAT', 'No identificado')),
-            'cadena': self.env['l10n_mx_edi.certificate']._get_cadena_chain(cfdi_node, CFDI_XSLT_CADENA),
+            'cadena': self.env['l10n_mx_edi.certificate']._get_cadena_chain(cfdi_node, self._l10n_mx_edi_get_cadena_xslt()),
             'certificate_number': cfdi_node.get('noCertificado', cfdi_node.get('NoCertificado')),
             'certificate_sat_number': tfd_node is not None and tfd_node.get('NoCertificadoSAT'),
             'expedition': cfdi_node.get('LugarExpedicion'),
@@ -261,7 +255,7 @@ class Picking(models.Model):
     def _l10n_mx_edi_request_mapbox(self, url, params):
         try:
             fetched_data = requests.get(url, params=params, timeout=10)
-        except Exception as e:
+        except Exception:
             raise UserError(_('Unable to connect to mapbox'))
         return fetched_data
 
@@ -313,15 +307,15 @@ class Picking(models.Model):
     def l10n_mx_edi_action_cancel_delivery_guide(self):
         for record in self:
             pac_name = record.company_id.l10n_mx_edi_pac
-            credentials = getattr(self.env['account.edi.format'], '_l10n_mx_edi_get_%s_credentials_company' % pac_name)(record.company_id)
+            credentials = getattr(self.env['account.edi.format'], '_l10n_mx_edi_get_%s_credentials' % pac_name)(record.company_id)
             if credentials.get('errors'):
                 record.l10n_mx_edi_error = '\n'.join(credentials['errors'])
                 continue
 
-            cfdi_str = record._l10n_mx_edi_get_signed_cfdi_data()
             uuid_replace = record.l10n_mx_edi_cancel_picking_id.l10n_mx_edi_cfdi_uuid
-            cancel_method = getattr(self.env['account.edi.format'], '_l10n_mx_edi_%s_cancel_service' % pac_name)
+            cancel_method = getattr(self.env['account.edi.format'], '_l10n_mx_edi_%s_cancel' % pac_name)
             res = cancel_method(record.l10n_mx_edi_cfdi_uuid, record.company_id, credentials, uuid_replace=uuid_replace)
+
             if res.get('errors'):
                 record.l10n_mx_edi_error = '\n'.join(res['errors'])
                 continue
@@ -338,13 +332,13 @@ class Picking(models.Model):
         for record in self:
             pac_name = record.company_id.l10n_mx_edi_pac
 
-            credentials = getattr(self.env['account.edi.format'], '_l10n_mx_edi_get_%s_credentials_company' % pac_name)(record.company_id)
+            credentials = getattr(self.env['account.edi.format'], '_l10n_mx_edi_get_%s_credentials' % pac_name)(record.company_id)
             if credentials.get('errors'):
                 record.l10n_mx_edi_error = '\n'.join(credentials['errors'])
                 continue
 
             cfdi_str = record._l10n_mx_edi_create_delivery_guide()
-            res = getattr(self.env['account.edi.format'], '_l10n_mx_edi_%s_sign_service' % pac_name)(credentials, cfdi_str)
+            res = getattr(self.env['account.edi.format'], '_l10n_mx_edi_%s_sign' % pac_name)(credentials, cfdi_str)
             if res.get('errors'):
                 record.l10n_mx_edi_error = '\n'.join(res['errors'])
                 continue

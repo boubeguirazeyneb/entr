@@ -5,6 +5,7 @@
         <field name="name">payroll.hr.employee.view.form</field>
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="priority" eval="100" />
         <field name="arch" type="xml">
                 <div name="button_box" position="inside">
                     <button name="%(act_hr_employee_payslip_list)d"
@@ -19,5 +20,17 @@
                     <field name="registration_number"/>
                 </xpath>
         </field>
+    </record>
+
+    <record id="payroll_hr_employee_view_tree_employee_trends" model="ir.ui.view">
+    <field name="name">payroll.hr.employee.view.tree.inherit</field>
+    <field name="model">hr.employee</field>
+    <field name="inherit_id" ref="hr_contract.view_employee_tree"/>
+    <field name="priority" eval="100" />
+    <field name="arch" type="xml">
+        <field name="first_contract_date" position="attributes">
+            <attribute name="optional">show</attribute>
+        </field>
+    </field>
     </record>
 </odoo>

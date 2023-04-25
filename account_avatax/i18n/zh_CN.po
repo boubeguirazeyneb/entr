@@ -4,18 +4,17 @@
 # 
 # Translators:
 # Jeffery CHEN <jeffery9@gmail.com>, 2022
-# 黎伟杰 <674416404@qq.com>, 2022
 # Martin Trigaux, 2022
-# 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022
+# Emily Jia <eji@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 14.0+e\n"
+"Project-Id-Version: Odoo Server 15.5alpha1+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-03-17 20:02+0000\n"
-"PO-Revision-Date: 2022-04-07 10:01+0000\n"
-"Last-Translator: 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022\n"
-"Language-Team: Chinese (China) (https://www.transifex.com/odoo/teams/41243/zh_CN/)\n"
+"POT-Creation-Date: 2022-09-20 09:48+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Emily Jia <eji@odoo.com>, 2023\n"
+"Language-Team: Chinese (China) (https://app.transifex.com/odoo/teams/41243/zh_CN/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -24,10 +23,16 @@ msgstr ""
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid "%(response)s"
 msgstr "%(response)s"
+
+#. module: account_avatax
+#. odoo-python
+#: code:addons/account_avatax/models/account_avatax.py:0
+#, python-format
+msgid "- %s (ID: %s) on %s"
+msgstr "- %s（ID：%s）在%s"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
@@ -89,7 +94,7 @@ msgstr "API Key"
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_account_fiscal_position__avatax_invoice_account_id
 msgid "Account that will be used by Avatax taxes for invoices."
-msgstr "Avatax 税费将用于发票的帐户。"
+msgstr "Avatax 税费将用于结算单的帐户。"
 
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_account_fiscal_position__avatax_refund_account_id
@@ -102,16 +107,6 @@ msgid "Address Validation"
 msgstr "地址验证"
 
 #. module: account_avatax
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
-#, python-format
-msgid ""
-"Address validation is currently disabled, please enable it in the Accounting"
-" settings."
-msgstr "地址验证当前已禁用，请在会计设置中启用它。"
-
-#. module: account_avatax
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
 #: code:addons/account_avatax/wizard/avatax_validate_address.py:0
 #, python-format
 msgid "Address validation is only supported for North American addresses."
@@ -126,7 +121,7 @@ msgstr "自动计算税率"
 #: model:ir.model.fields,field_description:account_avatax.field_res_company__avalara_api_id
 #: model:ir.model.fields,field_description:account_avatax.field_res_config_settings__avalara_api_id
 msgid "Avalara API ID"
-msgstr "Avalara API ID"
+msgstr "阿瓦拉拉 API ID"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_res_company__avalara_api_key
@@ -207,7 +202,7 @@ msgstr "阿凡达克斯日期"
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position__avatax_invoice_account_id
 msgid "Avatax Invoice Account"
-msgstr "阿凡达发票帐户"
+msgstr "阿凡达结算单帐户"
 
 #. module: account_avatax
 #: model:ir.model,name:account_avatax.model_avatax_exemption
@@ -231,7 +226,7 @@ msgstr "阿凡达退款账户"
 msgid ""
 "Avatax will use this date to calculate the tax on this invoice. If not "
 "specified it will use the Invoice Date."
-msgstr "Avatax 将使用此日期来计算此发票上的税款。如果未指定，它将使用发票日期。"
+msgstr "Avatax 将使用此日期来计算此结算单上的税款。如果未指定，它将使用结算单日期。"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
@@ -248,7 +243,7 @@ msgstr "城市"
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__code
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__code
 msgid "Code"
-msgstr "代号"
+msgstr "Code"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
@@ -318,34 +313,15 @@ msgid "Customer Code set in Avalara for this partner."
 msgstr "在 Avalara 中为此合作伙伴设置的客户代码。"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
-#, python-format
-msgid ""
-"Customers are required to have a zip, state and country when using Avatax."
-msgstr "客户在使用Avaax时必须有一个zip，州和国家。"
-
-#. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__description
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__description
 msgid "Description"
-msgstr "描述"
+msgstr "说明"
 
 #. module: account_avatax
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax_unique_code__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_account_move__display_name
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__display_name
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_payment_link_wizard__display_name
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_product_category__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_product_product__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_product_template__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_res_company__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_res_config_settings__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_res_partner__display_name
 msgid "Display Name"
 msgstr "显示名称"
 
@@ -357,7 +333,7 @@ msgstr "Environment"
 #. module: account_avatax
 #: model:ir.model,name:account_avatax.model_account_fiscal_position
 msgid "Fiscal Position"
-msgstr "税科目调整"
+msgstr "财政状况"
 
 #. module: account_avatax
 #: model:ir.model,name:account_avatax.model_payment_link_wizard
@@ -366,26 +342,14 @@ msgstr "生成销售支付链接"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid "Go to the configuration panel"
 msgstr "至配置面板"
 
 #. module: account_avatax
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax__id
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax_unique_code__id
-#: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position__id
-#: model:ir.model.fields,field_description:account_avatax.field_account_move__id
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__id
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__id
-#: model:ir.model.fields,field_description:account_avatax.field_payment_link_wizard__id
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__id
-#: model:ir.model.fields,field_description:account_avatax.field_product_category__id
-#: model:ir.model.fields,field_description:account_avatax.field_product_product__id
-#: model:ir.model.fields,field_description:account_avatax.field_product_template__id
-#: model:ir.model.fields,field_description:account_avatax.field_res_company__id
-#: model:ir.model.fields,field_description:account_avatax.field_res_config_settings__id
-#: model:ir.model.fields,field_description:account_avatax.field_res_partner__id
 msgid "ID"
 msgstr "ID"
 
@@ -408,20 +372,9 @@ msgid "Journal Entry"
 msgstr "日记账分录"
 
 #. module: account_avatax
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax_unique_code____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_account_move____last_update
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption____last_update
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_payment_link_wizard____last_update
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_product_category____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_product_product____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_product_template____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_res_company____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_res_config_settings____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_res_partner____last_update
 msgid "Last Modified on"
 msgstr "最后修改时间"
 
@@ -456,7 +409,6 @@ msgstr "名称"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
 "Odoo could not change the state of the transaction related to %(document)s in AvaTax\n"
@@ -467,13 +419,11 @@ msgstr ""
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/res_company.py:0
-#: code:addons/account_avatax/models/res_company.py:0
 #, python-format
 msgid "Odoo could not fetch the exemption codes of %(company)s"
 msgstr "Odoo无法获取%(company)s"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
 #: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
@@ -485,13 +435,11 @@ msgstr ""
 
 #. module: account_avatax
 #: code:addons/account_avatax/wizard/avatax_validate_address.py:0
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
 #, python-format
 msgid "Odoo could not validate the address of %(partner)s with Avalara."
 msgstr "Odoo无法验证与Avalara%(partner)s地址。"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
 #: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
@@ -513,13 +461,12 @@ msgstr "业务伙伴"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid "Please add your AvaTax credentials"
 msgstr "请添加您的 AvaTax 凭证"
 
 #. module: account_avatax
-#: model:ir.model,name:account_avatax.model_product_product
+#: model:ir.model,name:account_avatax.model_product_template
 msgid "Product"
 msgstr "产品"
 
@@ -529,9 +476,9 @@ msgid "Product Category"
 msgstr "产品类别"
 
 #. module: account_avatax
-#: model:ir.model,name:account_avatax.model_product_template
-msgid "Product Template"
-msgstr "产品模版"
+#: model:ir.model,name:account_avatax.model_product_product
+msgid "Product Variant"
+msgstr "产品变体"
 
 #. module: account_avatax
 #: model:ir.model.fields.selection,name:account_avatax.selection__res_company__avalara_environment__production
@@ -550,13 +497,11 @@ msgstr "保存已验证"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax_unique_code.py:0
-#: code:addons/account_avatax/models/account_avatax_unique_code.py:0
 #, python-format
 msgid "Search operation not supported"
 msgstr "不支持搜索操作"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/res_company.py:0
 #: code:addons/account_avatax/models/res_company.py:0
 #, python-format
 msgid ""
@@ -576,12 +521,12 @@ msgstr "状态"
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__street
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
 msgid "Street"
-msgstr "区"
+msgstr "街道"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__street2
 msgid "Street2"
-msgstr "详细地址"
+msgstr "街道 2"
 
 #. module: account_avatax
 #: model:ir.model,name:account_avatax.model_avatax_validate_address
@@ -591,39 +536,16 @@ msgstr "建议来自Avatax的经过验证的地址"
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
 msgid "Synchronize the exemption codes from Avatax"
-msgstr "从Avatax同步豁免代码"
-
-#. module: account_avatax
-#: model:ir.model.fields,help:account_avatax.field_avatax_validate_address__is_already_valid
-msgid ""
-"Technical field to determine whether to allow updating the address or not."
-msgstr "用于确定是否允许更新地址的技术字段。"
-
-#. module: account_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_avatax__is_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_bank_statement_line__is_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_move__is_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_payment__is_avatax
-msgid "Technical field used for the visibility of fields and buttons."
-msgstr "用于字段和按钮可见性的技术字段。"
-
-#. module: account_avatax
-#: model:ir.model.fields,help:account_avatax.field_res_partner__avalara_show_address_validation
-#: model:ir.model.fields,help:account_avatax.field_res_users__avalara_show_address_validation
-msgid ""
-"Technical field used to hide the address validation button when the partner "
-"is not in the US or Canada."
-msgstr "用于在合作伙伴不在美国或加拿大时隐藏地址验证按钮的技术字段。"
+msgstr "从阿凡达克斯同步豁免代码"
 
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_res_config_settings__avalara_partner_code
 msgid ""
 "The Avalara Company Code for this company. Avalara will interpret as DEFAULT"
 " if it is not set."
-msgstr "该公司的阿瓦拉拉公司代码。如果未设置，Avalara 将解释为 DEFAULT。"
+msgstr "该公司的阿瓦拉拉公司代码。如果未设置，阿瓦拉拉 将解释为 DEFAULT。"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
 #: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
@@ -634,9 +556,18 @@ msgstr ""
 "查看 https://taxcode.avatax.avalara.com/"
 
 #. module: account_avatax
+#. odoo-python
+#: code:addons/account_avatax/models/account_avatax.py:0
+#, python-format
+msgid ""
+"The following customer(s) need to have a zip, state and country when using "
+"Avatax:"
+msgstr "以下客户使用Avatax时需要提供邮编、州和国家/地区："
+
+#. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_res_config_settings__avalara_commit
 msgid "The transactions will be committed for reporting in Avatax."
-msgstr "交易将提交以Avatax中报告。"
+msgstr "交易将提交以阿凡达克斯中报告。"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
@@ -658,7 +589,7 @@ msgstr "使用 UPC"
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_res_config_settings__avalara_use_upc
 msgid "Use Universal Product Code instead of custom defined codes in Avalara."
-msgstr "使用通用产品代码，而不是 Avalara 中的自定义代码。"
+msgstr "使用通用产品代码，而不是 阿瓦拉拉 中的自定义代码。"
 
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_account_avatax__avatax_unique_code
@@ -678,11 +609,10 @@ msgstr "有效国家"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_partner_form_inherit
-msgid "Validate address"
-msgstr "验证地址"
+msgid "Validate"
+msgstr "验证"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/res_partner.py:0
 #: code:addons/account_avatax/models/res_partner.py:0
 #, python-format
 msgid "Validate address of %s"
@@ -693,7 +623,7 @@ msgstr "验证%s地址"
 msgid ""
 "Validate and correct the addresses of partners in North America with "
 "Avalara."
-msgstr "使用 Avalara 验证并更正北美合作伙伴的地址。"
+msgstr "使用 阿瓦拉拉 验证并更正北美合作伙伴的地址。"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
@@ -737,7 +667,6 @@ msgid "Zip Code"
 msgstr "邮政编码"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/product.py:0
 #: code:addons/account_avatax/models/product.py:0
 #, python-format
 msgid "[%s] %s"

@@ -16,10 +16,12 @@ Create customizable worksheet
         'security/worksheet_security.xml',
         'views/worksheet_template_view.xml',
     ],
-    'demo': [],
     'assets': {
         'web.assets_backend': [
-            'worksheet/static/**/*',
+            'worksheet/static/src/**/*',
+        ],
+        'web.qunit_suite_tests': [
+            'worksheet/static/tests/*.js',
         ],
     },
     'license': 'OEEL-1',

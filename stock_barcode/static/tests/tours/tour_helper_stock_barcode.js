@@ -83,66 +83,20 @@ function assertLineButtonsAreVisible(lineIndex, isVisible, cssSelector='.o_line_
     assert($buttonAddQty.length > 0, isVisible, message);
 }
 
-function assertPageSummary (expected) {
-    // FIXME sle: fix the tests instead of fixing the assert method
-    let res = '';
-    const $src = $('.o_current_location');
-    if ($src.length) {
-        res = "From " + $src.text() + " ";
-    }
-    const $dest = $('.o_current_dest_location');
-    if ($dest.length) {
-        res += "To " + $dest.text();
-    }
-    assert(res.trim(), expected.trim(), 'Page summary');
-}
-
-function assertPreviousVisible (expected) {
-    var $previousButton = $('.o_previous_page');
-    var current = (!$previousButton.length && !expected) || $previousButton.hasClass('o_hidden');
-    assert(!current, expected, 'Previous visible');
-}
-
-function assertPreviousEnabled (expected) {
-    var $previousButton = $('.o_previous_page');
-    var current = (!$previousButton.length && !expected) || $previousButton.prop('disabled');
-    assert(!current, expected, 'Previous button enabled');
-}
-
-function assertNextVisible (expected) {
-    var $nextButton = $('.o_next_page');
-    var current = (!$nextButton.length && !expected) || $nextButton.hasClass('o_hidden');
-    assert(!current, expected, 'Next visible');
-}
-
-function assertNextEnabled (expected) {
-    var $nextButton = $('.o_next_page');
-    var current = (!$nextButton.length && !expected) || $nextButton.prop('disabled');
-    assert(!current, expected, 'Next button enabled');
-}
-
-function assertNextIsHighlighted (expected) {
-    var $nextButton = $('.o_next_page');
-    var current = $nextButton.hasClass('btn-primary');
-    assert(current, expected, 'Next button is highlighted');
-}
-
 function assertValidateVisible (expected) {
-    var $validate = $('.o_validate_page');
-    var current = (!$validate.length && !expected) || $validate.hasClass('o_hidden');
-    assert(!current, expected, 'Validate visible');
+    const validateButton = document.querySelector('.o_validate_page,.o_apply_page');
+    assert(Boolean(validateButton), expected, 'Validate visible');
 }
 
 function assertValidateEnabled (expected) {
-    var $validate = $('.o_validate_page');
-    var current = (!$validate.length && !expected) || $validate.prop('disabled');
-    assert(!current, expected, 'Validate enabled');
+    const validateButton = document.querySelector('.o_validate_page,.o_apply_page') || false;
+    assert(validateButton && !validateButton.hasAttribute('disabled'), expected, 'Validate enabled');
 }
 
 function assertValidateIsHighlighted (expected) {
-    var $validate = $('.o_validate_page');
-    var current = $validate.hasClass('btn-success');
-    assert(current, expected, 'Validate button is highlighted');
+    const validateButton = document.querySelector('.o_validate_page,.o_apply_page') || false;
+    const isHighlighted = validateButton && validateButton.classList.contains('btn-success');
+    assert(isHighlighted, expected, 'Validate button is highlighted');
 }
 
 function assertLinesCount(expected) {
@@ -151,11 +105,9 @@ function assertLinesCount(expected) {
 }
 
 function assertScanMessage (expected) {
-    var $helps = $('.o_scan_message');
-    var $help = $helps.filter('.o_scan_message_' + expected);
-    if (! $help.length || $help.hasClass('o_hidden')) {
-        fail('assertScanMessage: "' + expected + '" is not displayed');
-    }
+    const instruction = document.querySelector(`.o_scan_message`);
+    const cssClass = instruction.classList[1];
+    assert(cssClass, `o_${expected}`, "Not the right message displayed");
 }
 
 function assertSublinesCount(expected) {
@@ -163,19 +115,28 @@ function assertSublinesCount(expected) {
     assert(current, expected, `Should have ${expected} subline(s), found ${current}`);
 }
 
-function assertLocationHighlight (expected) {
-    var $locationElem = $('.o_barcode_summary_location_src');
-    assert($locationElem.hasClass('o_strong'), expected, 'Location source is not bold');
+function assertLineDestinationIsNotVisible(line) {
+    const destinationElement = line.querySelector('.o_line_destination_location');
+    if (destinationElement) {
+        const product = line.querySelector('.product-label').innerText;
+        fail(`The destination for line of the product ${product} should not be visible, "${destinationElement.innerText}" instead`);
+    }
 }
 
-function assertDestinationLocationHighlight (expected) {
-    var $locationElem = $('.o_barcode_summary_location_dest');
-    assert($locationElem.hasClass('o_strong'), expected, 'Location destination is not bold');
-}
-
-function assertPager (expected) {
-    var $pager = $('.o_barcode_move_number');
-    assert($pager.text(), expected, 'Pager is wrong');
+/**
+ * Checks if the given line is going in the given location. Implies the destination is visible.
+ * @param {Element} line
+ * @param {string} location
+ */
+function assertLineDestinationLocation(line, location) {
+    const destinationElement = line.querySelector('.o_line_destination_location');
+    const product = line.querySelector('.product-label').innerText;
+    if (!destinationElement) {
+        fail(`The destination (${location}) for line of the product ${product} is not visible`);
+    }
+    assert(
+        destinationElement.innerText, location,
+        `The destination for line of product ${product} isn't in the right location`);
 }
 
 function assertLineIsHighlighted ($line, expected) {
@@ -194,6 +155,24 @@ function assertLineQty($line, expectedQuantity) {
     assert(lineQuantity, expectedQuantity, `Line's quantity is wrong`);
 }
 
+function assertLineLocations(line, source=false, destination=false) {
+    if (source) {
+        assertLineSourceLocation(line, source);
+    } else {
+        assertLineSourceIsNotVisible(line);
+    }
+    if (destination) {
+        assertLineDestinationLocation(line, destination);
+    } else {
+        assertLineDestinationIsNotVisible(line);
+    }
+}
+
+function assertLineProduct(line, productName) {
+    const lineProduct = line.querySelector('.product-label').innerText;
+    assert(lineProduct, productName, "No the expected product");
+}
+
 /**
  * Checks the done quantity on the reserved quantity is what is expected.
  *
@@ -202,9 +181,34 @@ function assertLineQty($line, expectedQuantity) {
  */
 function assertLineQuantityOnReservedQty (lineIndex, textQty) {
     const $line = $('.o_barcode_line').eq(lineIndex);
-    const qty = $line.find('.qty-done').text();
-    const reserved = $line.find('.qty-done').next().text();
-    assert(qty + ' ' + reserved, textQty, 'Something wrong with the quantities');
+    const qty = $line.find('.qty-done,.inventory_quantity').text();
+    const reserved = $line.find('.qty-done,.inventory_quantity').next().text();
+    const qtyText = reserved ? qty + ' ' + reserved : qty;
+    assert(qtyText, textQty, 'Something wrong with the quantities');
+}
+
+function assertLineSourceIsNotVisible(line) {
+    const sourceElement = line.querySelector('.o_line_source_location');
+    if (sourceElement) {
+        const product = line.querySelector('.product-label').innerText;
+        fail(`The location for line of the product ${product} should not be visible, "${sourceElement.innerText}" instead`);
+    }
+}
+
+/**
+ * Checks if the given line is in the given location. Implies the location is visible.
+ * @param {Element} line
+ * @param {string} location
+ */
+function assertLineSourceLocation(line, location) {
+    const sourceElement = line.querySelector('.o_line_source_location');
+    const product = line.querySelector('.product-label').innerText;
+    if (!sourceElement) {
+        fail(`The source (${location}) for line of the product ${product} is not visible`);
+    }
+    assert(
+        sourceElement.innerText, location,
+        `The source for line of product ${product} isn't in the right location`);
 }
 
 function assertFormLocationSrc(expected) {
@@ -216,16 +220,11 @@ function assertFormLocationDest(expected) {
     var $location = $('.o_field_widget[name="location_dest_id"] input');
     assert($location.val(), expected, 'Wrong destination location');
 }
+
 function assertFormQuantity(expected) {
-    var $location = $('.o_field_widget[name="qty_done"]');
-    assert($location.val(), expected, 'Wrong destination location');
-
-}
-
-function assertInventoryFormQuantity(expected) {
-    var $location = $('.o_field_widget[name="inventory_quantity"]');
-    assert($location.val(), expected, 'Wrong quantity');
-
+    const quantityField = document.querySelector(
+        '.o_field_widget[name="inventory_quantity"] input, .o_field_widget[name="qty_done"] input');
+    assert(quantityField.value, expected, 'Wrong quantity');
 }
 
 function assertErrorMessage(expected) {
@@ -233,9 +232,10 @@ function assertErrorMessage(expected) {
     assert($errorMessage[0].innerText, expected, 'wrong or absent error message');
 }
 
-function assertQuantsCount(expected) {
-    var $quantity = $('.o_kanban_view .o_kanban_record:not(.o_kanban_ghost)').length;
-    assert($quantity, expected, 'Wrong number of cards');
+function assertKanbanRecordsCount(expected) {
+    const kanbanRecords = document.querySelectorAll(
+        '.o_kanban_view .o_kanban_record:not(.o_kanban_ghost)');
+    assert(kanbanRecords.length, expected, 'Wrong number of cards');
 }
 
 function pressShift() {
@@ -259,25 +259,21 @@ return {
     assertButtonIsVisible: assertButtonIsVisible,
     assertButtonIsNotVisible: assertButtonIsNotVisible,
     assertLineButtonsAreVisible: assertLineButtonsAreVisible,
-    assertDestinationLocationHighlight: assertDestinationLocationHighlight,
+    assertLineDestinationIsNotVisible,
+    assertLineDestinationLocation,
+    assertLineLocations,
+    assertLineSourceIsNotVisible,
+    assertLineSourceLocation,
     assertErrorMessage: assertErrorMessage,
     assertFormLocationDest: assertFormLocationDest,
     assertFormLocationSrc: assertFormLocationSrc,
-    assertFormQuantity: assertFormQuantity,
-    assertInventoryFormQuantity: assertInventoryFormQuantity,
+    assertFormQuantity,
     assertLinesCount: assertLinesCount,
     assertLineIsHighlighted: assertLineIsHighlighted,
+    assertLineProduct,
     assertLineQty: assertLineQty,
     assertLineQuantityOnReservedQty: assertLineQuantityOnReservedQty,
-    assertLocationHighlight: assertLocationHighlight,
-    assertNextEnabled: assertNextEnabled,
-    assertNextIsHighlighted: assertNextIsHighlighted,
-    assertNextVisible: assertNextVisible,
-    assertPager: assertPager,
-    assertPageSummary: assertPageSummary,
-    assertPreviousEnabled: assertPreviousEnabled,
-    assertPreviousVisible: assertPreviousVisible,
-    assertQuantsCount: assertQuantsCount,
+    assertKanbanRecordsCount,
     assertScanMessage: assertScanMessage,
     assertSublinesCount,
     assertValidateEnabled: assertValidateEnabled,

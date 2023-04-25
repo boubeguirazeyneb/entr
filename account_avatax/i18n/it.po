@@ -5,28 +5,33 @@
 # Translators:
 # Martin Trigaux, 2022
 # Sergio Zanchetta <primes2h@gmail.com>, 2022
-# Friederike Fasterling-Nesselbosch, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 14.0+e\n"
+"Project-Id-Version: Odoo Server 15.5alpha1+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-03-17 20:02+0000\n"
-"PO-Revision-Date: 2022-04-07 10:01+0000\n"
-"Last-Translator: Friederike Fasterling-Nesselbosch, 2022\n"
-"Language-Team: Italian (https://www.transifex.com/odoo/teams/41243/it/)\n"
+"POT-Creation-Date: 2022-09-20 09:48+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Sergio Zanchetta <primes2h@gmail.com>, 2022\n"
+"Language-Team: Italian (https://app.transifex.com/odoo/teams/41243/it/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: it\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
 #: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid "%(response)s"
 msgstr "%(response)s"
+
+#. module: account_avatax
+#. odoo-python
+#: code:addons/account_avatax/models/account_avatax.py:0
+#, python-format
+msgid "- %s (ID: %s) on %s"
+msgstr ""
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
@@ -70,8 +75,8 @@ msgid ""
 "<i title=\"Sync Parameters\" role=\"img\" aria-label=\"Sync Parameters\" class=\"fa fa-refresh\"/>\n"
 "                                    Sync Parameters"
 msgstr ""
-"<i title=\"Sync Parameters\" role=\"img\" aria-label=\"Sync Parameters\" class=\"fa fa-refresh\"/>\n"
-"                                    Parametri di sincronizzazione"
+"<i title=\"Parametri di sincronizzazione\" role=\"img\" aria-label=\"Sync Parameters\" class=\"fa fa-refresh\"/>\n"
+"                                    Sincronizza parametri"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
@@ -79,8 +84,8 @@ msgid ""
 "<i title=\"Test connection\" role=\"img\" aria-label=\"Test connection\" class=\"fa fa-plug fa-fw\"/>\n"
 "                                    Test connection"
 msgstr ""
-"<i title=\"Test connection\" role=\"img\" aria-label=\"Test connection\" class=\"fa fa-plug fa-fw\"/>\n"
-"                                    Test connezione"
+"<i title=\"Prova connessione\" role=\"img\" aria-label=\"Test connection\" class=\"fa fa-plug fa-fw\"/>\n"
+"                                    Prova connessione"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
@@ -90,41 +95,29 @@ msgstr "<span class=\"o_form_label\">AvaTax</span>"
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
 msgid "API ID"
-msgstr "API ID"
+msgstr "ID API"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
 msgid "API KEY"
-msgstr "API KEY"
+msgstr "CHIAVE API"
 
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_account_fiscal_position__avatax_invoice_account_id
 msgid "Account that will be used by Avatax taxes for invoices."
-msgstr "Conto che sarà utilizzato dalle tasse Avatax per le fatture."
+msgstr "Conto che sarà utilizzato per le fatture dalle imposte AvaTax."
 
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_account_fiscal_position__avatax_refund_account_id
 msgid "Account that will be used by Avatax taxes for refunds."
-msgstr "Conto che sarà utilizzato dalle tasse Avatax per i rimborsi."
+msgstr "Conto che sarà utilizzato per i rimborsi dalle imposte AvaTax."
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_config_settings_view_form
 msgid "Address Validation"
-msgstr "Convalida Indirizzo"
+msgstr "Convalida indirizzo"
 
 #. module: account_avatax
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
-#, python-format
-msgid ""
-"Address validation is currently disabled, please enable it in the Accounting"
-" settings."
-msgstr ""
-"La convalida dell'indirizzo è attualmente disattivata, attivala nelle "
-"impostazioni di contabilità."
-
-#. module: account_avatax
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
 #: code:addons/account_avatax/wizard/avatax_validate_address.py:0
 #, python-format
 msgid "Address validation is only supported for North American addresses."
@@ -312,7 +305,7 @@ msgstr "Contatto"
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__country_id
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
 msgid "Country"
-msgstr "Paese"
+msgstr "Nazione"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__create_uid
@@ -335,35 +328,15 @@ msgid "Customer Code set in Avalara for this partner."
 msgstr "Codice cliente impostato per il partner in Avalara."
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
-#, python-format
-msgid ""
-"Customers are required to have a zip, state and country when using Avatax."
-msgstr ""
-"I clienti devono avere un CAP, uno stato e un paese quando usano Avatax."
-
-#. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__description
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__description
 msgid "Description"
 msgstr "Descrizione"
 
 #. module: account_avatax
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax_unique_code__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_account_move__display_name
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__display_name
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_payment_link_wizard__display_name
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_product_category__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_product_product__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_product_template__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_res_company__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_res_config_settings__display_name
-#: model:ir.model.fields,field_description:account_avatax.field_res_partner__display_name
 msgid "Display Name"
 msgstr "Nome visualizzato"
 
@@ -384,26 +357,14 @@ msgstr "Generazione link di pagamento vendite"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid "Go to the configuration panel"
-msgstr "Apri pannello di configurazione"
+msgstr "Vai al pannello di configurazione"
 
 #. module: account_avatax
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax__id
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax_unique_code__id
-#: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position__id
-#: model:ir.model.fields,field_description:account_avatax.field_account_move__id
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption__id
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__id
-#: model:ir.model.fields,field_description:account_avatax.field_payment_link_wizard__id
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category__id
-#: model:ir.model.fields,field_description:account_avatax.field_product_category__id
-#: model:ir.model.fields,field_description:account_avatax.field_product_product__id
-#: model:ir.model.fields,field_description:account_avatax.field_product_template__id
-#: model:ir.model.fields,field_description:account_avatax.field_res_company__id
-#: model:ir.model.fields,field_description:account_avatax.field_res_config_settings__id
-#: model:ir.model.fields,field_description:account_avatax.field_res_partner__id
 msgid "ID"
 msgstr "ID"
 
@@ -426,20 +387,9 @@ msgid "Journal Entry"
 msgstr "Registrazione contabile"
 
 #. module: account_avatax
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_account_avatax_unique_code____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_account_fiscal_position____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_account_move____last_update
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_exemption____last_update
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_payment_link_wizard____last_update
 #: model:ir.model.fields,field_description:account_avatax.field_product_avatax_category____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_product_category____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_product_product____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_product_template____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_res_company____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_res_config_settings____last_update
-#: model:ir.model.fields,field_description:account_avatax.field_res_partner____last_update
 msgid "Last Modified on"
 msgstr "Ultima modifica il"
 
@@ -474,7 +424,6 @@ msgstr "Nome"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
 "Odoo could not change the state of the transaction related to %(document)s in AvaTax\n"
@@ -485,13 +434,11 @@ msgstr ""
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/res_company.py:0
-#: code:addons/account_avatax/models/res_company.py:0
 #, python-format
 msgid "Odoo could not fetch the exemption codes of %(company)s"
 msgstr "Odoo non ha potuto recuperare i codici di esenzione di %(company)s"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
 #: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
@@ -503,14 +450,12 @@ msgstr ""
 
 #. module: account_avatax
 #: code:addons/account_avatax/wizard/avatax_validate_address.py:0
-#: code:addons/account_avatax/wizard/avatax_validate_address.py:0
 #, python-format
 msgid "Odoo could not validate the address of %(partner)s with Avalara."
 msgstr ""
 "Odoo non ha potuto convalidare l'indirizzo di %(partner)s con Avalara."
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax.py:0
 #: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
@@ -532,13 +477,12 @@ msgstr "Partner"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid "Please add your AvaTax credentials"
 msgstr "Aggiungi le tue credenziali AvaTax"
 
 #. module: account_avatax
-#: model:ir.model,name:account_avatax.model_product_product
+#: model:ir.model,name:account_avatax.model_product_template
 msgid "Product"
 msgstr "Prodotto"
 
@@ -548,9 +492,9 @@ msgid "Product Category"
 msgstr "Categoria prodotto"
 
 #. module: account_avatax
-#: model:ir.model,name:account_avatax.model_product_template
-msgid "Product Template"
-msgstr "Modello prodotto"
+#: model:ir.model,name:account_avatax.model_product_product
+msgid "Product Variant"
+msgstr "Variante prodotto"
 
 #. module: account_avatax
 #: model:ir.model.fields.selection,name:account_avatax.selection__res_company__avalara_environment__production
@@ -565,10 +509,9 @@ msgstr "Sandbox"
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
 msgid "Save Validated"
-msgstr "Salvare convalidato"
+msgstr "Salva convalidato"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/account_avatax_unique_code.py:0
 #: code:addons/account_avatax/models/account_avatax_unique_code.py:0
 #, python-format
 msgid "Search operation not supported"
@@ -576,31 +519,30 @@ msgstr "Operazione di ricerca non supportata"
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/res_company.py:0
-#: code:addons/account_avatax/models/res_company.py:0
 #, python-format
 msgid ""
 "Server Response:\n"
 "%s"
 msgstr ""
-"Risposta Server:\n"
+"Risposta del server:\n"
 "%s"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__state_id
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
 msgid "State"
-msgstr "Stato"
+msgstr "Provincia"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__street
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
 msgid "Street"
-msgstr "Strada"
+msgstr "Indirizzo"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__street2
 msgid "Street2"
-msgstr "Strada2"
+msgstr "Indirizzo 2"
 
 #. module: account_avatax
 #: model:ir.model,name:account_avatax.model_avatax_validate_address
@@ -613,32 +555,6 @@ msgid "Synchronize the exemption codes from Avatax"
 msgstr "Sincronizzare i codici di esenzione da Avatax"
 
 #. module: account_avatax
-#: model:ir.model.fields,help:account_avatax.field_avatax_validate_address__is_already_valid
-msgid ""
-"Technical field to determine whether to allow updating the address or not."
-msgstr ""
-"Campo tecnico per stabilire se consentire o no l'aggiornamento "
-"dell'indirizzo."
-
-#. module: account_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_avatax__is_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_bank_statement_line__is_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_move__is_avatax
-#: model:ir.model.fields,help:account_avatax.field_account_payment__is_avatax
-msgid "Technical field used for the visibility of fields and buttons."
-msgstr "Campo tecnico usato per la visibilità dei campi e dei pulsanti."
-
-#. module: account_avatax
-#: model:ir.model.fields,help:account_avatax.field_res_partner__avalara_show_address_validation
-#: model:ir.model.fields,help:account_avatax.field_res_users__avalara_show_address_validation
-msgid ""
-"Technical field used to hide the address validation button when the partner "
-"is not in the US or Canada."
-msgstr ""
-"Campo tecnico usato per nascondere il pulsante di convalida dell'indirizzo "
-"quando il partner non si trova negli Stati Uniti o in Canada."
-
-#. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_res_config_settings__avalara_partner_code
 msgid ""
 "The Avalara Company Code for this company. Avalara will interpret as DEFAULT"
@@ -649,7 +565,6 @@ msgstr ""
 
 #. module: account_avatax
 #: code:addons/account_avatax/models/account_avatax.py:0
-#: code:addons/account_avatax/models/account_avatax.py:0
 #, python-format
 msgid ""
 "The Avalara Tax Code is required for %(name)s (#%(id)s)\n"
@@ -657,6 +572,15 @@ msgid ""
 msgstr ""
 "Codice imposta Avalara obbligatorio per %(name)s (n. %(id)s)\n"
 "Consultare https://taxcode.avatax.avalara.com/"
+
+#. module: account_avatax
+#. odoo-python
+#: code:addons/account_avatax/models/account_avatax.py:0
+#, python-format
+msgid ""
+"The following customer(s) need to have a zip, state and country when using "
+"Avatax:"
+msgstr ""
 
 #. module: account_avatax
 #: model:ir.model.fields,help:account_avatax.field_res_config_settings__avalara_commit
@@ -706,11 +630,10 @@ msgstr "Paese valido"
 
 #. module: account_avatax
 #: model_terms:ir.ui.view,arch_db:account_avatax.res_partner_form_inherit
-msgid "Validate address"
-msgstr "Convalida indirizzo"
+msgid "Validate"
+msgstr "Convalida"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/res_partner.py:0
 #: code:addons/account_avatax/models/res_partner.py:0
 #, python-format
 msgid "Validate address of %s"
@@ -737,7 +660,7 @@ msgstr "Città convalidata"
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__validated_country_id
 msgid "Validated Country"
-msgstr "Paese convalidato"
+msgstr "Nazione convalidata"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__validated_state_id
@@ -747,12 +670,12 @@ msgstr "Stato convalidato"
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__validated_street
 msgid "Validated Street"
-msgstr "Strada convalidata"
+msgstr "Indirizzo convalidato"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__validated_street2
 msgid "Validated Street2"
-msgstr "Strada2 convalidata"
+msgstr "Indirizzo 2 convalidato"
 
 #. module: account_avatax
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__validated_zip
@@ -763,10 +686,9 @@ msgstr "Codice postale convalidato"
 #: model:ir.model.fields,field_description:account_avatax.field_avatax_validate_address__zip
 #: model_terms:ir.ui.view,arch_db:account_avatax.avatax_validate_address_view_form
 msgid "Zip Code"
-msgstr "Codice Postale"
+msgstr "CAP"
 
 #. module: account_avatax
-#: code:addons/account_avatax/models/product.py:0
 #: code:addons/account_avatax/models/product.py:0
 #, python-format
 msgid "[%s] %s"

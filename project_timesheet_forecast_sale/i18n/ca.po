@@ -3,20 +3,23 @@
 # 	* project_timesheet_forecast_sale
 # 
 # Translators:
-# Martin Trigaux, 2021
-# RGB Consulting <odoo@rgbconsulting.com>, 2021
-# Manel Fernandez Ramirez <manelfera@outlook.com>, 2021
-# jabelchi, 2021
+# Martin Trigaux, 2022
+# Quim - eccit <quim@eccit.com>, 2022
+# Manel Fernandez Ramirez <manelfera@outlook.com>, 2022
+# jabelchi, 2022
 # marcescu, 2022
+# RGB Consulting <odoo@rgbconsulting.com>, 2022
+# jabiri7, 2022
+# Ivan Espinola, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:01+0000\n"
-"PO-Revision-Date: 2021-09-14 12:42+0000\n"
-"Last-Translator: marcescu, 2022\n"
-"Language-Team: Catalan (https://www.transifex.com/odoo/teams/41243/ca/)\n"
+"POT-Creation-Date: 2022-10-04 09:43+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Ivan Espinola, 2022\n"
+"Language-Team: Catalan (https://app.transifex.com/odoo/teams/41243/ca/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -26,24 +29,18 @@ msgstr ""
 #. module: project_timesheet_forecast_sale
 #: code:addons/project_timesheet_forecast_sale/models/project.py:0
 #, python-format
-msgid "%s (%s remaining hours)"
-msgstr "%s (%s hores restants)"
-
-#. module: project_timesheet_forecast_sale
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast_sale.project_project_view_form
-msgid ""
-"<span class=\"o_stat_text\">\n"
-"                        Timesheets and Planning\n"
-"                    </span>"
-msgstr ""
-"<span class=\"o_stat_text\">\n"
-"                        Fulls d'hora i planificació\n"
-"                    </span>"
+msgid "%(name)s's Timesheets and Planning Analysis"
+msgstr "Fulls de temps i anàlisi de planificació de %(name)s"
 
 #. module: project_timesheet_forecast_sale
 #: model:ir.model,name:project_timesheet_forecast_sale.model_account_analytic_line
-msgid "Analytic Line"
-msgstr "Línia analítica"
+msgid "Analytic Account"
+msgstr "Compte analític"
+
+#. module: project_timesheet_forecast_sale
+#: model:ir.model.fields,field_description:project_timesheet_forecast_sale.field_planning_analysis_report__billable_allocated_hours
+msgid "Billable Hours Allocated"
+msgstr "Hores facturables assignades"
 
 #. module: project_timesheet_forecast_sale
 #: model:planning.role,name:project_timesheet_forecast_sale.planning_role_consultant
@@ -56,14 +53,19 @@ msgid "Display Planning Timesheet Analysis"
 msgstr "Mostra l'anàlisi del full de temps del Planificació"
 
 #. module: project_timesheet_forecast_sale
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast_sale.project_update_default_description
-msgid "Hours"
-msgstr "Hores"
+#: model:ir.model.fields,field_description:project_timesheet_forecast_sale.field_planning_analysis_report__non_billable_allocated_hours
+msgid "Non-billable Hours Allocated"
+msgstr "Hores no subvencionables assignades"
 
 #. module: project_timesheet_forecast_sale
 #: model_terms:ir.ui.view,arch_db:project_timesheet_forecast_sale.project_update_default_description
 msgid "Planned"
 msgstr "Planificat"
+
+#. module: project_timesheet_forecast_sale
+#: model:ir.model,name:project_timesheet_forecast_sale.model_planning_analysis_report
+msgid "Planning Analysis Report"
+msgstr "Informe d'anàlisi de planificació"
 
 #. module: project_timesheet_forecast_sale
 #: model:ir.model,name:project_timesheet_forecast_sale.model_planning_slot
@@ -81,37 +83,7 @@ msgid "Project Update"
 msgstr "Actualització del projecte"
 
 #. module: project_timesheet_forecast_sale
-#: model:ir.model.fields,field_description:project_timesheet_forecast_sale.field_project_timesheet_forecast_report_analysis__sale_order_id
-msgid "Sale Order"
-msgstr "Comanda de venda"
-
-#. module: project_timesheet_forecast_sale
-#: model:ir.model.fields,field_description:project_timesheet_forecast_sale.field_project_timesheet_forecast_report_analysis__sale_line_id
-msgid "Sale Order Line"
-msgstr "Línia comanda de venda"
-
-#. module: project_timesheet_forecast_sale
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast_sale.project_timesheet_forecast_sale_report_view_search
-msgid "Sales Order"
-msgstr "Comanda de venda"
-
-#. module: project_timesheet_forecast_sale
-#: model_terms:ir.ui.view,arch_db:project_timesheet_forecast_sale.project_timesheet_forecast_sale_report_view_search
-msgid "Sales Order Item"
-msgstr "Posició de comanda de client"
-
-#. module: project_timesheet_forecast_sale
-#: model:ir.model.fields,help:project_timesheet_forecast_sale.field_planning_slot__order_line_id
-msgid ""
-"Sales Order Item to which the time spent on this task will be added, in "
-"order to be invoiced to your customer."
-msgstr ""
-"Partida de la comanda de venda a la qual s'afegirà el temps emprat en "
-"aquesta tasca, per ser facturat al vostre client."
-
-#. module: project_timesheet_forecast_sale
 #: model:ir.model,name:project_timesheet_forecast_sale.model_sale_order_line
-#: model:ir.model.fields,field_description:project_timesheet_forecast_sale.field_planning_slot__order_line_id
 msgid "Sales Order Line"
 msgstr "Línia comanda de venda"
 
@@ -131,14 +103,14 @@ msgid "Software Senior Architect"
 msgstr "Arquitecte sènior de programari"
 
 #. module: project_timesheet_forecast_sale
-#: model:ir.model,name:project_timesheet_forecast_sale.model_project_task
-msgid "Task"
-msgstr "Tasca"
+#: model:ir.model.fields,help:project_timesheet_forecast_sale.field_planning_analysis_report__billable_allocated_hours
+msgid "Sum of hours allocated to shifts linked to a SOL."
+msgstr "Suma d'hores assignades als torns enllaçats a una SOL."
 
 #. module: project_timesheet_forecast_sale
-#: model:ir.model,name:project_timesheet_forecast_sale.model_project_timesheet_forecast_report_analysis
-msgid "Timesheet & Planning Statistics"
-msgstr "Estadístiques fulls de treball i planning"
+#: model:ir.model.fields,help:project_timesheet_forecast_sale.field_planning_analysis_report__non_billable_allocated_hours
+msgid "Sum of hours allocated to shifts not linked to a SOL."
+msgstr "Suma d'hores assignades a torns no vinculats a una SOL."
 
 #. module: project_timesheet_forecast_sale
 #: code:addons/project_timesheet_forecast_sale/models/project.py:0

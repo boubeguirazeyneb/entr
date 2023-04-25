@@ -1,23 +1,28 @@
 odoo.define('web_gantt.tests', function (require) {
 'use strict';
 
+const { browser } = require("@web/core/browser/browser");
 const Domain = require('web.Domain');
 var GanttView = require('web_gantt.GanttView');
 var GanttRenderer = require('web_gantt.GanttRenderer');
 var GanttRow = require('web_gantt.GanttRow');
 const SampleServer = require('web.SampleServer');
+const session = require("web.session");
 var testUtils = require('web.test_utils');
 const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
+const { registerCleanup } = require("@web/../tests/helpers/cleanup");
+const { click, editInput, getFixture, patchTimeZone, patchWithCleanup } = require('@web/../tests/helpers/utils');
+const { prepareWowlFormViewDialogs } = require("@web/../tests/views/helpers");
 
 const patchDate = testUtils.mock.patchDate;
 const nextTick = testUtils.nextTick;
-
-const { makeLegacyDialogMappingTestEnv } = require('@web/../tests/helpers/legacy_env_utils');
 
 var initialDate = new Date(2018, 11, 20, 8, 0, 0);
 initialDate = new Date(initialDate.getTime() - initialDate.getTimezoneOffset() * 60 * 1000);
 
 const { toggleFilterMenu, toggleMenuItem } = require("@web/../tests/search/helpers");
+
+const { markup } = require("@odoo/owl");
 
 const FORMAT = "YYYY-MM-DD HH:mm:ss";
 // This function is used to be sure that the unavailabilities will be displayed
@@ -89,8 +94,12 @@ function getPillItemWidth($el) {
     return $el.attr('style').split('width: ')[1].split(';')[0];
 }
 
-QUnit.module('Views', {
+QUnit.module('LegacyViews', {
     beforeEach: function () {
+        // Avoid animation to not have to wait until the tooltip is removed
+        this.initialPopoverDefaultAnimation = Popover.Default.animation;
+        Popover.Default.animation = false;
+
         this.data = {
             tasks: {
                 fields: {
@@ -162,9 +171,13 @@ QUnit.module('Views', {
                 }]
             },
         };
+        patchTimeZone(0);
+    },
+    afterEach: async function() {
+        Popover.Default.animation = this.initialPopoverDefaultAnimation;
     },
 }, function () {
-    QUnit.module('GanttView');
+    QUnit.module('GanttView (legacy)');
 
     // BASIC TESTS
 
@@ -252,18 +265,18 @@ QUnit.module('Views', {
             'should have a 6 pills');
 
         // verify that the level offset is correctly applied (add 1px gap border compensation for each level)
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-01 00:00:00"] .o_gantt_pill_wrapper:contains(Task 1)').css('margin-top'), '2px',
-            'task 1 should be in first level');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-01 00:00:00"] .o_gantt_pill_wrapper:contains(Task 5)').css('margin-top'), GanttRow.prototype.LEVEL_TOP_OFFSET + 4 + 2 +'px',
-            'task 5 should be in second level');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-17 00:00:00"] .o_gantt_pill_wrapper:contains(Task 2)').css('margin-top'), GanttRow.prototype.LEVEL_TOP_OFFSET + 4 + 2 +'px',
-            'task 2 should be in second level');
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-01 00:00:00"] .o_gantt_pill_wrapper:contains(Task 5)').css('margin-top'), '2px',
+            'task 5 should be in first level');
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-17 00:00:00"] .o_gantt_pill_wrapper:contains(Task 2)').css('margin-top'), '2px',
+            'task 2 should be in first level');
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-27 00:00:00"] .o_gantt_pill_wrapper:contains(Task 3)').css('margin-top'), '2px',
+            'task 3 should be in first level');
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-01 00:00:00"] .o_gantt_pill_wrapper:contains(Task 1)').css('margin-top'), GanttRow.prototype.LEVEL_TOP_OFFSET + 4 + 2 +'px',
+            'task 1 should be in second level');
         assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-20 00:00:00"] .o_gantt_pill_wrapper:contains(Task 4)').css('margin-top'), 2 * (GanttRow.prototype.LEVEL_TOP_OFFSET + 4) + 2 +'px',
             'task 4 should be in third level');
         assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-20 00:00:00"] .o_gantt_pill_wrapper:contains(Task 7)').css('margin-top'), 2 * (GanttRow.prototype.LEVEL_TOP_OFFSET + 4) + 2 +'px',
             'task 7 should be in third level');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_cell[data-date="2018-12-27 00:00:00"] .o_gantt_pill_wrapper:contains(Task 3)').css('margin-top'), GanttRow.prototype.LEVEL_TOP_OFFSET + 4 + 2 +'px',
-            'task 3 should be in second level');
 
         // test popover and local timezone
         assert.containsNone(gantt, 'div.popover', 'should not have a popover');
@@ -827,7 +840,7 @@ QUnit.module('Views', {
             domain: Domain.FALSE_DOMAIN,
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         const content = gantt.$el.text();
@@ -852,7 +865,7 @@ QUnit.module('Views', {
             domain: Domain.FALSE_DOMAIN,
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         const content = gantt.$el.text();
@@ -860,7 +873,7 @@ QUnit.module('Views', {
         // trigger a reload via the search bar
         await testUtils.controlPanel.validateSearch(gantt);
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         assert.strictEqual(gantt.$el.text(), content);
 
@@ -877,9 +890,8 @@ QUnit.module('Views', {
         };
         const serverData = {models: this.data, views};
 
-        const webClient = await createWebClient({
-          serverData,
-        });
+        const target = getFixture();
+        const webClient = await createWebClient({ serverData });
 
         await doAction(webClient, {
             name: 'Gantt',
@@ -889,26 +901,26 @@ QUnit.module('Views', {
         });
 
         // the gantt view should be in sample mode
-        assert.hasClass($(webClient.el).find('.o_view_controller'), 'o_view_sample_data');
-        assert.ok($(webClient.el).find('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
-        const content = $(webClient.el).find('.o_view_controller').text();
+        assert.hasClass($(target).find('.o_view_controller'), 'o_legacy_view_sample_data');
+        assert.ok($(target).find('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
+        const content = $(target).find('.o_view_controller').text();
 
         // switch to list view
-        await testUtils.dom.click($(webClient.el).find('.o_cp_bottom_right .o_switch_view.o_list'));
+        await testUtils.dom.click($(target).find('.o_cp_bottom_right .o_switch_view.o_list'));
         await nextTick();
 
-        assert.containsOnce(webClient, '.o_list_view');
+        assert.containsOnce(target, '.o_list_view');
 
         // go back to gantt view
-        await testUtils.dom.click($(webClient.el).find('.o_cp_bottom_right .o_switch_view.o_gantt'));
+        await testUtils.dom.click($(target).find('.o_cp_bottom_right .o_switch_view.o_gantt'));
         await nextTick();
 
-        assert.containsOnce(webClient, '.o_gantt_view');
+        assert.containsOnce(target, '.o_gantt_view');
 
         // the gantt view should be still in sample mode
-        assert.hasClass($(webClient.el).find('.o_view_controller'), 'o_view_sample_data');
-        assert.ok($(webClient.el).find('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
-        assert.strictEqual($(webClient.el).find('.o_view_controller').text(), content);
+        assert.hasClass($(target).find('.o_view_controller'), 'o_legacy_view_sample_data');
+        assert.ok($(target).find('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
+        assert.strictEqual($(target).find('.o_view_controller').text(), content);
     });
 
     QUnit.test('empty gantt with sample="1"', async function (assert) {
@@ -925,7 +937,7 @@ QUnit.module('Views', {
             domain: Domain.FALSE_DOMAIN,
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         const content = gantt.$el.text();
@@ -950,13 +962,13 @@ QUnit.module('Views', {
             domain: Domain.FALSE_DOMAIN,
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.containsOnce(gantt, '.o_gantt_row_container .o_gantt_row');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         await gantt.reload({ domain: [['id', '<', 0]] });
 
-        assert.doesNotHaveClass(gantt, 'o_view_sample_data');
+        assert.doesNotHaveClass(gantt, 'o_legacy_view_sample_data');
         assert.containsOnce(gantt, '.o_gantt_row_container');
         assert.containsNone(gantt, '.o_gantt_pill_wrapper');
 
@@ -974,12 +986,12 @@ QUnit.module('Views', {
             viewOptions: { initialDate },
         });
 
-        assert.doesNotHaveClass(gantt, 'o_view_sample_data');
+        assert.doesNotHaveClass(gantt, 'o_legacy_view_sample_data');
         assert.containsOnce(gantt, '.o_gantt_row_container');
         assert.containsN(gantt, '.o_gantt_pill_wrapper', 7);
 
         await gantt.reload({ domain: Domain.FALSE_DOMAIN });
-        assert.doesNotHaveClass(gantt, 'o_view_sample_data');
+        assert.doesNotHaveClass(gantt, 'o_legacy_view_sample_data');
         assert.containsNone(gantt, '.o_gantt_pill_wrapper');
         assert.containsOnce(gantt, '.o_gantt_row_container');
 
@@ -998,12 +1010,12 @@ QUnit.module('Views', {
             groupBy: ['project_id'],
         });
 
-        assert.doesNotHaveClass(gantt, 'o_view_sample_data');
+        assert.doesNotHaveClass(gantt, 'o_legacy_view_sample_data');
         assert.containsN(gantt, '.o_gantt_row_container .o_gantt_row', 2);
         assert.containsN(gantt, '.o_gantt_pill_wrapper', 7);
 
         await gantt.reload({ domain: Domain.FALSE_DOMAIN });
-        assert.doesNotHaveClass(gantt, 'o_view_sample_data');
+        assert.doesNotHaveClass(gantt, 'o_legacy_view_sample_data');
         assert.containsOnce(gantt, '.o_gantt_row_container');
         assert.containsNone(gantt, '.o_gantt_pill_wrapper');
 
@@ -1021,30 +1033,31 @@ QUnit.module('Views', {
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" sample="1"/>',
-            archs: {
-                'tasks,false,form': `
-                    <form>
-                        <field name="name"/>
-                        <field name="start"/>
-                        <field name="stop"/>
-                        <field name="stage"/>
-                        <field name="project_id"/>
-                        <field name="user_id"/>
-                    </form>
-                `,
-            },
             viewOptions: {
                 initialDate: today,
             },
             groupBy: ['project_id'],
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         await testUtils.dom.click(gantt.$('.o_gantt_button_add'));
         await testUtils.modal.clickButton('Save & Close');
 
-        assert.doesNotHaveClass(gantt, 'o_view_sample_data');
+        assert.doesNotHaveClass(gantt, 'o_legacy_view_sample_data');
         assert.containsOnce(gantt, '.o_gantt_row');
         assert.containsOnce(gantt, '.o_gantt_pill');
 
@@ -1062,25 +1075,26 @@ QUnit.module('Views', {
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" sample="1"/>',
-            archs: {
-                'tasks,false,form': `
-                    <form>
-                        <field name="name"/>
-                        <field name="start"/>
-                        <field name="stop"/>
-                        <field name="stage"/>
-                        <field name="project_id"/>
-                        <field name="user_id"/>
-                    </form>
-                `,
-            },
             viewOptions: {
                 initialDate: today,
             },
             groupBy: ['project_id'],
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         const content = gantt.$el.text();
         await testUtils.dom.click(gantt.$('.o_gantt_button_add'));
@@ -1108,27 +1122,27 @@ QUnit.module('Views', {
             }
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         const content = gantt.$el.text();
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_scale[data-value=day]'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_scale[data-value=week]'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_scale[data-value=month]'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         assert.strictEqual(gantt.$el.text(), content,
             "when we return to the default scale, the content should be the same as before");
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_scale[data-value=year]'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         gantt.destroy();
@@ -1150,13 +1164,13 @@ QUnit.module('Views', {
             }
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
 
         const content = gantt.$el.text();
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_today'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         assert.strictEqual(gantt.$el.text(), content,
             "when we return to the default scale, the content should be the same as before");
@@ -1180,16 +1194,16 @@ QUnit.module('Views', {
             }
         });
 
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         const content = gantt.$el.text();
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_prev'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.containsOnce(gantt, '.o_gantt_row_container');
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_next'));
-        assert.hasClass(gantt, 'o_view_sample_data');
+        assert.hasClass(gantt, 'o_legacy_view_sample_data');
         assert.ok(gantt.$('.o_gantt_pill_wrapper').length > 0, "sample records should be displayed");
         assert.strictEqual(gantt.$el.text(), content);
 
@@ -1236,7 +1250,7 @@ QUnit.module('Views', {
             viewOptions: {
                 initialDate: new Date(2018, 10, 15, 8, 0, 0),
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: markup('<p class="hello">click to add a partner</p>'),
                 }
             },
         });
@@ -1406,14 +1420,17 @@ QUnit.module('Views', {
             viewOptions: {
                 initialDate: initialDate,
             },
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                    '</form>',
-            },
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_add'));
 
@@ -1436,21 +1453,24 @@ QUnit.module('Views', {
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
             groupBy: ['user_id', 'project_id', 'stage'],
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // open dialog to create a task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row:nth(3) .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
@@ -1459,7 +1479,7 @@ QUnit.module('Views', {
         var $modal = $('.modal');
         assert.strictEqual($modal.length, 1, 'There should be one modal opened');
         assert.strictEqual($modal.find('.modal-title').text(), "Create");
-        await testUtils.fields.editInput($modal.find('input[name=name]'), 'Task 8');
+        await testUtils.fields.editInput($modal.find('[name=name] input'), 'Task 8');
         var $modalFieldStart = $modal.find('.o_field_widget[name=start]');
         assert.strictEqual($modalFieldStart.find('.o_input').val(), '12/10/2018 00:00:00',
             'The start field should have a value "12/10/2018 00:00:00"');
@@ -1472,7 +1492,7 @@ QUnit.module('Views', {
         var $modalFieldUser = $modal.find('.o_field_widget.o_field_many2one[name=user_id]');
         assert.strictEqual($modalFieldUser.find('.o_input').val(), 'User 1',
             'The user field should have a value "User 1"');
-        var $modalFieldStage = $modal.find('.o_field_widget[name=stage]');
+        var $modalFieldStage = $modal.find('.o_field_widget[name=stage] select');
         assert.strictEqual($modalFieldStage.val(), '"in_progress"',
             'The stage field should have a value "In Progress"');
 
@@ -1489,7 +1509,7 @@ QUnit.module('Views', {
         $modal = $('.modal-lg');
         assert.strictEqual($modal.find('.modal-title').text(), "Open");
         assert.strictEqual($modal.length, 1, 'There should be one modal opened');
-        assert.strictEqual($modal.find('input[name=name]').val(), 'Task 8',
+        assert.strictEqual($modal.find('[name=name] input').val(), 'Task 8',
             'should open dialog for "Task 8"');
 
         gantt.destroy();
@@ -1497,6 +1517,10 @@ QUnit.module('Views', {
 
     QUnit.test("open a dialog to create a task when grouped by many2many field", async function (assert) {
         assert.expect(22);
+
+        patchWithCleanup(browser, {
+            setTimeout: (fn) => fn(),
+        });
 
         this.data.tasks.fields.user_ids = { string: 'Assignees', type: 'many2many', relation: 'users' };
         this.data.tasks.records[0].user_ids = [1, 2];
@@ -1506,21 +1530,23 @@ QUnit.module('Views', {
             model: "tasks",
             data: this.data,
             arch: `<gantt date_start="start" date_stop="stop" />`,
-            archs: {
-                "tasks,false,form":
-                    `<form>
-                        <field name="name"/>
-                        <field name="start"/>
-                        <field name="stop"/>
-                        <field name="stage"/>
-                        <field name="project_id"/>
-                        <field name="user_id"/>
-                        <field name="user_ids" widget="many2many_tags"/>
-                    </form>`,
-            },
             viewOptions: { initialDate },
             groupBy: ["user_ids", "project_id"],
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                    <field name="user_ids" widget="many2many_tags"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // Check grouped rows
         let rows = gantt.el.querySelectorAll(".o_gantt_row_container .o_gantt_row");
@@ -1574,21 +1600,20 @@ document.createElement("a").classList.contains
         let $modal = $(".modal");
         assert.strictEqual($modal.length, 1, "There should be one modal opened");
         assert.strictEqual($modal.find(".modal-title").text(), "Create");
-        let $fieldDateStart = $modal.find(".o_field_widget.o_field_date[name=start]");
-        let $fieldDateStop = $modal.find(".o_field_widget.o_field_date[name=stop]");
+        let $fieldDateStart = $modal.find(".o_field_widget.o_field_datetime[name=start]");
+        let $fieldDateStop = $modal.find(".o_field_widget.o_field_datetime[name=stop]");
         let $fieldProject = $modal.find(".o_field_widget.o_field_many2one[name=project_id]");
-        let $fieldUser = $modal.find(".o_field_widget.o_field_many2manytags[name=user_ids]");
+        let $fieldUser = $modal.find(".o_field_widget.o_field_many2many_tags[name=user_ids]");
         assert.strictEqual($fieldDateStart.find(".o_input").val(), "12/10/2018 00:00:00", "The date start field should have a value '12/10/2018 00:00:00'");
         assert.strictEqual($fieldDateStop.find(".o_input").val(), "12/10/2018 23:59:59", "The date stop field should have a value '12/10/2018 23:59:59'");
         assert.strictEqual($fieldProject.find(".o_input").val(), "Project 1", "The project field should have a value 'Project 1'");
         assert.containsOnce($fieldUser, ".badge", "The user field should contain a single badge");
         assert.strictEqual($fieldUser.find(".badge .o_tag_badge_text").text().trim(), "User 1", "The user field should have a value 'User 1'");
 
-        await testUtils.fields.editInput($fieldUser.find("input"), "User 2");
-        await testUtils.dom.triggerMouseEvent(
-            $(".ui-autocomplete:visible .ui-menu-item:contains(User 2)"),
-            "click");
-        await testUtils.fields.editInput($modal.find("input[name=name]"), "NEWTASK 0");
+        await editInput(document.body, ".o_field_widget[name=user_ids] input", "User 2");
+        const autocompleteDropdown = document.body.querySelector(".o_dialog .o-autocomplete--dropdown-menu");
+        await click(autocompleteDropdown.querySelector("li a"));
+        await testUtils.fields.editInput($modal.find("[name=name] input"), "NEWTASK 0");
         await testUtils.modal.clickButton("Save & Close");
         assert.strictEqual($(".modal").length, 0, "Modal should be closed");
         rows = gantt.el.querySelectorAll(".o_gantt_row_container .o_gantt_row");
@@ -1620,15 +1645,15 @@ document.createElement("a").classList.contains
         $modal = $(".modal");
         assert.strictEqual($modal.length, 1, "There should be one modal opened");
         assert.strictEqual($modal.find(".modal-title").text(), "Create");
-        $fieldDateStart = $modal.find(".o_field_widget.o_field_date[name=start]");
-        $fieldDateStop = $modal.find(".o_field_widget.o_field_date[name=stop]");
+        $fieldDateStart = $modal.find(".o_field_widget.o_field_datetime[name=start]");
+        $fieldDateStop = $modal.find(".o_field_widget.o_field_datetime[name=stop]");
         $fieldProject = $modal.find(".o_field_widget.o_field_many2one[name=project_id]");
-        $fieldUser = $modal.find(".o_field_widget.o_field_many2manytags[name=user_ids]");
+        $fieldUser = $modal.find(".o_field_widget.o_field_many2many_tags[name=user_ids]");
         assert.strictEqual($fieldDateStart.find(".o_input").val(), "12/24/2018 00:00:00", "The date start field should have a value '12/24/2018 00:00:00'");
         assert.strictEqual($fieldDateStop.find(".o_input").val(), "12/24/2018 23:59:59", "The date stop field should have a value '12/24/2018 23:59:59'");
         assert.strictEqual($fieldProject.find(".o_input").val(), "Project 2", "The project field should have a value 'Project 2'");
         assert.containsNone($fieldUser, ".badge", "The user field should not contain badges");
-        await testUtils.fields.editInput($modal.find("input[name=name]"), "NEWTASK 1");
+        await testUtils.fields.editInput($modal.find("[name=name] input"), "NEWTASK 1");
         await testUtils.modal.clickButton("Save & Close");
         assert.strictEqual($(".modal").length, 0, "Modal should be closed");
         rows = gantt.el.querySelectorAll(".o_gantt_row_container .o_gantt_row");
@@ -1657,21 +1682,20 @@ document.createElement("a").classList.contains
     QUnit.test('open a dialog stops the resize/drag', async function (assert) {
         assert.expect(3);
 
-        await makeLegacyDialogMappingTestEnv();
-
         var gantt = await createView({
             View: GanttView,
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form><field name="name"/></form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
             domain: [['id', '=', 2]],
         });
+        const views = {
+            'tasks,false,form': '<form><field name="name"/></form>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // open dialog to create a task
         // note that these 3 events need to be triggered for jQuery draggable
@@ -1703,21 +1727,24 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
             groupBy: ['user_id', 'project_id', 'stage'],
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // open dialog to create a task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row:nth(3) .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
@@ -1738,21 +1765,24 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
             groupBy: ['user_id', 'project_id', 'stage'],
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // open dialog to create a task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row:nth(3) .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
@@ -1765,7 +1795,7 @@ document.createElement("a").classList.contains
 
         var $modal = $('.modal');
 
-        assert.strictEqual($modal.find('.o_btn_remove').length, 1, 'There should be a delete button on edit dialog');
+        assert.strictEqual($modal.find('.o_form_button_remove').length, 1, 'There should be a delete button on edit dialog');
 
         gantt.destroy();
     });
@@ -1780,16 +1810,6 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -1801,6 +1821,19 @@ document.createElement("a").classList.contains
                 return this._super.apply(this, arguments);
             }
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // open dialog to create a task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row:nth(3) .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
@@ -1810,8 +1843,6 @@ document.createElement("a").classList.contains
         // open dialog to view the task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row:nth(3) .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_pill'), "click");
         await testUtils.nextTick();
-
-        var $modal = $('.modal');
 
         // trigger the delete button
         await testUtils.modal.clickButton('Remove');
@@ -1844,16 +1875,6 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -1865,6 +1886,19 @@ document.createElement("a").classList.contains
                 return this._super.apply(this, arguments);
             }
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // open dialog to create a task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row:nth(3) .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
@@ -1899,21 +1933,13 @@ document.createElement("a").classList.contains
     QUnit.test('create dialog with timezone', async function (assert) {
         assert.expect(4);
 
+        patchTimeZone(60);
+
         var gantt = await createView({
             View: GanttView,
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -1922,20 +1948,32 @@ document.createElement("a").classList.contains
                     return 60;
                 },
             },
-            mockRPC: function (route, args) {
-                if (args.method === 'create') {
-                    assert.deepEqual(args.args, [{
-                        name: false,
-                        project_id: false,
-                        stage: false,
-                        start: "2018-12-09 23:00:00",
-                        stop: "2018-12-10 22:59:59",
-                        user_id: false,
-                    }], "the start/stop date should take timezone into account");
-                }
-                return this._super.apply(this, arguments);
-            },
         });
+        const mockRPC = (route, args) => {
+            if (args.method === 'create') {
+                assert.deepEqual(args.args, [{
+                    name: false,
+                    project_id: false,
+                    stage: false,
+                    start: "2018-12-09 23:00:00",
+                    stop: "2018-12-10 22:59:59",
+                    user_id: false,
+                }], "the start/stop date should take timezone into account");
+            }
+        };
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>
+            `,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views }, mockRPC);
 
         // open dialog to create a task
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
@@ -1969,6 +2007,11 @@ document.createElement("a").classList.contains
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.strictEqual(gantt.$('.o_gantt_cell_plan').length, 0);
 
@@ -1983,14 +2026,15 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" edit="false" plan="true" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.strictEqual(gantt.$('.o_gantt_cell_plan').length, 0);
 
@@ -2005,14 +2049,15 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" edit="true" plan="false" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.strictEqual(gantt.$('.o_gantt_cell_plan').length, 0);
 
@@ -2027,14 +2072,15 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" edit="true" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.notStrictEqual(gantt.$('.o_gantt_cell_plan').length, 0);
 
@@ -2049,14 +2095,15 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" edit="true" plan="true" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.notStrictEqual(gantt.$('.o_gantt_cell_plan').length, 0);
 
@@ -2075,10 +2122,6 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -2092,6 +2135,11 @@ document.createElement("a").classList.contains
                 return this._super.apply(this, arguments);
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // click on the plan button
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_plan'), "click");
@@ -2112,6 +2160,8 @@ document.createElement("a").classList.contains
     QUnit.test('open a dialog to plan a task (with timezone)', async function (assert) {
         assert.expect(2);
 
+        patchTimeZone(60);
+
         this.data.tasks.records.push({ id: 41, name: 'Task 41' });
 
         var gantt = await createView({
@@ -2119,10 +2169,6 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -2140,12 +2186,18 @@ document.createElement("a").classList.contains
                 },
             },
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // click on the plan button
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_plan'), "click");
         await testUtils.nextTick();
 
         await testUtils.dom.click($('.modal .o_list_view tbody tr:eq(0) input'));
+        await testUtils.nextTick();
         await testUtils.dom.click($('.modal .o_select_button:contains(Select)'));
 
         gantt.destroy();
@@ -2161,14 +2213,9 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,list': '<tree><field name="name"/></tree>',
-                'tasks,false,search': '<search><field name="name"/></search>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
-            groupBy: ['user_id', 'project_id', 'stage'],
             mockRPC: function (route, args) {
                 if (args.method === 'write') {
                     assert.deepEqual(args.args[0], [41], "should write on the selected id");
@@ -2182,13 +2229,20 @@ document.createElement("a").classList.contains
                 }
                 return this._super.apply(this, arguments);
             },
+            groupBy: ['user_id', 'project_id', 'stage'],
         });
+        const views = {
+            'tasks,false,list': '<tree><field name="name"/></tree>',
+            'tasks,false,search': '<search><field name="name"/></search>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         // click on the plan button
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row:not(.o_gantt_row_group):first .o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_plan'), "click");
         await testUtils.nextTick();
 
         await testUtils.dom.click($('.modal .o_list_view tbody tr:eq(0) input'));
+        await testUtils.nextTick();
         await testUtils.dom.click($('.modal .o_select_button:contains(Select)'));
 
         gantt.destroy();
@@ -2348,6 +2402,38 @@ document.createElement("a").classList.contains
         gantt.destroy();
     });
 
+    QUnit.test('resize pill in year mode', async function (assert) {
+        assert.expect(2);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: '<gantt date_start="start" date_stop="stop" default_scale="year" />',
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_pill'), 'mouseover');
+
+        assert.containsOnce(gantt, '.o_gantt_pill.ui-resizable',
+            "in the year mode the pill should be resizable after mouse enter");
+
+        var pillWidth = gantt.$('.o_gantt_pill').width();
+        var cellWidth = gantt.$('.o_gantt_cell:first').width() + 4;
+        await testUtils.dom.dragAndDrop(
+            gantt.$('.ui-resizable-e'),
+            gantt.$('.ui-resizable-e'),
+            { position: { left: 2 * cellWidth, top: 0 } }
+        );
+
+        assert.strictEqual(pillWidth , gantt.$('.o_gantt_pill').width(),
+            "the pill should have the same width as before the resize");
+
+        gantt.destroy();
+    });
+
     QUnit.test('resize a pill (2)', async function (assert) {
         // This test checks a tricky situation where the user resizes a pill, and
         // triggers the mouseup (i.e. release the mouse) over the pill. In this
@@ -2418,19 +2504,20 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop"></gantt>',
-            archs: {
-                'tasks,false,form': '<form><field name="name"/></form>',
-            },
             domain: [['user_id', '=', 2]],  // I am an important line
             viewOptions: {
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,form': '<form><field name="name"/></form>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.containsN(gantt, '.o_gantt_pill', 3, "the list view is filtered");
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_cell:first .o_gantt_cell_add'), "click");
         await testUtils.nextTick();
-        await testUtils.fields.editInput($('.modal .modal-body input[name=name]'), 'new task');
+        await testUtils.fields.editInput($('.modal .modal-body [name=name] input'), 'new task');
         await testUtils.modal.clickButton('Save & Close');
         assert.containsN(gantt, '.o_gantt_pill', 3,
             "the list view is still filtered after the save");
@@ -2559,7 +2646,6 @@ document.createElement("a").classList.contains
 
         // move a pill in the next cell (+1 day)
         var cellWidth = gantt.$('.o_gantt_header_scale .o_gantt_header_cell:first')[0].getBoundingClientRect().width + 4;
-        var rect = gantt.$('.o_gantt_header_scale .o_gantt_header_cell:first')[0].getBoundingClientRect();
         await testUtils.dom.dragAndDrop(
             gantt.$('.o_gantt_pill'),
             gantt.$('.o_gantt_pill'),
@@ -2585,7 +2671,7 @@ document.createElement("a").classList.contains
         if(!dstDate) {
             // we can't really do the test if there is no DST :(
             // unfortunately, the runbot tests are executed on UTC, so we need to dummy the test in that case...
-            // it would be ideal if we could pass a timezone to use for unit tests instead 
+            // it would be ideal if we could pass a timezone to use for unit tests instead
             // (it's possible with the moment-timezone library, but we don't want to add an external dependency
             // as part of a bugfix...)
             dstDate = moment('2020-03-28 12:00:00');
@@ -2624,7 +2710,6 @@ document.createElement("a").classList.contains
 
         // we are going to move the pill for task 8 (10/24/2020 06:30:12) by 1 cell to the right (+1 day)
         var cellWidth = gantt.$('.o_gantt_header_scale .o_gantt_header_cell:first')[0].getBoundingClientRect().width + 4;
-        var rect = gantt.$('.o_gantt_header_scale .o_gantt_header_cell:first')[0].getBoundingClientRect();
         await testUtils.dom.dragAndDrop(
             gantt.$('.o_gantt_pill[data-id=8]'),
             gantt.$('.o_gantt_pill[data-id=8]'),
@@ -2903,7 +2988,7 @@ document.createElement("a").classList.contains
 
         assert.doesNotHaveClass(gantt.$('.o_gantt_row_group .o_gantt_pill'), 'ui-resizable',
             'the group row pill should not be resizable');
-        assert.hasClass(gantt.$('.o_gantt_row_group .o_gantt_pill'), 'o_fake_draggable',
+        assert.doesNotHaveClass(gantt.$('.o_gantt_row_group .o_gantt_pill'), 'o_fake_draggable',
             'the group row pill should not be draggable');
         assert.hasClass(gantt.$('.o_gantt_row:not(.o_gantt_row_group) .o_gantt_pill'), 'ui-resizable',
             'the pill should be resizable');
@@ -3102,6 +3187,10 @@ document.createElement("a").classList.contains
                 return this._super.apply(this, arguments);
             },
         });
+        const views = {
+            'tasks,false,form': '<form/>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.containsN(gantt, '.o_gantt_pill', 4);
         const $secondPill = gantt.$('.o_gantt_pill:nth(1)');
@@ -3146,9 +3235,6 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt default_scale="week" date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form/>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -3163,6 +3249,10 @@ document.createElement("a").classList.contains
                 return promise;
             },
         });
+        const views = {
+            'tasks,false,form': '<form/>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         const $firstPill = gantt.$('.o_gantt_pill:nth(0)');
         let $secondPill = gantt.$('.o_gantt_pill:nth(1)');
@@ -3240,12 +3330,12 @@ document.createElement("a").classList.contains
             viewOptions: {
                 initialDate: initialDate,
             },
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                    '</form>',
-            },
         });
+
+        const views = {
+            'tasks,false,form': '<form><field name="name"/></form>',
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.containsNone(gantt, '.o_gantt_pill.ui-resizable',
             "the pills should not be resizable");
@@ -3258,7 +3348,7 @@ document.createElement("a").classList.contains
 
         assert.strictEqual($('.modal').length, 1,
             "there should be a opened modal");
-        assert.strictEqual($('.modal .o_form_view.o_form_readonly').length, 1,
+        assert.strictEqual($('.modal .o_form_view .o_form_readonly').length, 1,
             "the form view should be in readonly");
 
         gantt.destroy();
@@ -3401,20 +3491,20 @@ document.createElement("a").classList.contains
             groupBy: ['project_id'],
         });
 
-        assert.containsN(gantt, '.o_gantt_row_container .o_gantt_pill.o_gantt_progress', 6,
+        assert.containsN(gantt, '.o_gantt_row_container .o_gantt_pill .o_gantt_progress', 6,
             'should have 6 rows with o_gantt_progress class');
 
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill.o_gantt_progress:contains("Task 1")').css('background-size'), '0% 100%',
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill:contains("Task 1") .o_gantt_progress').prop('style')['width'], '0%',
             'first pill should have 0% progress');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill.o_gantt_progress:contains("Task 2")').css('background-size'), '30% 100%',
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill:contains("Task 2") .o_gantt_progress').prop('style')['width'], '30%',
             'second pill should have 30% progress');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill.o_gantt_progress:contains("Task 3")').css('background-size'), '60% 100%',
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill:contains("Task 3") .o_gantt_progress').prop('style')['width'], '60%',
             'third pill should have 60% progress');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill.o_gantt_progress:contains("Task 4")').css('background-size'), '0% 100%',
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill:contains("Task 4") .o_gantt_progress').prop('style')['width'], '0%',
             'fourth pill should have 0% progress');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill.o_gantt_progress:contains("Task 5")').css('background-size'), '100% 100%',
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill:contains("Task 5") .o_gantt_progress').prop('style')['width'], '100%',
             'fifth pill should have 100% progress');
-        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill.o_gantt_progress:contains("Task 7")').css('background-size'), '80% 100%',
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_pill:contains("Task 7") .o_gantt_progress').prop('style')['width'], '80%',
             'seventh task should have 80% progress');
 
         gantt.destroy();
@@ -3435,9 +3525,15 @@ document.createElement("a").classList.contains
             groupBy: ['project_id'],
         });
 
-        testUtils.mock.intercept(gantt, 'load_views', function (event) {
-            assert.strictEqual(event.data.views[0][0], 42, "should do a do_action with view id 42");
-        });
+        const views = {
+            'tasks,42,form': '<form><field name="name"/></form>',
+        };
+        const mockRPC = (route, args) => {
+            if (args.method === "get_views") {
+                assert.deepEqual(args.kwargs.views, [[42, "form"]]);
+            }
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views }, mockRPC);
 
         await testUtils.dom.click(gantt.$buttons.find('.o_gantt_button_add'));
         await testUtils.nextTick();
@@ -3729,7 +3825,7 @@ document.createElement("a").classList.contains
         assert.deepEqual([...todayCells].map(c => c.getAttribute('style')), [
             null,
             "height: 0px;", // a css rule fix a minimal height
-            "height: 35px; background: linear-gradient(90deg, #e9ecef 49%, #fffaeb 50%);"
+            "height: 35px; background: linear-gradient(90deg, var(--Gant__DayOff-background-color) 49%, var(--Gant__DayOffToday-background-color) 50%);"
         ]);
         assert.strictEqual(window.getComputedStyle(todayCells[1]).getPropertyValue('background-color'), "rgba(0, 0, 0, 0)");
 
@@ -3822,17 +3918,17 @@ document.createElement("a").classList.contains
 
         const cell5 = cells[4];
         assert.hasClass(cell5, 'o_gantt_today');
-        assert.hasAttrValue(cell5, 'style', 'height: 105px; background: linear-gradient(90deg, #fffaeb 49%, #e9ecef 50%);');
+        assert.hasAttrValue(cell5, 'style', 'height: 105px; background: linear-gradient(90deg, var(--Gant__DayOffToday-background-color) 49%, var(--Gant__DayOff-background-color) 50%);');
         const cell6 = cells[5];
-        assert.hasAttrValue(cell6, 'style', 'height: 105px; background: #e9ecef');
+        assert.hasAttrValue(cell6, 'style', 'height: 105px; background: var(--Gant__DayOff-background-color)');
         const cell7 = cells[6];
         assert.hasAttrValue(cell7, 'style', 'height: 105px;');
         const cell16 = cells[15];
-        assert.hasAttrValue(cell16,'style',  'height: 105px; background: linear-gradient(90deg, #ffffff 49%, #e9ecef 50%);');
+        assert.hasAttrValue(cell16,'style',  'height: 105px; background: linear-gradient(90deg, var(--Gant__Day-background-color) 49%, var(--Gant__DayOff-background-color) 50%);');
         const cell17 = cells[16];
-        assert.hasAttrValue(cell17,'style', 'height: 105px; background: #e9ecef');
+        assert.hasAttrValue(cell17,'style', 'height: 105px; background: var(--Gant__DayOff-background-color)');
         const cell18 = cells[17];
-        assert.hasAttrValue(cell18,'style',  'height: 105px; background: linear-gradient(90deg, #e9ecef 49%, #ffffff 50%);');
+        assert.hasAttrValue(cell18,'style',  'height: 105px; background: linear-gradient(90deg, var(--Gant__DayOff-background-color) 49%, var(--Gant__Day-background-color) 50%);');
 
         unpatchDate();
         gantt.destroy();
@@ -3882,15 +3978,15 @@ document.createElement("a").classList.contains
         const cells = gantt.el.querySelectorAll('.o_gantt_row_container .o_gantt_cell');
 
         const cell9 = cells[8];
-        assert.hasAttrValue(cell9, 'style', 'height: 0px; background: linear-gradient(90deg, #ffffff 24%, #e9ecef 25%, #e9ecef 49%, #ffffff 50%, #ffffff 74%, #ffffff 75%);');
+        assert.hasAttrValue(cell9, 'style', 'height: 0px; background: linear-gradient(90deg, var(--Gant__Day-background-color) 24%, var(--Gant__DayOff-background-color) 25%, var(--Gant__DayOff-background-color) 49%, var(--Gant__Day-background-color) 50%, var(--Gant__Day-background-color) 74%, var(--Gant__Day-background-color) 75%);');
         const cell11 = cells[10];
-        assert.hasAttrValue(cell11, 'style', 'height: 0px; background: linear-gradient(90deg, #ffffff 24%, #ffffff 25%, #ffffff 49%, #ffffff 50%, #ffffff 74%, #e9ecef 75%);');
+        assert.hasAttrValue(cell11, 'style', 'height: 0px; background: linear-gradient(90deg, var(--Gant__Day-background-color) 24%, var(--Gant__Day-background-color) 25%, var(--Gant__Day-background-color) 49%, var(--Gant__Day-background-color) 50%, var(--Gant__Day-background-color) 74%, var(--Gant__DayOff-background-color) 75%);');
         const cell12 = cells[11];
-        assert.hasAttrValue(cell12, 'style', 'height: 0px; background: #e9ecef');
+        assert.hasAttrValue(cell12, 'style', 'height: 0px; background: var(--Gant__DayOff-background-color)');
         const cell13 = cells[12];
-        assert.hasAttrValue(cell13, 'style', 'height: 0px; background: linear-gradient(90deg, #e9ecef 24%, #ffffff 25%, #ffffff 49%, #ffffff 50%, #ffffff 74%, #ffffff 75%);');
+        assert.hasAttrValue(cell13, 'style', 'height: 0px; background: linear-gradient(90deg, var(--Gant__DayOff-background-color) 24%, var(--Gant__Day-background-color) 25%, var(--Gant__Day-background-color) 49%, var(--Gant__Day-background-color) 50%, var(--Gant__Day-background-color) 74%, var(--Gant__Day-background-color) 75%);');
         const cell21 = cells[20];
-        assert.hasAttrValue(cell21, 'style', 'height: 0px; background: linear-gradient(90deg, #ffffff 24%, #e9ecef 25%, #e9ecef 49%, #e9ecef 50%, #e9ecef 74%, #ffffff 75%);');
+        assert.hasAttrValue(cell21, 'style', 'height: 0px; background: linear-gradient(90deg, var(--Gant__Day-background-color) 24%, var(--Gant__DayOff-background-color) 25%, var(--Gant__DayOff-background-color) 49%, var(--Gant__DayOff-background-color) 50%, var(--Gant__DayOff-background-color) 74%, var(--Gant__Day-background-color) 75%);');
 
         unpatchDate();
         gantt.destroy();
@@ -3939,17 +4035,17 @@ document.createElement("a").classList.contains
 
         const cell5 = cells[4];
         assert.hasClass(cell5, 'o_gantt_today');
-        assert.hasAttrValue(cell5, 'style', 'height: 105px; background: linear-gradient(90deg, #fffaeb 49%, #e9ecef 50%);');
+        assert.hasAttrValue(cell5, 'style', 'height: 105px; background: linear-gradient(90deg, var(--Gant__DayOffToday-background-color) 49%, var(--Gant__DayOff-background-color) 50%);');
         const cell6 = cells[5];
-        assert.hasAttrValue(cell6, 'style', 'height: 105px; background: #e9ecef');
+        assert.hasAttrValue(cell6, 'style', 'height: 105px; background: var(--Gant__DayOff-background-color)');
         const cell7 = cells[6];
         assert.hasAttrValue(cell7, 'style', 'height: 105px;');
         const cell16 = cells[15];;
-        assert.hasAttrValue(cell16,'style',  'height: 105px; background: linear-gradient(90deg, #ffffff 49%, #e9ecef 50%);');
+        assert.hasAttrValue(cell16,'style',  'height: 105px; background: linear-gradient(90deg, var(--Gant__Day-background-color) 49%, var(--Gant__DayOff-background-color) 50%);');
         const cell17 = cells[16];;
-        assert.hasAttrValue(cell17,'style', 'height: 105px; background: #e9ecef');
+        assert.hasAttrValue(cell17,'style', 'height: 105px; background: var(--Gant__DayOff-background-color)');
         const cell18 = cells[17];;
-        assert.hasAttrValue(cell18,'style',  'height: 105px; background: linear-gradient(90deg, #e9ecef 49%, #ffffff 50%);');
+        assert.hasAttrValue(cell18,'style',  'height: 105px; background: linear-gradient(90deg, var(--Gant__DayOff-background-color) 49%, var(--Gant__Day-background-color) 50%);');
 
         unpatchDate();
         gantt.destroy();
@@ -3995,6 +4091,46 @@ document.createElement("a").classList.contains
         gantt.destroy();
     });
 
+    QUnit.test('permanent_group_by attribute', async function (assert) {
+        assert.expect(2);
+
+        var gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: '<gantt string="Tasks" date_start="start" date_stop="stop" permanent_group_by="user_id" />',
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        assert.containsN(gantt, '.o_gantt_row', 2,
+            "there should be 2 rows");
+        assert.strictEqual(gantt.$('.o_gantt_row:last .o_gantt_row_title').text().trim(), 'User 2',
+            'should be grouped by user');
+
+        gantt.destroy();
+    });
+
+    QUnit.test('default_group_by attribute with 2 fields', async function (assert) {
+        assert.expect(2);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: '<gantt date_start="start" date_stop="stop" default_group_by="user_id,project_id"/>',
+            viewOptions: {
+                initialDate,
+            },
+        });
+
+        assert.containsN(gantt, '.o_gantt_row_group', 2, 'there should be 2 rows.');
+        assert.containsN(gantt, '.o_gantt_row_nogroup', 4, 'there should be 4 sub rows.');
+
+        gantt.destroy();
+    });
+
     QUnit.test('dynamic_range attribute', async function (assert) {
         assert.expect(1);
 
@@ -4025,19 +4161,22 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt string="Tasks" date_start="start" date_stop="stop" collapse_first_level="1" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                    '<field name="name"/>' +
-                    '<field name="start"/>' +
-                    '<field name="stop"/>' +
-                    '<field name="project_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
             groupBy: ['project_id'],
         });
+
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="project_id"/>
+                </form>`,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         assert.containsOnce(gantt, '.o_gantt_header_container',
             'should have a header');
@@ -4216,13 +4355,6 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
@@ -4239,6 +4371,16 @@ document.createElement("a").classList.contains
             },
         });
 
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                </form>`,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
+
         var cellWidth = gantt.$('.o_gantt_cell:first').width() + 4;
 
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_pill'), 'mouseover');
@@ -4252,7 +4394,7 @@ document.createElement("a").classList.contains
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_pill'), "click");
         def.resolve();
         await testUtils.nextTick();
-        assert.strictEqual($('.modal').find('input[name=stop]').val(), '12/24/2018 06:29:59');
+        assert.strictEqual($('.modal').find('[name=stop] input').val(), '12/24/2018 06:29:59');
 
         gantt.destroy();
     });
@@ -4467,27 +4609,29 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" delete="0"/>',
-            archs: {
-                'tasks,false,form': '<form>' +
-                        '<field name="name"/>' +
-                        '<field name="start"/>' +
-                        '<field name="stop"/>' +
-                        '<field name="stage"/>' +
-                        '<field name="project_id"/>' +
-                        '<field name="user_id"/>' +
-                    '</form>',
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
         });
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="name"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                    <field name="stage"/>
+                    <field name="project_id"/>
+                    <field name="user_id"/>
+                </form>`,
+        }
+        await prepareWowlFormViewDialogs({ models: this.data, views });
 
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_row_container .o_gantt_row .o_gantt_cell[data-date="2018-12-17 00:00:00"] .o_gantt_pill'), "click");
         await testUtils.nextTick();
 
         assert.containsOnce(document.body, '.modal-dialog',
             'Should have opened a new dialog');
-        assert.containsNone($('.modal-dialog'), '.o_btn_remove',
+        assert.containsNone($('.modal-dialog'), '.o_form_button_remove',
             'should not have the "Remove" Button form dialog');
 
         gantt.destroy();
@@ -4546,7 +4690,16 @@ document.createElement("a").classList.contains
     QUnit.test("plan dialog initial domain has the action domain as its only base",
         async function (assert) {
             assert.expect(14);
+
             const unpatchDate = patchDate(2018, 11, 20, 8, 0, 0);
+            registerCleanup(unpatchDate);
+
+            patchWithCleanup(session, {
+                getTZOffset() {
+                    return 0;
+                },
+            });
+
             const views = {
                 "tasks,false,gantt": `<gantt date_start="start" date_stop="stop"/>`,
                 "tasks,false,list": `<tree><field name="name"/></tree>`,
@@ -4560,9 +4713,13 @@ document.createElement("a").classList.contains
                 models: this.data,
                 views,
             };
+            const target = getFixture();
             const webClient = await createWebClient({
                 serverData,
                 mockRPC: function (route, args) {
+                    if (args.method === "web_search_read") {
+                        assert.step(args.kwargs.domain.toString());
+                    }
                     if (route === "/web/dataset/search_read") {
                         assert.step(args.domain.toString());
                     }
@@ -4579,8 +4736,7 @@ document.createElement("a").classList.contains
             // Load action without domain and open plan dialog
             await doAction(webClient, ganttAction);
             assert.verifySteps(["start,<=,2018-12-31 23:59:59,stop,>=,2018-12-01 00:00:00"]);
-
-            await testUtils.dom.triggerMouseEvent($(webClient.el).find(".o_gantt_cell_plan:first"), "click");
+            await testUtils.dom.triggerMouseEvent($(target).find(".o_gantt_cell_plan:first"), "click");
             await nextTick();
             assert.verifySteps(["|,start,=,false,stop,=,false"]);
 
@@ -4591,7 +4747,7 @@ document.createElement("a").classList.contains
             });
             assert.verifySteps(["project_id,=,1,start,<=,2018-12-31 23:59:59,stop,>=,2018-12-01 00:00:00"]);
 
-            await testUtils.dom.triggerMouseEvent($(webClient.el).find(".o_gantt_cell_plan:first"), "click");
+            await testUtils.dom.triggerMouseEvent($(target).find(".o_gantt_cell_plan:first"), "click");
             await nextTick();
             assert.verifySteps(["&,project_id,=,1,|,start,=,false,stop,=,false"]);
 
@@ -4599,20 +4755,226 @@ document.createElement("a").classList.contains
             await doAction(webClient, ganttAction);
             assert.verifySteps(["start,<=,2018-12-31 23:59:59,stop,>=,2018-12-01 00:00:00"]);
 
-            await toggleFilterMenu(webClient);
+            await toggleFilterMenu(target);
             await nextTick();
-            await toggleMenuItem(webClient, "Project 1");
+            await toggleMenuItem(target, "Project 1");
             await nextTick();
             assert.verifySteps(["project_id,=,1,start,<=,2018-12-31 23:59:59,stop,>=,2018-12-01 00:00:00"]);
 
-            await testUtils.dom.triggerMouseEvent($(webClient.el).find(".o_gantt_cell_plan:first"), "click");
+            await testUtils.dom.triggerMouseEvent($(target).find(".o_gantt_cell_plan:first"), "click");
             await nextTick();
             assert.verifySteps(["|,start,=,false,stop,=,false"]);
-
-            webClient.destroy();
-            unpatchDate();
         }
     );
+
+    QUnit.test('No progress bar when no option set.', async function (assert) {
+        assert.expect(1);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"/>`,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === 'gantt_progress_bar') {
+                    // Should never assert this - will be reported in assert.expect count.
+                    assert.strictEqual(args.method, "gantt_progress_bar");
+                }
+                return this._super.apply(this, arguments);
+            },
+        });
+
+        const progressbar = gantt.el.querySelectorAll('.o_gantt_row_sidebar .o_gantt_progressbar');
+        assert.strictEqual(progressbar.length, 0, "Gantt should not include any progressbar");
+
+        gantt.destroy();
+    });
+
+    QUnit.test('Progress bar rpc is triggered when option set.', async function (assert) {
+        assert.expect(8);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"
+                        default_group_by="user_id"
+                        progress_bar="user_id">
+                        <field name="user_id"/>
+                   </gantt>`,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === 'gantt_progress_bar') {
+                    assert.strictEqual(args.model, "tasks");
+                    assert.deepEqual(args.args[0], ['user_id']);
+                    assert.deepEqual(args.args[1], {user_id: [1, 2]});
+                    return Promise.resolve({
+                        user_id: {
+                            1: {value: 50, max_value: 100},
+                            2: {value: 25, max_value: 200},
+                        }
+                    });
+                }
+                return this._super.apply(this, arguments);
+            },
+        });
+
+        const progressbar = gantt.el.querySelectorAll('.o_gantt_row_sidebar .o_gantt_progressbar');
+        assert.strictEqual(progressbar.length, 2, "Gantt should include two progressbars");
+        assert.strictEqual(progressbar[0].style.width, "50%");
+        assert.strictEqual(progressbar[1].style.width, "12.5%");
+        assert.hasClass(progressbar[0], "o_gantt_group_success", "Progress bar should have the success class");
+        assert.hasClass(progressbar[1], "o_gantt_group_success", "Progress bar should have the success class");
+        gantt.destroy();
+    });
+
+    QUnit.test('Progress bar warning when max_value is zero', async function (assert) {
+        assert.expect(5);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"
+                        default_group_by="user_id"
+                        progress_bar="user_id">
+                        <field name="user_id"/>
+                   </gantt>`,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === 'gantt_progress_bar') {
+                    assert.strictEqual(args.model, "tasks");
+                    assert.deepEqual(args.args[0], ['user_id']);
+                    assert.deepEqual(args.args[1], {user_id: [1, 2]});
+                    return Promise.resolve({
+                        user_id: {
+                            1: {value: 50, max_value: 0},
+                        }
+                    });
+                }
+                return this._super.apply(this, arguments);
+            },
+        });
+
+        const progressbar = gantt.el.querySelectorAll('.o_gantt_row_sidebar .o_gantt_progressbar');
+        assert.strictEqual(progressbar.length, 0, "Gantt should not include progressbar");
+        const warning = gantt.el.querySelectorAll('.o_gantt_row_sidebar .fa-exclamation-triangle');
+        assert.strictEqual(warning.length, 1, "Gantt should include a warning");
+        gantt.destroy();
+    });
+
+    QUnit.test('Progress bar danger when ratio > 100', async function (assert) {
+        assert.expect(6);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"
+                        default_group_by="user_id"
+                        progress_bar="user_id">
+                        <field name="user_id"/>
+                   </gantt>`,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            mockRPC: function (route, args) {
+                if (args.method === 'gantt_progress_bar') {
+                    assert.strictEqual(args.model, "tasks");
+                    assert.deepEqual(args.args[0], ['user_id']);
+                    assert.deepEqual(args.args[1], {user_id: [1, 2]});
+                    return Promise.resolve({
+                        user_id: {
+                            1: {value: 150, max_value: 100},
+                        }
+                    });
+                }
+                return this._super.apply(this, arguments);
+            },
+        });
+
+        const progressbar = gantt.el.querySelectorAll('.o_gantt_row_sidebar .o_gantt_progressbar');
+        assert.strictEqual(progressbar.length, 1, "Gantt should include one progressbar");
+        assert.strictEqual(progressbar[0].style.width, "100%", "Progress bar should have the maximal width");
+        assert.hasClass(progressbar[0], "o_gantt_group_danger", "Progress bar should have the danger class");
+        gantt.destroy();
+    });
+
+    QUnit.test('Falsy search field will return an empty rows', async function (assert) {
+        assert.expect(2);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"
+                        progress_bar="user_id">
+                        <field name="user_id"/>
+                   </gantt>`,
+            groupBy: ['project_id', 'user_id'],
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            domain: [["id", "=", 5]],
+        });
+
+        const progressbar = gantt.el.querySelectorAll('.o_gantt_row_sidebar .o_gantt_progressbar');
+        assert.containsOnce(gantt, '.o_gantt_row_sidebar_empty', 'should have empty rows');
+        assert.strictEqual(progressbar.length, 0, "Gantt should not have any progressbars");
+        gantt.destroy();
+    });
+
+    QUnit.test('Search field return rows with progressbar', async function (assert) {
+        assert.expect(6);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"
+                        progress_bar="user_id">
+                        <field name="user_id"/>
+                   </gantt>`,
+            groupBy: ['project_id', 'user_id'],
+            viewOptions: {
+                initialDate: initialDate,
+            },
+            domain: [["id", "=", 2]],
+            mockRPC: function (route, args) {
+                if (args.method === 'gantt_progress_bar') {
+                    assert.strictEqual(args.model, "tasks");
+                    assert.deepEqual(args.args[0], ['user_id']);
+                    assert.deepEqual(args.args[1], {user_id: [2]});
+                    return Promise.resolve({
+                        user_id: {
+                            2: {value: 25, max_value: 200},
+                        }
+                    });
+                }
+                return this._super.apply(this, arguments);
+            },
+        });
+
+        const progressbar = gantt.el.querySelectorAll('.o_gantt_row_sidebar .o_gantt_progressbar');
+        assert.containsNone(gantt, '.o_gantt_row_sidebar_empty', 'should have rows');
+        assert.strictEqual(gantt.$('.o_gantt_row_container .o_gantt_row:nth(1) .o_gantt_row_title').text().trim(), 'User 2',
+            '2nd row title should be "User 2"');
+        assert.strictEqual(progressbar.length, 1, "Gantt should have one progressbar");
+        gantt.destroy();
+    });
 
     QUnit.test('add record in empty gantt', async function (assert) {
         assert.expect(1);
@@ -4625,26 +4987,67 @@ document.createElement("a").classList.contains
             model: 'tasks',
             data: this.data,
             arch: '<gantt date_start="start" date_stop="stop" />',
-            archs: {
-                'tasks,false,form': `
-                    <form>
-                        <field name="stage_id" widget="statusbar"/>
-                        <field name="project_id"/>
-                        <field name="start"/>
-                        <field name="stop"/>
-                    </form>
-                `,
-            },
             viewOptions: {
                 initialDate: initialDate,
             },
             groupBy: ['project_id'],
         });
 
+        const views = {
+            'tasks,false,form': `
+                <form>
+                    <field name="stage_id" widget="statusbar"/>
+                    <field name="project_id"/>
+                    <field name="start"/>
+                    <field name="stop"/>
+                </form>`,
+        };
+        await prepareWowlFormViewDialogs({ models: this.data, views });
+
         await testUtils.dom.triggerMouseEvent(gantt.$('.o_gantt_cell[data-date="2018-12-10 00:00:00"] .o_gantt_cell_add'), "click");
         await testUtils.nextTick();
 
         assert.strictEqual($('.modal').length, 1, 'There should be one modal opened');
+        gantt.destroy();
+    });
+
+    QUnit.test('Only the task name appears in the pill title when the pill_label option is not set', async function (assert) {
+        assert.expect(1);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"/>`,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        const pill = gantt.el.querySelector('.o_gantt_pill_title');
+        assert.strictEqual(pill.textContent, 'Task 1', "The pill should not include DateTime in the title.");
+        gantt.destroy();
+    });
+
+    QUnit.test('The date and task name appears in the pill title when the pill_label option is set', async function (assert) {
+        assert.expect(2);
+
+        const gantt = await createView({
+            View: GanttView,
+            model: 'tasks',
+            data: this.data,
+            arch: `<gantt date_start="start" date_stop="stop"
+                        default_scale="week" scales="week"
+                        pill_label="True"/>`,
+            viewOptions: {
+                initialDate: initialDate,
+            },
+        });
+
+        const pills = gantt.el.querySelectorAll('.o_gantt_pill_title');
+        assert.strictEqual(pills[0].innerText, '11/30 - 12/31 - Task 1', "The task span across in week then DateTime should be displayed on the pill label.");
+        assert.strictEqual(pills[1].innerText, 'Task 2', "The task does not span across in week scale then DateTime shouldn't be displayed on the pill label.");
         gantt.destroy();
     });
 });

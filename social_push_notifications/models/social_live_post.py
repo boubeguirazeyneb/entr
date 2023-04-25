@@ -17,7 +17,7 @@ class SocialLivePostPushNotifications(models.Model):
         """ The _post method of push notifications, unlike other social.media, doesn't post messages directly
         Instead, we keep them 'ready' and they are gathered by a cron job (see 'social.post#_cron_publish_scheduled'). """
 
-        push_notifications_live_posts = self.filtered(lambda post: post.account_id.media_type == 'push_notifications')
+        push_notifications_live_posts = self._filter_by_media_types(['push_notifications'])
         super(SocialLivePostPushNotifications, (self - push_notifications_live_posts))._post()
 
         push_notifications_live_posts.write({
@@ -110,6 +110,4 @@ class SocialLivePostPushNotifications(models.Model):
                 registration_token_to_remove.append(matched_registrations[i]['token'])
 
         if registration_token_to_remove:
-            self.env['website.visitor'].search([('push_token', 'in', registration_token_to_remove)]).sudo().write({
-                'push_token': False
-            })
+            self.env['website.visitor.push.subscription'].search([('push_token', 'in', registration_token_to_remove)]).sudo().unlink()

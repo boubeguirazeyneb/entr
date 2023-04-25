@@ -13,6 +13,7 @@ class ConsolidationPeriod(models.Model):
     _description = "Consolidation Period"
     _order = 'date_analysis_end desc, date_analysis_begin desc, id desc'
     _inherit = ['mail.thread']
+    _rec_name = 'chart_name'
 
     def _get_default_date_analysis_begin(self):
         company = self.env.company
@@ -48,12 +49,13 @@ class ConsolidationPeriod(models.Model):
         """
         Section = self.env['consolidation.group']
         for record in self:
-            domain = [('period_id.id', '=', record.id), ('group_id.show_on_dashboard', '=', True)]
+            domain = [('period_id', '=', record.id), ('group_id.show_on_dashboard', '=', True)]
             rfields = ['group_id.id', 'total:sum(amount)']
             group_by = ['group_id']
-            grouped_res = self.env['consolidation.journal.line'].read_group(domain, rfields, group_by)
+            grouped_res = self.env['consolidation.journal.line']._read_group(domain, rfields, group_by)
+
             results = [
-                '["%s","%s"]' % (Section.browse(value['group_id'][0]).name, record._format_value(value['total']))
+                '{"name": "%s", "value": "%s"}' % (Section.browse(value['group_id'][0]).name, record._format_value(value['total']))
                 for value in grouped_res
             ]
             record.dashboard_sections = '[%s]' % ','.join(results)
@@ -96,7 +98,7 @@ class ConsolidationPeriod(models.Model):
             company_ids = tuple(record_companies.intersection(user_companies))
 
             domain = [
-                ('company_id.id', 'in', company_ids),
+                ('company_id', 'in', company_ids),
                 ('consolidation_account_chart_filtered_ids', '=', False),
                 ('used', '=', True)
             ]
@@ -104,7 +106,7 @@ class ConsolidationPeriod(models.Model):
                                                               ['company_id'])
 
             results = [
-                '["%s","%s","%s"]' % (val['company_id'][0], Company.browse(val['company_id'][0]).name, val['amount'])
+                '{"company_id": %s,"name": "%s", "value": "%s"}' % (val['company_id'][0], Company.browse(val['company_id'][0]).name, val['amount'])
                 for val in values]
 
             record.company_unmapped_accounts_counts = '[%s]' % ','.join(results)
@@ -122,25 +124,12 @@ class ConsolidationPeriod(models.Model):
                 self.company_period_ids = [(0, 0, value) for value in company_period_values]
 
     # ORM OVERRIDES
-    def name_get(self):
-        result = []
-        for record in self:
-            result.append((record.id, '%s (%s)' % (record.chart_name, record.display_dates)))
-        return result
 
     def copy(self, default=None):
         default = dict(default or {})
         default['date_analysis_begin'] = self.date_analysis_end + datetime.timedelta(days=1)
         default['date_analysis_end'] = None
         return super().copy(default)
-
-    @api.model
-    def _name_search(self, name='', args=None, operator='ilike', limit=100, name_get_uid=None):
-        args = args or []
-        domain = []
-        if name:
-            domain = [('chart_name', operator, name)]
-        return self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
 
     # ACTIONS
 
@@ -180,10 +169,13 @@ class ConsolidationPeriod(models.Model):
             # Since he has the rights to be here, we can go sudo from here
             record = record.sudo()
             # unlink everything (only the ones auto-generated)
-            record.journal_ids.search([
+            journals_to_unlink = record.journal_ids.search([
                 ('auto_generated', '=', True),
                 ('period_id', '=', record.id)
-            ]).unlink()
+            ])
+
+            journals_to_unlink.line_ids.with_context(allow_unlink=True).unlink()
+            journals_to_unlink.unlink()
 
             # (re)generate
             # 1 journal = 1 company
@@ -448,6 +440,7 @@ class ConsolidationPeriodComposition(models.Model):
             ('composition_id', '=', self.id),
             ('period_id', '=', self.using_period_id.id)
         ])
+        journals.line_ids.with_context(allow_unlink=True).unlink()
         journals.unlink()
         # update composed analysis period journals (recursive)
         self.composed_period_id.action_generate_journals()
@@ -491,9 +484,9 @@ class ConsolidationPeriodComposition(models.Model):
         self.ensure_one()
         domain = [
             ('account_id.used_in_ids', '=', consolidation_account.id),
-            ('period_id.id', '=', self.composed_period_id.id)
+            ('period_id', '=', self.composed_period_id.id)
         ]
-        amounts = self.env['consolidation.journal.line'].sudo().read_group(domain, ['amount:sum(amount)'], [])
+        amounts = self.env['consolidation.journal.line'].sudo()._read_group(domain, ['amount:sum(amount)'], [])
         amount = amounts[0]['amount'] or 0.0
         return (self.rate_consolidation / 100.0) * (amount * self.currency_rate)
 
@@ -631,7 +624,7 @@ class ConsolidationCompanyPeriod(models.Model):
         """
         self.ensure_one()
         domain = self._get_move_lines_domain(consolidation_account)
-        res = self.env['account.move.line'].read_group(domain, ['balance:sum', 'id:array_agg'], [])
+        res = self.env['account.move.line']._read_group(domain, ['balance:sum', 'id:array_agg'], [])
         return res[0]['balance'] or 0.0, res[0]['id'] or []
 
     def _apply_rates(self, amount, consolidation_account):
@@ -700,14 +693,14 @@ class ConsolidationCompanyPeriod(models.Model):
         """
         self.ensure_one()
         return [
-            ('move_id.state', '=', 'posted'),
+            ('parent_state', '=', 'posted'),
             ('company_id', '=', self.company_id.id),
             ('journal_id', 'not in', self.mapped('exclude_journal_ids.id')),
             ('account_id.consolidation_account_ids', '=', consolidation_account.id),
             ('date', '<=', self.date_company_end),
             '|',
             ('date', '>=', self.date_company_begin),
-            ('account_id.user_type_id.include_initial_balance', '=', True)
+            ('account_id.include_initial_balance', '=', True)
         ]
 
     def _convert(self, amount, mode):

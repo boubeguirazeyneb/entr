@@ -13,29 +13,38 @@ Allow clients to Schedule Appointments through your Website
 -------------------------------------------------------------
 
 """,
-    'depends': ['appointment', 'website_enterprise'],
+    'depends': ['appointment', 'website_enterprise', 'website_partner'],
     'data': [
         'data/calendar_data.xml',
         'data/website_data.xml',
-        'views/calendar_appointment_type_views.xml',
+        'views/appointment_type_views.xml',
         'views/calendar_menus.xml',
-        'views/calendar_templates_appointments.xml',
-        'views/calendar_templates_registration.xml',
-        'views/calendar_templates_validation.xml',
-        'views/website_templates.xml',
+        'views/appointment_templates_appointments.xml',
+        'views/appointment_templates_registration.xml',
+        'views/appointment_templates_validation.xml',
+        'views/website_pages_views.xml',
         'security/calendar_security.xml',
+        'security/ir.model.access.csv',
+        'views/snippets.xml',
+    ],
+    'demo': [
+        'data/appointment_demo.xml',
     ],
     'installable': True,
-    'application': False,
-    'auto_install': True,
-    'post_init_hook': '_post_init_website_appointment',
+    'auto_install': ['appointment', 'website_enterprise'],
     'license': 'OEEL-1',
     'assets': {
-        'website.assets_editor': [
-            'website_appointment/static/src/js/website_appointment.editor.js',
-        ],
         'web.assets_tests': [
             'website_appointment/static/tests/tours/*',
+        ],
+        'web.assets_frontend': [
+            'website_appointment/static/src/scss/website_appointment.scss',
+            'website_appointment/static/src/scss/website_appointment_editor.scss',
+            'website_appointment/static/src/xml/website_appointment_templates.xml',
+            'website_appointment/static/src/xml/appointment_no_slot.xml',
+        ],
+        'website.assets_editor': [
+            'website_appointment/static/src/js/systray_items/*.js',
         ],
     }
 }

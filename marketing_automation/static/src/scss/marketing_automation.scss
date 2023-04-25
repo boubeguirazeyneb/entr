@@ -1,16 +1,8 @@
-$o-ma-border-color: gray($o-ma-border-color-gray-value);
-
 // ------------------------------------------------------------------
 // Campaign Kanban
 // ------------------------------------------------------------------
 
 .o_marketing_automation_campaign_kanban {
-    .o_text_brand {
-        color: $o-brand-odoo;
-    }
-    .o_badge_brand {
-        background: $o-brand-odoo;
-    }
     .o_ma_campaign_header {
         padding-bottom: 8px;
         border-bottom: 1px solid $o-ma-border-color;
@@ -30,7 +22,7 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
 .o_ma_hierarchy {
     margin-left: -$o-horizontal-padding;
     margin-right: -$o-horizontal-padding;
-    @include media-breakpoint-between(lg, xl, $o-extra-grid-breakpoints) {
+    @include media-breakpoint-up(lg, $o-extra-grid-breakpoints) {
         margin-left: -$o-horizontal-padding*2;
         margin-right: -$o-horizontal-padding*2;
     }
@@ -38,7 +30,6 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
     padding: 10px 0px 24px 16px;
     background-color: $o-ma-hierarchy-background;
     box-shadow: 0px 1px 1px rgba(17, 17, 17, 0.23);
-    overflow-x: auto;
     .o_ma_hierarchy_title {
         padding: 0px 0px 0px 72px;
         font-size: 18px;
@@ -53,7 +44,7 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
             margin: 0px 0px 0px 44px;
             border-radius: 25px;
         }
-        .o_kanban_view.o_kanban_ungrouped .o_kanban_record {
+        .o_field_x2many_kanban .o_kanban_ungrouped .o_kanban_record {
             display: flex;
             flex: 0 0 100%;
             border: 0px;
@@ -67,7 +58,7 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
                 @include o-position-absolute;
                 height: 100%;
                 margin-left: 8px;
-                border-left: 1px dashed darken($o-ma-border-color, 10%);
+                border-left: 1px dashed $o-ma-border-color;
             }
             // Record with all children
             .o_ma_body {
@@ -129,7 +120,7 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
 }
 
 .o_form_editable{
-    .o_ma_hierarchy .o_ma_hierarchy_container .o_kanban_view.o_kanban_ungrouped > .o_kanban_record:last-child:before{
+    .o_ma_hierarchy .o_ma_hierarchy_container .o_field_x2many_kanban .o_kanban_ungrouped > .o_kanban_record:last-child:before{
         height: 100%;
     }
 }
@@ -138,7 +129,13 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
 // Campaign Card
 // ------------------------------------------------------------------
 .o_ma_hierarchy_container.o_ma_campaign_hierarchy {
-    .o_kanban_view.o_kanban_ungrouped  .o_kanban_record {
+    .o_field_x2many_kanban .o_kanban_ungrouped  .o_kanban_record {
+        & > div {
+            background-color: transparent;
+            border: 0;
+            padding: 0;
+        }
+
         .o_ma_title_bar {
             position: relative;
             border-bottom: 1px solid $o-ma-border-color;
@@ -209,23 +206,26 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
             }
             .o_ma_graph {
                 padding: 0px;
-                .o_ma_activity_graph {
-                    height: 110px;
+                .o_field_marketing_activity_graph {
                     width: 100%;
-                    .o_graph_canvas_container {
-                        position: relative;
-                        top: 0px;
-                        left: 0px;
+                    .o_ma_activity_graph {
+                        height: 110px;
+                        .o_graph_canvas_container {
+                            position: relative;
+                            top: 0px;
+                            left: 0px;
+                        }
                     }
-                }
-                .o_ma_chart_time {
-                    @include o-position-absolute($top: 5px, $left: 170px);
-                    font-size: 10px;
-                    color: #A7A7A7;
+                    .o_ma_chart_time {
+                        @include o-position-absolute($top: 5px, $left: 170px);
+                        font-size: 10px;
+                        color: #A7A7A7;
+                    }
                 }
             }
             .o_ma_email_details {
                 border-top: 1px solid $o-ma-border-color;
+                z-index: 1;  // force buttons to go above chart canvas
                 @include border-bottom-radius(3px);
                 > div {
                     padding: 4px 0px;
@@ -245,7 +245,8 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
         }
         .o_ma_child_activity {
             background: $o-ma-hierarchy-background;
-            @include size(100%, 18px);
+            width: 100%;
+            height: 18px;
             overflow: hidden;
             transition: all 0.3s ease 0s;
             .o_ma_child_activity_title {
@@ -259,14 +260,14 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
                 i.fa {
                     flex: 1 0 auto;
                     padding: 10px;
-                    border-top: 1px solid #E2E2E2;
-                    border-left: 1px solid #E2E2E2;
+                    border-top: 1px solid var(--MarketingAutomation__ChildActivityButtons-border-color, #{$border-color});
+                    border-left: 1px solid var(--MarketingAutomation__ChildActivityButtons-border-color, #{$border-color});
                     cursor: pointer;
                     &:hover {
-                        background-color: darken($o-ma-hierarchy-background, 5%);
+                        background-color: rgba(0,0,0, .1);
                     }
                     &:first-child {
-                        border-bottom: 1px solid #E2E2E2;
+                        border-bottom: 1px solid var(--MarketingAutomation__ChildActivityButtons-border-color, #{$border-color});
                         border-top-width: 0px;
                         border-left-width: 0px;
                     }
@@ -283,7 +284,13 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
 // Workitem Card
 // ------------------------------------------------------------------
 .o_ma_hierarchy_container.o_ma_workitem_hierarchy {
-    .o_kanban_view.o_kanban_ungrouped  .o_kanban_record {
+    .o_field_x2many_kanban .o_kanban_ungrouped  .o_kanban_record {
+        & > div {
+            background-color: transparent;
+            border: 0;
+            padding: 0;
+        }
+
         .o_ma_body .o_ma_timeline {
             top: 20px;
         }
@@ -312,8 +319,8 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
             span {
                 flex: 1 0 auto;
                 padding: 3px;
-                border-top: 1px solid #F1F1F1;
-                border-left: 1px solid #F1F1F1;
+                border-top: 1px solid $o-ma-border-color;
+                border-left: 1px solid $o-ma-border-color;
                 font-size: 11px;
                 color: #C3C3C3;
                 &:first-child {
@@ -326,9 +333,29 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
         }
         .o_ma_test_buttons {
             @include o-position-absolute($top: 5px, $right: -70px);
+            margin-left: -10px;
             .btn {
                 border-radius: 3px;
             }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Marketing Activity Form
+// ------------------------------------------------------------------
+
+.o_marketing_activity_form.o_form_editable {
+    .o_group .o_field_widget {
+        // Force col-x classes to use their normal values
+        // Overrides '.o_form_view .o_group .o_field_widget' that sets the width to 100%
+
+        &.col-2 {
+            @extend .col-2;
+        }
+
+        &.col-10 {
+            @extend .col-10;
         }
     }
 }
@@ -348,17 +375,14 @@ $o-ma-border-color: gray($o-ma-border-color-gray-value);
 .o_ma_text_error {
     @extend .text-muted;
 }
-.o_ma_text_scheduled {
-    color: $o-brand-odoo;
-}
 .o_ma_processed {
     background-color: $o-brand-primary;
 }
 .o_ma_rejected {
-    background-color: theme-color('danger');
+    background-color: map-get($theme-colors, 'danger');
 }
 .o_ma_canceled {
-    background-color: theme-color('warning');
+    background-color: map-get($theme-colors, 'warning');
 }
 .o_ma_error {
     background-color: #8F8F8F;

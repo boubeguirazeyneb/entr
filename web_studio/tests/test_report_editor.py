@@ -8,8 +8,9 @@ class TestReportEditor(TransactionCase):
 
     def setUp(self):
         super(TestReportEditor, self).setUp()
-        self.session = DotDict({'debug': False})
-        _request_stack.push(self)
+        self.session = DotDict({'debug': ''})
+        self.is_frontend = False
+        _request_stack.push(self)  # crappy hack to use a fake Request
         self.WebStudioController = WebStudioController()
 
     def test_copy_inherit_report(self):
@@ -129,7 +130,7 @@ class TestReportEditor(TransactionCase):
         report = self.env['ir.actions.report'].search([('report_name', '=', 'base.report_irmodulereference')])
         report.copy_report_and_template()
         copy = self.env['ir.actions.report'].search([('report_name', '=', 'base.report_irmodulereference_copy_1')])
-        report_model = copy._get_rendering_context_model()
+        report_model = self.env['ir.actions.report']._get_rendering_context_model(copy)
         self.assertIsNotNone(report_model)
 
     def test_duplicate_keep_translations(self):
@@ -163,13 +164,9 @@ class TestReportEditor(TransactionCase):
         views[-1].arch = views[-1].arch.replace('aba', 'a_</div>aba<div>ab')
         views += create_view("abb", inherit_id=target.id, mode="primary")
 
-        self.env['ir.translation'].insert_missing(views._fields['arch_db'], views)
-        fr_translations = self.env['ir.translation'].search([
-            ('name', '=', 'ir.ui.view,arch_db'), ('res_id', 'in', views.ids), ('lang', '=', 'fr_FR')
-        ])
-        self.assertEqual(len(fr_translations), len(views) + 2)  # +2 for aba
-        for trans in fr_translations:
-            trans.value = "%s in fr" % trans.src
+        for view in views.with_context(lang='fr_FR'):
+            terms = view._fields['arch_db'].get_trans_terms(view.arch_db)
+            view.update_field_translations('arch_db', {'fr_FR': {term: '%s in fr' % term for term in terms}})
 
         combined_arch = '<div>a_<div>ab</div><div>a_</div>aba<div>ab</div></div>'
         self.assertEqual(target._read_template(target.id), combined_arch)
@@ -182,34 +179,8 @@ class TestReportEditor(TransactionCase):
         self.assertEqual(copy_view.arch, combined_arch)
 
         # translations of combined views have been copied to the new view
-        translations = self.env['ir.translation'].search([
-            ('name', '=', 'ir.ui.view,arch_db'), ('res_id', '=', copy_view.id), ('lang', '=', 'fr_FR')
-        ])
-        self.assertEqual(len(translations), 3)
-        self.assertEqual(set(translations.mapped('src')), set(['a_', 'ab', 'aba']))
-
-    def test_report_action_translations(self):
-        self.env['ir.actions.report'].create({
-            'name': 'test report in translations',
-            'report_name': 'web_studio.test_report_action_translations',
-            'model': 'res.users',
-        })
-        view = self.env['ir.ui.view'].create({
-            'type': 'qweb',
-            'name': 'test_report_action_translations_view',
-            'key': 'web_studio.test_report_action_translations_view',
-            'arch': '<div>hello test</div>',
-        })
-
-        model = self.env['ir.model'].search([('model', '=', 'res.users')], limit=1)
-        action = self.WebStudioController._get_studio_action_translations(model)
-
-        view_ids = next((leaf[2] for leaf in action['domain'] if leaf[0] == 'res_id'), [])
-        self.assertIn(view.id, view_ids)
-
-        translations = self.env['ir.translation'].search_read(action['domain'], ['src'])
-        translation = next(trans for trans in translations if trans["src"] == "hello test")
-        self.assertTrue(translation, 'report translations should shown in "Translations" action')
+        new_arch = '<div>a_ in fr<div>ab in fr</div><div>a_ in fr</div>aba in fr<div>ab in fr</div></div>'
+        self.assertEqual(copy_view.with_context(lang='fr_FR').arch, new_arch)
 
     def tearDown(self):
         super(TestReportEditor, self).tearDown()

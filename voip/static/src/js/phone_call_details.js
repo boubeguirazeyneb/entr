@@ -9,7 +9,6 @@ const Widget = require('web.Widget');
 const { Component } = owl;
 
 const QWeb = core.qweb;
-const _t = core._t;
 
 function cleanNumber(number) {
     if (!number) {
@@ -92,15 +91,15 @@ const PhoneCallDetails = Widget.extend({
         this._onInputNumberDebounced = _.debounce(this._onInputNumber.bind(this), 350);
 
         var self = this;
-        var number = this.getParent().getParent()._userAgent._externalPhone;
+        var number = this.getParent().getParent()._messaging.voip.cleanedExternalDeviceNumber;
         $('.o_dial_transfer_button').popover({
             placement: 'top',
             delay: {show: 0, hide: 100},
-            title: 'Transfer to' + '<button class="close">&times;</button>',
+            title: 'Transfer to' + '<button class="btn-close float-end"></button>',
             container: 'body',
             html: true,
             content: function(){
-                var $content = $(QWeb.render('voip.PhoneCallTransfer', {'sip_external_phone': number}));
+                var $content = $(QWeb.render('voip.PhoneCallTransfer', {'external_device_number': number}));
                 $content.find('#input_transfer').on('input', self._onInputNumberDebounced);
                 $content.find('#transfer_call').on('click', self._onClickTransferCall);
                 return $content;
@@ -108,7 +107,7 @@ const PhoneCallDetails = Widget.extend({
         });
         $('.o_dial_transfer_button').on('shown.bs.popover', function () {
             $('#input_transfer').focus();
-            $('.popover button.close').click(function() {
+            $('.popover button.btn-close').click(function() {
                 $('.o_dial_transfer_button').popover('hide');
              });
         })
@@ -135,7 +134,7 @@ const PhoneCallDetails = Widget.extend({
         this._$closeDetails.show();
         this._$phoneCallInfo.show();
         this._$phoneCallInCall.hide();
-        this._$phoneCallReceivingCall.hide();
+        this._$phoneCallReceivingCall.removeClass('d-flex');
         this.$el.removeClass('in_call');
     },
     /**
@@ -145,9 +144,9 @@ const PhoneCallDetails = Widget.extend({
         this.$('.o_dial_keypad_button_container').hide();
         this._$phoneCallInCall.hide();
         this._$phoneCallInfoName.hide();
-        this._$phoneCallDetails.addClass('details_incoming_call');
+        this._$phoneCallDetails.addClass('details_incoming_call pt-5');
 
-        this._$phoneCallReceivingCall.show();
+        this._$phoneCallReceivingCall.addClass('d-flex');
 
         this.$('.o_phonecall_top').html(QWeb.render('voip.PhoneCallStatus', {
             status: 'connecting',
@@ -166,7 +165,7 @@ const PhoneCallDetails = Widget.extend({
      * Changes the display to show the in call layout.
      */
     showCallDisplay() {
-        this._$phoneCallDetails.addClass('details_in_call');
+        this._$phoneCallDetails.addClass('details_in_call py-4 bg-success bg-opacity-25');
         this._$closeDetails.hide();
         this._$phoneCallInfo.hide();
         this._$phoneCallInCall.show();
@@ -265,7 +264,9 @@ const PhoneCallDetails = Widget.extend({
      */
     _onClickEmail(ev) {
         ev.preventDefault();
-        this.trigger_up('fold_panel');
+        if (!config.device.isMobileDevice) {
+            this.trigger_up('fold_panel');
+        }
         if (this._activityResModel && this.activityResId) {
             this.do_action({
                 context: {
@@ -312,7 +313,9 @@ const PhoneCallDetails = Widget.extend({
      */
     _onClickLog(ev) {
         ev.preventDefault();
-        this.trigger_up('fold_panel');
+        if (!config.device.isMobileDevice) {
+            this.trigger_up('fold_panel');
+        }
         this.do_action({
             type: 'ir.actions.act_window',
             res_model: 'mail.activity',
@@ -353,7 +356,9 @@ const PhoneCallDetails = Widget.extend({
      */
     _onClickRescheduleActivity(ev) {
         ev.preventDefault();
-        this.trigger_up('fold_panel');
+        if (!config.device.isMobileDevice) {
+            this.trigger_up('fold_panel');
+        }
         var res_id, res_model;
         if (this.activityResId) {
             res_id = this.activityResId;
@@ -386,7 +391,9 @@ const PhoneCallDetails = Widget.extend({
      */
     async _onClickToPartner(ev) {
         ev.preventDefault();
-        this.trigger_up('fold_panel');
+        if (!config.device.isMobileDevice) {
+            this.trigger_up('fold_panel');
+        }
         let resId = this.partnerId;
         if (!this.partnerId) {
             let domain = [];
@@ -532,7 +539,7 @@ const PhoneCallDetails = Widget.extend({
                 nameBolt = name + ' (' + mobile.replace(number, '<b>' + number + '</b>') + ')';
                 default_phone = mobile;
             }
-            lines += '<tr class="transfer_contact_line" data-number="' + default_phone + '"><td>' + nameBolt + '</td></tr>';
+            lines += '<tr class="transfer_contact_line cursor-pointer" data-number="' + default_phone + '"><td>' + nameBolt + '</td></tr>';
             }
         $('#table_contact').empty().append(lines);
         $('#table_contact tr').on('click', async function(event){self._onClickContactLine(event);});

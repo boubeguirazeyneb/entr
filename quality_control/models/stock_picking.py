@@ -20,7 +20,7 @@ class StockPicking(models.Model):
             fail = False
             checkable_products = picking.mapped('move_line_ids').mapped('product_id')
             for check in picking.check_ids:
-                if check.quality_state == 'none' and check.product_id in checkable_products:
+                if check.quality_state == 'none' and (check.product_id in checkable_products or check.measure_on == 'operation'):
                     todo = True
                 elif check.quality_state == 'fail':
                     fail = True
@@ -33,10 +33,17 @@ class StockPicking(models.Model):
         for picking in self:
             picking.quality_alert_count = len(picking.quality_alert_ids)
 
+    @api.depends('quality_check_todo')
+    def _compute_show_validate(self):
+        super()._compute_show_validate()
+        for picking in self:
+            if picking.quality_check_todo:
+                picking.show_validate = False
+
     def check_quality(self):
         self.ensure_one()
         checkable_products = self.mapped('move_line_ids').mapped('product_id')
-        checks = self.check_ids.filtered(lambda check: check.quality_state == 'none' and check.product_id in checkable_products)
+        checks = self.check_ids.filtered(lambda check: check.quality_state == 'none' and (check.product_id in checkable_products or check.measure_on == 'operation'))
         if checks:
             return checks.action_open_quality_check_wizard()
         return False
@@ -47,7 +54,7 @@ class StockPicking(models.Model):
             return res
         for backorder in res:
             backorder.backorder_id.check_ids.filtered(lambda qc: qc.quality_state == 'none').unlink()
-            backorder.move_lines._create_quality_checks()
+            backorder.move_ids._create_quality_checks()
         return res
 
     def _action_done(self):

@@ -95,7 +95,7 @@
                             </div>
                         </div>
                         <div class="col-4">
-                            <b><img src="/website_twitter_wall/static/src/img/odoo.png" class="o-tw-powered mt16 float-right" /></b>
+                            <b><img src="/website_twitter_wall/static/src/img/odoo.png" class="o-tw-powered mt16 float-end" /></b>
                         </div>
                     </div>
                 </div>
@@ -133,7 +133,7 @@
 
     <!-- Share storify view on social networks -->
     <template id='twitter_wall_share' name="Share Wall">
-        <h4 class="form-group">
+        <h4 class="mb-3">
             <a target="_Blank" t-attf-title="Share #{wall.name} on facebook" t-attf-href="https://www.facebook.com/sharer/sharer.php?u=#{wall.website_url}">
                 <i class="fa fa-facebook-square fa-2x" />
             </a>
@@ -150,7 +150,7 @@
     </template>
 
     <!-- Social networks sharing option -->
-    <template id="opt_twitter_wall_share" inherit_id="website_twitter_wall.twitter_wall_view" name="Share Option" customize_show="True" >
+    <template id="opt_twitter_wall_share" inherit_id="website_twitter_wall.twitter_wall_view" name="Share Option">
         <xpath expr="//h2" position="after">
             <t t-call="website_twitter_wall.twitter_wall_share" class="mt32">
                 <t t-set="wall" t-value="wall" />

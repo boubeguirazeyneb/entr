@@ -5,7 +5,7 @@ from odoo.tests import HttpCase, tagged
 
 @tagged('-at_install', 'post_install')
 class TestRecordTime(HttpCase):
-    
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

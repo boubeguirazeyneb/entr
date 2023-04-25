@@ -3,9 +3,16 @@
 import testUtils from "web.test_utils";
 
 import { createWebClient, doAction } from "@web/../tests/webclient/helpers";
-import { click, nextTick, patchWithCleanup } from "@web/../tests/helpers/utils";
+import {
+    click,
+    getFixture,
+    nextTick,
+    patchWithCleanup,
+    makeDeferred,
+    mockDownload,
+    patchDate,
+} from "@web/../tests/helpers/utils";
 import { makeView } from "@web/../tests/views/helpers";
-import { removeFacet, setupControlPanelServiceRegistry } from "@web/../tests/search/helpers";
 import { dialogService } from "@web/core/dialog/dialog_service";
 import { registry } from "@web/core/registry";
 import {
@@ -14,13 +21,15 @@ import {
     toggleComparisonMenu,
     toggleMenuItemOption,
     toggleMenu,
+    removeFacet,
+    setupControlPanelServiceRegistry,
 } from "@web/../tests/search/helpers";
-import { makeDeferred, mockDownload, patchDate } from "@web/../tests/helpers/utils";
 import { browser } from "@web/core/browser/browser";
 
 const serviceRegistry = registry.category("services");
 
 let serverData;
+let target;
 
 QUnit.module("Views", (hooks) => {
     hooks.beforeEach(() => {
@@ -100,43 +109,46 @@ QUnit.module("Views", (hooks) => {
         };
         setupControlPanelServiceRegistry();
         serviceRegistry.add("dialog", dialogService);
+
+        target = getFixture();
     });
     QUnit.module("CohortView");
 
     QUnit.test("simple cohort rendering", async function (assert) {
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             arch: '<cohort string="Subscription" date_start="start" date_stop="stop" />',
         });
 
-        assert.containsOnce(cohort, ".table", "should have a table");
+        assert.hasClass(target.querySelector(".o_cohort_view"), "o_view_controller");
+        assert.containsOnce(target, ".table", "should have a table");
         assert.containsOnce(
-            cohort,
+            target,
             ".table thead tr:first th:first:contains(Start)",
             'should contain "Start" in header of first column'
         );
         assert.containsOnce(
-            cohort,
+            target,
             ".table thead tr:first th:nth-child(3):contains(Stop - By Day)",
             'should contain "Stop - By Day" in title'
         );
         assert.containsOnce(
-            cohort,
+            target,
             ".table thead tr:nth-child(2) th:first:contains(+0)",
             "interval should start with 0"
         );
         assert.containsOnce(
-            cohort,
+            target,
             ".table thead tr:nth-child(2) th:nth-child(16):contains(+15)",
             "interval should end with 15"
         );
 
-        await toggleMenu(cohort, "Measures");
-        assert.containsOnce(cohort, ".dropdown-menu", 1, "should have list of measures");
+        await toggleMenu(target, "Measures");
+        assert.containsOnce(target, ".dropdown-menu", 1, "should have list of measures");
         assert.containsN(
-            cohort,
+            target,
             ".o_cohort_interval_button",
             4,
             "should have buttons of intervals"
@@ -146,14 +158,14 @@ QUnit.module("Views", (hooks) => {
     QUnit.test("no content helper", async function (assert) {
         serverData.models.subscription.records = [];
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             arch: '<cohort string="Subscription" date_start="start" date_stop="stop" />',
         });
 
-        assert.containsOnce(cohort, "div.o_view_nocontent");
+        assert.containsOnce(target, "div.o_view_nocontent");
     });
 
     QUnit.test("no content helper after update", async function (assert) {
@@ -165,7 +177,7 @@ QUnit.module("Views", (hooks) => {
                 </search>
             `,
         };
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
@@ -174,43 +186,43 @@ QUnit.module("Views", (hooks) => {
             },
         });
 
-        assert.containsNone(cohort, "div.o_view_nocontent");
+        assert.containsNone(target, "div.o_view_nocontent");
 
-        await toggleFilterMenu(cohort);
-        await toggleMenuItem(cohort, "Recurring bigger than 25");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "Recurring bigger than 25");
 
-        assert.containsOnce(cohort, "div.o_view_nocontent");
+        assert.containsOnce(target, "div.o_view_nocontent");
     });
 
     QUnit.test("correctly set by default measure and interval", async function (assert) {
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             arch: '<cohort string="Subscription" date_start="start" date_stop="stop" />',
         });
 
-        await toggleMenu(cohort, "Measures");
+        await toggleMenu(target, "Measures");
 
         assert.equal(
-            cohort.el.querySelector(".dropdown-menu span.selected").textContent,
+            target.querySelector(".dropdown-menu span.selected").textContent,
             "Count",
             "count should be the default for measure field"
         );
 
         assert.equal(
-            cohort.el.querySelector(".o_cohort_interval_button.active").textContent,
+            target.querySelector(".o_cohort_interval_button.active").textContent,
             "Day",
             "day should by default for interval"
         );
 
         assert.equal(
-            cohort.el.querySelector(".table thead th:nth-child(2)").textContent,
+            target.querySelector(".table thead th:nth-child(2)").textContent,
             "Count",
             'should contain "Count" in header of second column'
         );
         assert.equal(
-            cohort.el.querySelector(".table thead th:nth-child(3)").textContent,
+            target.querySelector(".table thead th:nth-child(3)").textContent,
             "Stop - By Day",
             'should contain "Stop - By Day" in title'
         );
@@ -227,16 +239,16 @@ QUnit.module("Views", (hooks) => {
         serverData.models.subscription.fields.add = { string: "add", type: "integer", store: true };
         serverData.models.subscription.fields.zoo = { string: "Zoo", type: "integer", store: true };
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             arch: '<cohort string="Subscription" date_start="start" date_stop="stop"/>',
         });
 
-        await toggleMenu(cohort, "Measures");
+        await toggleMenu(target, "Measures");
 
-        const measureButtonEls = cohort.el.querySelectorAll(".dropdown-menu span");
+        const measureButtonEls = target.querySelectorAll(".dropdown-menu span");
         assert.deepEqual(
             [...measureButtonEls].map((e) => e.innerText.trim()),
             ["Abc", "add", "Recurring Price", "Zoo", "Count"]
@@ -244,7 +256,7 @@ QUnit.module("Views", (hooks) => {
     });
 
     QUnit.test("correctly set measure and interval after changed", async function (assert) {
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
@@ -252,72 +264,72 @@ QUnit.module("Views", (hooks) => {
                 '<cohort string="Subscription" date_start="start" date_stop="stop" measure="recurring" interval="week" />',
         });
 
-        await toggleMenu(cohort, "Measures");
+        await toggleMenu(target, "Measures");
 
         assert.equal(
-            cohort.el.querySelector(".dropdown-menu span.selected").textContent,
+            target.querySelector(".dropdown-menu span.selected").textContent,
             "Recurring Price",
             "should recurring for measure"
         );
         assert.equal(
-            cohort.el.querySelector(".o_cohort_interval_button.active").textContent,
+            target.querySelector(".o_cohort_interval_button.active").textContent,
             "Week",
             "should week for interval"
         );
 
         assert.equal(
-            cohort.el.querySelector(".table thead th:nth-child(2)").textContent,
+            target.querySelector(".table thead th:nth-child(2)").textContent,
             "Recurring Price",
             'should contain "Recurring Price" in header of second column'
         );
         assert.equal(
-            cohort.el.querySelector(".table thead th:nth-child(3)").textContent,
+            target.querySelector(".table thead th:nth-child(3)").textContent,
             "Stop - By Week",
             'should contain "Stop - By Week" in title'
         );
 
-        await testUtils.dom.click(cohort.el.querySelector(".dropdown-menu span:not(.selected)"));
+        await testUtils.dom.click(target.querySelector(".dropdown-menu span:not(.selected)"));
         assert.equal(
-            cohort.el.querySelector(".dropdown-menu span.selected").textContent,
+            target.querySelector(".dropdown-menu span.selected").textContent,
             "Count",
             "should active count for measure"
         );
         assert.equal(
-            cohort.el.querySelector(".table thead th:nth-child(2)").textContent,
+            target.querySelector(".table thead th:nth-child(2)").textContent,
             "Count",
             'should contain "Count" in header of second column'
         );
 
-        await testUtils.dom.click(cohort.el.querySelectorAll(".o_cohort_interval_button")[2]);
+        await testUtils.dom.click(target.querySelectorAll(".o_cohort_interval_button")[2]);
         assert.equal(
-            cohort.el.querySelector(".o_cohort_interval_button.active").textContent,
+            target.querySelector(".o_cohort_interval_button.active").textContent,
             "Month",
             "should active month for interval"
         );
         assert.equal(
-            cohort.el.querySelector(".table thead th:nth-child(3)").textContent,
+            target.querySelector(".table thead th:nth-child(3)").textContent,
             "Stop - By Month",
             'should contain "Stop - By Month" in title'
         );
     });
 
     QUnit.test("cohort view without attribute invisible on field", async function (assert) {
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             arch: `<cohort string="Subscription" date_start="start" date_stop="stop"/>`,
         });
 
-        await toggleMenu(cohort, "Measures");
-        const cohortMeasureList = cohort.el.querySelectorAll(".dropdown-menu span");
+        await toggleMenu(target, "Measures");
+        const cohortMeasureList = target.querySelectorAll(".dropdown-menu span");
         assert.equal(cohortMeasureList.length, 2);
         assert.equal(cohortMeasureList[0].textContent, "Recurring Price");
         assert.equal(cohortMeasureList[1].textContent, "Count");
     });
 
     QUnit.test("cohort view with attribute invisible on field", async function (assert) {
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
@@ -327,12 +339,9 @@ QUnit.module("Views", (hooks) => {
                 </cohort>`,
         });
 
-        await toggleMenu(cohort, "Measures");
-        assert.containsOnce(cohort, ".dropdown-menu span");
-        assert.notEqual(
-            cohort.el.querySelector(".dropdown-menu span").textContent,
-            "Recurring Price"
-        );
+        await toggleMenu(target, "Measures");
+        assert.containsOnce(target, ".dropdown-menu span");
+        assert.notEqual(target.querySelector(".dropdown-menu span").textContent, "Recurring Price");
     });
 
     QUnit.test("export cohort", async function (assert) {
@@ -349,21 +358,22 @@ QUnit.module("Views", (hooks) => {
             return Promise.resolve();
         });
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             arch: '<cohort string="Subscription" date_start="start" date_stop="stop" />',
         });
 
-        await click(cohort.el.querySelector(".o_cohort_download_button"));
+        await click(target.querySelector(".o_cohort_download_button"));
     });
 
     QUnit.test(
         "when clicked on cell redirects to the correct list/form view ",
         async function (assert) {
             serverData.views = {
-                "subscription,false,cohort": `<cohort string="Subscriptions" date_start="start" date_stop="stop" measure="__count" interval="week" />`,
+                "subscription,false,cohort": `
+                    <cohort string="Subscriptions" date_start="start" date_stop="stop" measure="__count" interval="week" />`,
                 "subscription,my_list_view,list": `
                     <tree>
                         <field name="start"/>
@@ -387,9 +397,7 @@ QUnit.module("Views", (hooks) => {
                 "subscription,false,search": `<search></search>`,
             };
 
-            const webClient = await createWebClient({
-                serverData,
-            });
+            const webClient = await createWebClient({ serverData });
 
             await doAction(webClient, {
                 name: "Subscriptions",
@@ -403,10 +411,9 @@ QUnit.module("Views", (hooks) => {
             });
 
             // Going to the list view, while clicking Period / Count cell
-            await click(webClient.el.querySelector("td.o_cohort_value"));
-            await nextTick();
+            await click(target.querySelector("td.o_cohort_value"));
 
-            let listColumnsHeads = webClient.el.querySelectorAll(".o_list_view th");
+            let listColumnsHeads = target.querySelectorAll(".o_list_view th");
             assert.strictEqual(
                 listColumnsHeads[1].textContent,
                 "Start",
@@ -418,12 +425,10 @@ QUnit.module("Views", (hooks) => {
                 "First field in the list view should be start"
             );
             // Going back to cohort view
-            await click(webClient.el.querySelector(".o_back_button"));
-            await nextTick();
+            await click(target.querySelector(".o_back_button"));
             // Going to the list view
-            await click(webClient.el.querySelector("td div.o_cohort_value"));
-            await nextTick();
-            listColumnsHeads = webClient.el.querySelectorAll(".o_list_view th");
+            await click(target.querySelector("td div.o_cohort_value"));
+            listColumnsHeads = target.querySelectorAll(".o_list_view th");
             assert.strictEqual(
                 listColumnsHeads[1].textContent,
                 "Start",
@@ -435,18 +440,17 @@ QUnit.module("Views", (hooks) => {
                 "First field in the list view should be start"
             );
             // Going to the form view
-            await click(webClient.el.querySelector(".o_list_view .o_data_row"));
-            await nextTick();
+            await click(target.querySelector(".o_list_view .o_data_row .o_data_cell"));
 
-            const formSpanLabel = webClient.el.querySelectorAll(".o_form_view span");
+            const fieldWidgets = target.querySelectorAll(".o_form_view .o_field_widget");
             assert.hasAttrValue(
-                formSpanLabel[0],
+                fieldWidgets[0],
                 "name",
                 "start",
                 "First field in the form view should be start"
             );
             assert.hasAttrValue(
-                formSpanLabel[1],
+                fieldWidgets[1],
                 "name",
                 "stop",
                 "Second field in the form view should be stop"
@@ -457,18 +461,24 @@ QUnit.module("Views", (hooks) => {
     QUnit.test("test mode churn", async function (assert) {
         assert.expect(3);
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "lead",
             serverData,
             arch:
                 '<cohort string="Leads" date_start="start" date_stop="stop" interval="week" mode="churn" />',
             mockRPC: function (route, args) {
-                assert.strictEqual(args.kwargs.mode, "churn", "churn mode should be sent via RPC");
+                if (args.method === "get_cohort_data") {
+                    assert.strictEqual(
+                        args.kwargs.mode,
+                        "churn",
+                        "churn mode should be sent via RPC"
+                    );
+                }
             },
         });
 
-        const values = cohort.el.querySelectorAll("td .o_cohort_value");
+        const values = target.querySelectorAll("td .o_cohort_value");
         assert.strictEqual(
             values[0].textContent.trim(),
             "0%",
@@ -484,24 +494,26 @@ QUnit.module("Views", (hooks) => {
     QUnit.test("test backward timeline", async function (assert) {
         assert.expect(7);
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "attendee",
             serverData,
             arch:
                 '<cohort string="Attendees" date_start="event_begin_date" date_stop="registration_date" interval="day" timeline="backward" mode="churn"/>',
             mockRPC: function (route, args) {
-                assert.strictEqual(
-                    args.kwargs.timeline,
-                    "backward",
-                    "backward timeline should be sent via RPC"
-                );
+                if (args.method === "get_cohort_data") {
+                    assert.strictEqual(
+                        args.kwargs.timeline,
+                        "backward",
+                        "backward timeline should be sent via RPC"
+                    );
+                }
             },
         });
-        const columnsTh = cohort.el.querySelectorAll(".table thead tr:nth-child(2) th");
+        const columnsTh = target.querySelectorAll(".table thead tr:nth-child(2) th");
         assert.equal(columnsTh[0].textContent, "-15", "interval should start with -15");
         assert.equal(columnsTh[15].textContent, "0", "interval should end with 0");
-        const values = cohort.el.querySelectorAll("td .o_cohort_value");
+        const values = target.querySelectorAll("td .o_cohort_value");
         assert.equal(values[0].textContent.trim(), "20%", "first col should display 20 percent");
         assert.equal(values[5].textContent.trim(), "40%", "col 6 should display 40 percent");
         assert.equal(values[7].textContent.trim(), "80%", "col 8 should display 80 percent");
@@ -512,7 +524,8 @@ QUnit.module("Views", (hooks) => {
         "when clicked on cell redirects to the action list/form view passed in context",
         async function (assert) {
             serverData.views = {
-                "subscription,false,cohort": `<cohort string="Subscriptions" date_start="start" date_stop="stop" measure="__count" interval="week" />`,
+                "subscription,false,cohort": `
+                    <cohort string="Subscriptions" date_start="start" date_stop="stop" measure="__count" interval="week" />`,
                 "subscription,my_list_view,list": `
                     <tree>
                         <field name="start"/>
@@ -536,9 +549,7 @@ QUnit.module("Views", (hooks) => {
                 "subscription,false,search": `<search></search>`,
             };
 
-            const webClient = await createWebClient({
-                serverData,
-            });
+            const webClient = await createWebClient({ serverData });
 
             await doAction(webClient, {
                 name: "Subscriptions",
@@ -549,10 +560,9 @@ QUnit.module("Views", (hooks) => {
             });
 
             // Going to the list view, while clicking Period / Count cell
-            await click(webClient.el.querySelector("td.o_cohort_value"));
-            await nextTick();
+            await click(target.querySelector("td.o_cohort_value"));
 
-            let listColumnsHeads = webClient.el.querySelectorAll(".o_list_view th");
+            let listColumnsHeads = target.querySelectorAll(".o_list_view th");
             assert.strictEqual(
                 listColumnsHeads[1].textContent,
                 "Start",
@@ -564,12 +574,10 @@ QUnit.module("Views", (hooks) => {
                 "First field in the list view should be start"
             );
             // Going back to cohort view
-            await click(webClient.el.querySelector(".o_back_button"));
-            await nextTick();
+            await click(target.querySelector(".o_back_button"));
             // Going to the list view
-            await click(webClient.el.querySelector("td div.o_cohort_value"));
-            await nextTick();
-            listColumnsHeads = webClient.el.querySelectorAll(".o_list_view th");
+            await click(target.querySelector("td div.o_cohort_value"));
+            listColumnsHeads = target.querySelectorAll(".o_list_view th");
             assert.strictEqual(
                 listColumnsHeads[1].textContent,
                 "Start",
@@ -581,18 +589,17 @@ QUnit.module("Views", (hooks) => {
                 "First field in the list view should be start"
             );
             // Going to the form view
-            await click(webClient.el.querySelector(".o_list_view .o_data_row"));
-            await nextTick();
+            await click(target.querySelector(".o_list_view .o_data_row .o_data_cell"));
 
-            const formSpanLabel = webClient.el.querySelectorAll(".o_form_view span");
+            const fieldWidgets = target.querySelectorAll(".o_form_view .o_field_widget");
             assert.hasAttrValue(
-                formSpanLabel[0],
+                fieldWidgets[0],
                 "name",
                 "start",
                 "First field in the form view should be start"
             );
             assert.hasAttrValue(
-                formSpanLabel[1],
+                fieldWidgets[1],
                 "name",
                 "stop",
                 "Second field in the form view should be stop"
@@ -615,9 +622,7 @@ QUnit.module("Views", (hooks) => {
             `,
         };
         patchWithCleanup(browser, { setTimeout: (fn) => fn() });
-        const webClient = await createWebClient({
-            serverData,
-        });
+        const webClient = await createWebClient({ serverData });
 
         await doAction(webClient, {
             name: "Subscriptions",
@@ -627,7 +632,7 @@ QUnit.module("Views", (hooks) => {
         });
 
         function verifyContents(results, label) {
-            const tables = webClient.el.querySelectorAll("table");
+            const tables = target.querySelectorAll("table");
             assert.strictEqual(
                 tables.length,
                 results.length,
@@ -651,63 +656,63 @@ QUnit.module("Views", (hooks) => {
 
         // with no comparison, with data (no filter)
         verifyContents([3], "with no comparison, with data (no filter)");
-        assert.containsNone(webClient, ".o_cohort_no_data");
-        assert.containsNone(webClient, "div.o_view_nocontent");
+        assert.containsNone(target, ".o_cohort_no_data");
+        assert.containsNone(target, "div.o_view_nocontent");
 
         // with no comparison with no data (filter on 'last_year')
-        await toggleFilterMenu(webClient);
-        await toggleMenuItem(webClient, "Date");
-        await toggleMenuItemOption(webClient, "Date", "2016");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "Date");
+        await toggleMenuItemOption(target, "Date", "2016");
 
         verifyContents([], "with no comparison with no data (filter on 'last_year'");
-        assert.containsNone(webClient, ".o_cohort_no_data");
-        assert.containsOnce(webClient, "div.o_view_nocontent");
+        assert.containsNone(target, ".o_cohort_no_data");
+        assert.containsOnce(target, "div.o_view_nocontent");
 
         // with comparison active, data and comparisonData (filter on 'this_month' + 'previous_period')
-        await toggleMenuItemOption(webClient, "Date", "2016");
-        await toggleMenuItemOption(webClient, "Date", "August");
-        await toggleComparisonMenu(webClient);
-        await toggleMenuItem(webClient, "Date: Previous period");
+        await toggleMenuItemOption(target, "Date", "2016");
+        await toggleMenuItemOption(target, "Date", "August");
+        await toggleComparisonMenu(target);
+        await toggleMenuItem(target, "Date: Previous period");
 
         verifyContents(
             ["August 2017", 2, "July 2017", 1],
             "with comparison active, data and comparisonData (filter on 'this_month' + 'previous_period')"
         );
-        assert.containsNone(webClient, ".o_cohort_no_data");
-        assert.containsNone(webClient, "div.o_view_nocontent");
+        assert.containsNone(target, ".o_cohort_no_data");
+        assert.containsNone(target, "div.o_view_nocontent");
 
         // with comparison active, data, no comparisonData (filter on 'this_year' + 'previous_period')
-        await toggleFilterMenu(webClient);
-        await toggleMenuItem(webClient, "Date");
-        await toggleMenuItemOption(webClient, "Date", "August");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "Date");
+        await toggleMenuItemOption(target, "Date", "August");
 
         verifyContents(
             ["2017", 3, "2016"],
             "with comparison active, data, no comparisonData (filter on 'this_year' + 'previous_period')"
         );
-        assert.containsOnce(webClient, ".o_cohort_no_data");
-        assert.containsNone(webClient, "div.o_view_nocontent");
+        assert.containsOnce(target, ".o_cohort_no_data");
+        assert.containsNone(target, "div.o_view_nocontent");
 
         // with comparison active, no data, comparisonData (filter on 'Q4' + 'previous_period')
-        await toggleMenuItemOption(webClient, "Date", "Q4");
+        await toggleMenuItemOption(target, "Date", "Q4");
 
         verifyContents(
             ["Q4 2017", "Q3 2017", 3],
             "with comparison active, no data, comparisonData (filter on 'Q4' + 'previous_period')"
         );
-        assert.containsOnce(webClient, ".o_cohort_no_data");
-        assert.containsNone(webClient, "div.o_view_nocontent");
+        assert.containsOnce(target, ".o_cohort_no_data");
+        assert.containsNone(target, "div.o_view_nocontent");
 
         // with comparison active, no data, no comparisonData (filter on 'last_year' + 'previous_period')
-        await toggleMenuItemOption(webClient, "Date", "2016");
-        await toggleMenuItemOption(webClient, "Date", "2017");
+        await toggleMenuItemOption(target, "Date", "2016");
+        await toggleMenuItemOption(target, "Date", "2017");
 
         verifyContents(
             [],
             "with comparison active, no data, no comparisonData (filter on 'last_year' + 'previous_period')"
         );
-        assert.containsNone(webClient, ".o_cohort_no_data");
-        assert.containsOnce(webClient, "div.o_view_nocontent");
+        assert.containsNone(target, ".o_cohort_no_data");
+        assert.containsOnce(target, "div.o_view_nocontent");
     });
 
     QUnit.test("verify context", async function (assert) {
@@ -735,24 +740,24 @@ QUnit.module("Views", (hooks) => {
                 </search>
             `,
         };
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             context: { search_default_small_than_0: true },
-            noContentHelp: '<p class="abc">click to add a foo</p>',
+            noContentHelp: owl.markup('<p class="abc">click to add a foo</p>'),
             config: {
                 views: [[false, "search"]],
             },
         });
 
-        assert.containsOnce(cohort, ".o_view_nocontent .abc");
-        assert.containsNone(cohort, "table");
+        assert.containsOnce(target, ".o_view_nocontent .abc");
+        assert.containsNone(target, "table");
 
-        await removeFacet(cohort);
+        await removeFacet(target);
 
-        assert.containsNone(cohort, ".o_view_nocontent .abc");
-        assert.containsOnce(cohort, "table");
+        assert.containsNone(target, ".o_view_nocontent .abc");
+        assert.containsOnce(target, "table");
     });
 
     QUnit.test("empty cohort view with sample data", async function (assert) {
@@ -765,28 +770,29 @@ QUnit.module("Views", (hooks) => {
             `,
         };
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
             context: { search_default_small_than_0: true },
-            noContentHelp: '<p class="abc">click to add a foo</p>',
+            noContentHelp: owl.markup('<p class="abc">click to add a foo</p>'),
             config: {
                 views: [[false, "search"]],
             },
             useSampleModel: true,
         });
 
-        assert.hasClass(cohort.el, "o_view_sample_data");
-        assert.containsOnce(cohort, ".o_view_nocontent .abc");
-        assert.containsOnce(cohort, "table.o_sample_data_disabled");
+        assert.hasClass(target.querySelector(".o_cohort_view .o_content"), "o_view_sample_data");
+        assert.containsOnce(target, ".o_view_nocontent .abc");
 
-        await removeFacet(cohort);
+        await removeFacet(target);
 
-        assert.doesNotHaveClass(cohort.el, "o_view_sample_data");
-        assert.containsNone(cohort, ".o_view_nocontent .abc");
-        assert.containsOnce(cohort, "table");
-        assert.doesNotHaveClass(cohort.el.querySelector("table"), "o_sample_data_disabled");
+        assert.doesNotHaveClass(
+            target.querySelector(".o_cohort_view .o_content"),
+            "o_view_sample_data"
+        );
+        assert.containsNone(target, ".o_view_nocontent .abc");
+        assert.containsOnce(target, "table");
     });
 
     QUnit.test("non empty cohort view with sample data", async function (assert) {
@@ -799,35 +805,34 @@ QUnit.module("Views", (hooks) => {
             `,
         };
 
-        const cohort = await makeView({
+        await makeView({
             type: "cohort",
             resModel: "subscription",
             serverData,
-            noContentHelp: '<p class="abc">click to add a foo</p>',
+            noContentHelp: owl.markup('<p class="abc">click to add a foo</p>'),
             config: {
                 views: [[false, "search"]],
             },
             useSampleModel: true,
         });
 
-        assert.doesNotHaveClass(cohort.el, "o_view_sample_data");
-        assert.containsNone(cohort, ".o_view_nocontent .abc");
-        assert.containsOnce(cohort, "table");
-        assert.doesNotHaveClass(cohort.el.querySelector("table"), "o_sample_data_disabled");
+        assert.doesNotHaveClass(target, "o_view_sample_data");
+        assert.containsNone(target, ".o_view_nocontent .abc");
+        assert.containsOnce(target, "table");
 
-        await toggleFilterMenu(cohort);
-        await toggleMenuItem(cohort, "Small Than 0");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "Small Than 0");
 
-        assert.doesNotHaveClass(cohort.el, "o_view_sample_data");
-        assert.containsOnce(cohort, ".o_view_nocontent .abc");
-        assert.containsNone(cohort, "table");
+        assert.doesNotHaveClass(target, "o_view_sample_data");
+        assert.containsOnce(target, ".o_view_nocontent .abc");
+        assert.containsNone(target, "table");
     });
 
     QUnit.test(
         "concurrent reloads: add a filter, and directly toggle a measure",
         async function (assert) {
             let def;
-            const cohort = await makeView({
+            await makeView({
                 type: "cohort",
                 resModel: "subscription",
                 serverData,
@@ -843,32 +848,32 @@ QUnit.module("Views", (hooks) => {
                 },
             });
 
-            assert.containsN(cohort, ".o_cohort_row_clickable", 5);
+            assert.containsN(target, ".o_cohort_row_clickable", 5);
             assert.equal(
-                cohort.el.querySelector(".table thead th:nth-child(2)").textContent,
+                target.querySelector(".table thead th:nth-child(2)").textContent,
                 "Count",
                 'active measure should be "Count"'
             );
 
             // Set a domain (this reload is delayed)
             def = makeDeferred();
-            await toggleFilterMenu(cohort);
-            await toggleMenuItem(cohort, "My Filter");
+            await toggleFilterMenu(target);
+            await toggleMenuItem(target, "My Filter");
 
-            assert.containsN(cohort, ".o_cohort_row_clickable", 5);
+            assert.containsN(target, ".o_cohort_row_clickable", 5);
 
             // Toggle a measure
-            await toggleMenu(cohort, "Measures");
-            await toggleMenuItem(cohort, "Recurring Price");
+            await toggleMenu(target, "Measures");
+            await toggleMenuItem(target, "Recurring Price");
 
-            assert.containsN(cohort, ".o_cohort_row_clickable", 5);
+            assert.containsN(target, ".o_cohort_row_clickable", 5);
 
             def.resolve();
             await nextTick();
 
-            assert.containsOnce(cohort, ".o_cohort_row_clickable");
+            assert.containsOnce(target, ".o_cohort_row_clickable");
             assert.equal(
-                cohort.el.querySelector(".table thead th:nth-child(2)").textContent,
+                target.querySelector(".table thead th:nth-child(2)").textContent,
                 "Recurring Price",
                 'active measure should be "Recurring Price"'
             );

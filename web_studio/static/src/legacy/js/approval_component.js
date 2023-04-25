@@ -1,16 +1,18 @@
 odoo.define('web_studio.ApprovalComponent', function (require) {
     'use strict';
 
-    const { Component, useState } = owl;
     const Dialog = require('web.OwlDialog');
+    const Popover = require("web.Popover");
+    const { useService } = require("@web/core/utils/hooks");
+
+    const { Component, onMounted, onWillUnmount, onWillStart, onWillUpdateProps, useState } = owl;
 
     class ApprovalComponent extends Component {
         //--------------------------------------------------------------------------
         // Lifecycle
         //--------------------------------------------------------------------------
 
-        constructor() {
-            super(...arguments);
+        setup() {
             this.state = useState({
                 entries: null,
                 rules: null,
@@ -18,24 +20,24 @@ odoo.define('web_studio.ApprovalComponent', function (require) {
                 syncing: false,
                 init: true,
             });
-        }
 
-        mounted() {
-            this.env.bus.on('refresh-approval', this, this._onRefresh);
-            return super.mounted(...arguments);
-        }
+            this.rpc = useService("rpc");
 
-        willUnmount() {
-            this.env.bus.off('refresh-approval', this, this._onRefresh);
-            return super.willUnmount(...arguments);
-        }
+            onMounted( () => {
+                this.env.bus.on('refresh-approval', this, this._onRefresh);
+            });
 
-        async willStart() {
-            return Promise.all([this._fetchApprovalData(), super.willStart(...arguments)]);
-        }
+            onWillUnmount( () => {
+                this.env.bus.off('refresh-approval', this, this._onRefresh);
+            });
 
-        async willUpdateProps() {
-            return Promise.all([this._fetchApprovalData(), super.willUpdateProps(...arguments)]);
+            onWillStart(async () => {
+                await this._fetchApprovalData();
+            });
+
+            onWillUpdateProps(async () => {
+                await this._fetchApprovalData();
+            });
         }
 
         //--------------------------------------------------------------------------
@@ -183,16 +185,13 @@ odoo.define('web_studio.ApprovalComponent', function (require) {
          * dialog (mobile).
          * @param {DOMEvent} ev
          */
-        _toggleInfo(ev) {
-            if (!this.props.inStudio) {
-                ev.stopPropagation();
-            }
+        _toggleInfo() {
             this.state.showInfo = !this.state.showInfo;
         }
     }
 
-    ApprovalComponent.template = 'Studio.ApprovalComponent';
-    ApprovalComponent.components = { Dialog };
+    ApprovalComponent.template = 'Studio.ApprovalComponent.Legacy';
+    ApprovalComponent.components = { Dialog, Popover };
     ApprovalComponent.props = {
         action: [Number, Boolean],
         actionName: { type: String, optional: true },

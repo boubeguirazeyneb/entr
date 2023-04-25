@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 from uuid import uuid4
-
 from odoo.tests import common
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
@@ -19,6 +18,11 @@ class AccountAutoTransferTestCase(AccountTestInvoicingCommon):
             'frequency': 'month',
             'journal_id': cls.journal.id
         })
+        cls.analytic_plan = cls.env['account.analytic.plan'].create({
+            'name': 'A',
+            'company_id': False
+        })
+
         cls.master_account_index = 0
         cls.slave_account_index = 1
         cls.origin_accounts, cls.destination_accounts = cls._create_accounts(cls)
@@ -29,15 +33,14 @@ class AccountAutoTransferTestCase(AccountTestInvoicingCommon):
         })
 
     def _create_accounts(self, amount_of_master_accounts=2, amount_of_slave_accounts=4):
-        account_type = self.env.ref('account.data_account_type_receivable')
-
         master_ids = self.env['account.account']
+
         for i in range(amount_of_master_accounts):
             self.master_account_index += 1
             master_ids += self.env['account.account'].create({
                 'name': 'MASTER %s' % self.master_account_index,
                 'code': 'MA00%s' % self.master_account_index,
-                'user_type_id': account_type.id,
+                'account_type': 'asset_receivable',
                 'reconcile': True
             })
 
@@ -47,13 +50,13 @@ class AccountAutoTransferTestCase(AccountTestInvoicingCommon):
             slave_ids += self.env['account.account'].create({
                 'name': 'SLAVE %s' % self.slave_account_index,
                 'code': 'SL000%s' % self.slave_account_index,
-                'user_type_id': account_type.id,
+                'account_type': 'asset_receivable',
                 'reconcile': True
             })
         return master_ids, slave_ids
 
     def _create_analytic_account(self, code='ANAL01'):
-        return self.env['account.analytic.account'].create({'name': code, 'code': code})
+        return self.env['account.analytic.account'].create({'name': code, 'code': code, 'plan_id': self.analytic_plan.id})
 
     def _create_partner(self, name="partner01"):
         return self.env['res.partner'].create({'name': name})
@@ -68,12 +71,12 @@ class AccountAutoTransferTestCase(AccountTestInvoicingCommon):
                 (0, 0, {
                     'account_id': cred_account or self.origin_accounts[0].id,
                     'credit': amount,
-                    'analytic_account_id': cred_analytic,
+                    'analytic_distribution': {cred_analytic: 100} if cred_analytic else {},
                     'partner_id': partner_id,
                 }),
                 (0, 0, {
                     'account_id': deb_account or self.origin_accounts[1].id,
-                    'analytic_account_id': deb_analytic,
+                    'analytic_distribution': {deb_analytic: 100} if deb_analytic else {},
                     'debit': amount,
                     'partner_id': partner_id,
                 }),

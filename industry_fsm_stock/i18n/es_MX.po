@@ -3,18 +3,17 @@
 # 	* industry_fsm_stock
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Lucia Pacheco <lpo@odoo.com>, 2022
+# Martin Trigaux, 2022
 # Braulio D. López Vázquez <bdl@odoo.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0beta+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 09:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
+"POT-Creation-Date: 2022-09-23 08:24+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
 "Last-Translator: Braulio D. López Vázquez <bdl@odoo.com>, 2022\n"
-"Language-Team: Spanish (Mexico) (https://www.transifex.com/odoo/teams/41243/es_MX/)\n"
+"Language-Team: Spanish (Mexico) (https://app.transifex.com/odoo/teams/41243/es_MX/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -111,11 +110,25 @@ msgid "Lot/Serial Number"
 msgstr "Número de lote/de serie"
 
 #. module: industry_fsm_stock
-#: model:ir.model,name:industry_fsm_stock.model_product_product
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "Lot/Serial number"
+msgstr "Número de lote/de serie"
+
+#. module: industry_fsm_stock
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "On hand:"
+msgstr "A la mano:"
+
+#. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__product_id
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__product_id
 msgid "Product"
 msgstr "Producto"
+
+#. module: industry_fsm_stock
+#: model:ir.model,name:industry_fsm_stock.model_product_product
+msgid "Product Variant"
+msgstr "Variante de producto"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__quantity
@@ -125,7 +138,7 @@ msgstr "Cantidad"
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_product_product__quantity_decreasable
 msgid "Quantity Decreasable"
-msgstr "Cantidad disminuible"
+msgstr "Cantidad decreciente"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking_line__sale_order_line_id
@@ -136,11 +149,6 @@ msgstr "Línea de orden de venta"
 #: model:ir.model,name:industry_fsm_stock.model_sale_order_line
 msgid "Sales Order Line"
 msgstr "Línea de orden de venta"
-
-#. module: industry_fsm_stock
-#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
-msgid "Serial"
-msgstr "De serie"
 
 #. module: industry_fsm_stock
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_product_product__serial_missing
@@ -162,6 +170,16 @@ msgstr "Tarea"
 #: model:ir.model.fields,field_description:industry_fsm_stock.field_fsm_stock_tracking__fsm_done
 msgid "Task Done"
 msgstr "Tarea hecha"
+
+#. module: industry_fsm_stock
+#: code:addons/industry_fsm_stock/models/product.py:0
+#, python-format
+msgid ""
+"The ordered quantity cannot be decreased below the amount already delivered."
+" Instead, create a return in your inventory."
+msgstr ""
+"La cantidad ordenada no puede disminuir por debajo del importe que ya se "
+"entregó. En su lugar, cree una devolución en su inventario."
 
 #. module: industry_fsm_stock
 #: model:ir.model,name:industry_fsm_stock.model_fsm_stock_tracking
@@ -203,22 +221,6 @@ msgid "Validated Tracking Line"
 msgstr "Línea de seguimiento validada"
 
 #. module: industry_fsm_stock
-#: code:addons/industry_fsm_stock/models/product.py:0
-#, python-format
-msgid ""
-"You can no longer decrease the delivered quantity of a product once the task"
-" is marked as done. Please, create a return in your Inventory instead."
-msgstr ""
-"Ya no puede disminuir la cantidad entregada de un producto una vez que la "
-"tarea se marca como realizada. Por favor, cree una devolución en su "
-"inventario en su lugar."
-
-#. module: industry_fsm_stock
-#: code:addons/industry_fsm_stock/models/product.py:0
-#, python-format
-msgid ""
-"You cannot have a quantity inferior to the number of items which have "
-"already been delivered."
-msgstr ""
-"No puede tener una cantidad inferior al número de artículos que ya se "
-"entregaron."
+#: model_terms:ir.ui.view,arch_db:industry_fsm_stock.stock_product_product_kanban_material
+msgid "View Availability"
+msgstr "Ver disponibilidad"

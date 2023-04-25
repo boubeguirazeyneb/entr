@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from .dhl_request import DHLProvider
+from zeep.helpers import serialize_object
 
-from odoo import models, fields, _
+from odoo import api, models, fields, _
+from odoo.exceptions import UserError
 from odoo.tools import float_repr
+from odoo.tools.safe_eval import const_eval
+
 
 class Providerdhl(models.Model):
     _inherit = 'delivery.carrier'
@@ -88,12 +92,29 @@ class Providerdhl(models.Model):
         ('6X4_PDF', '6X4_PDF'),
         ('8X4_PDF', '8X4_PDF')
     ], string="Label Template", default='8X4_A4_PDF')
+    dhl_custom_data_request = fields.Text(
+        'Custom data for DHL requests,',
+        help="""The custom data in DHL is organized like the inside of a json file.
+        There are 3 possible keys: 'rate', 'ship', 'return', to which you can add your custom data.
+        More info on https://xmlportal.dhl.com/"""
+    )
+
+    @api.ondelete(at_uninstall=False)
+    def _unlink_except_commercial_invoice_sequence(self):
+        if self.env.ref('delivery_dhl.dhl_commercial_invoice_seq').id in self.ids:
+            raise UserError(_('You cannot delete the commercial invoice sequence.'))
 
     def _compute_can_generate_return(self):
         super(Providerdhl, self)._compute_can_generate_return()
         for carrier in self:
             if carrier.delivery_type == 'dhl':
                 carrier.can_generate_return = True
+
+    def _compute_supports_shipping_insurance(self):
+        super(Providerdhl, self)._compute_supports_shipping_insurance()
+        for carrier in self:
+            if carrier.delivery_type == 'dhl':
+                carrier.supports_shipping_insurance = True
 
     def dhl_rate_shipment(self, order):
         res = self._rate_shipment_vals(order=order)
@@ -124,15 +145,17 @@ class Providerdhl(models.Model):
         rating_request['Request'] = srm._set_request(site_id, password)
         rating_request['From'] = srm._set_dct_from(warehouse_partner_id)
         if picking:
-            rating_request['BkgDetails'] = srm._set_dct_bkg_details_from_picking(picking)
+            packages = self._get_packages_from_picking(picking, self.dhl_default_package_type_id)
         else:
-            rating_request['BkgDetails'] = srm._set_dct_bkg_details(order._get_estimated_weight(), self, order.company_id.partner_id)
+            packages = self._get_packages_from_order(order, self.dhl_default_package_type_id)
+        rating_request['BkgDetails'] = srm._set_dct_bkg_details(self, packages)
         rating_request['To'] = srm._set_dct_to(destination_partner_id)
         if self.dhl_dutiable:
             rating_request['Dutiable'] = srm._set_dct_dutiable(total_value, currency_id.name)
         real_rating_request = {}
         real_rating_request['GetQuote'] = rating_request
         real_rating_request['schemaVersion'] = 2.0
+        self._dhl_add_custom_data_to_request(rating_request, 'rate')
         response = srm._process_rating(real_rating_request)
 
         available_product_code = []
@@ -144,9 +167,9 @@ class Providerdhl(models.Model):
                 global_product_code = q.find('GlobalProductCode').text
                 if global_product_code == self.dhl_product_code and charge:
                     shipping_charge = charge
-                    shipping_currency = q.find('CurrencyCode') or False
-                    shipping_currency = shipping_currency and shipping_currency.text
-                    break;
+                    shipping_currency = q.find('CurrencyCode')
+                    shipping_currency = None if shipping_currency is None else shipping_currency.text
+                    break
                 else:
                     available_product_code.append(global_product_code)
         else:
@@ -160,7 +183,8 @@ class Providerdhl(models.Model):
                         'error_message': "%s.\n%s" % (condition.find('ConditionData').text, _("Hint: The destination may not require the dutiable option.")),
                         'warning_message': False,
                     }
-                elif condition_code in ['420504', '420505', '420506']:
+                elif condition_code in ['420504', '420505', '420506', '410304'] or\
+                        response.find('GetQuoteResponse/Note/ActionStatus').text == "Failure":
                     return {
                         'success': False,
                         'price': 0.0,
@@ -172,11 +196,11 @@ class Providerdhl(models.Model):
                 order_currency = order.currency_id
             else:
                 order_currency = picking.sale_id.currency_id or picking.company_id.currency_id
-            if not shipping_currency or order_currency.name == shipping_currency:
+            if shipping_currency is None or order_currency.name == shipping_currency:
                 price = float(shipping_charge)
             else:
                 quote_currency = self.env['res.currency'].search([('name', '=', shipping_currency)], limit=1)
-                price = quote_currency._convert(float(shipping_charge), order_currency, order.company_id or picking.company_id, order.date_order or fields.Date.today())
+                price = quote_currency._convert(float(shipping_charge), order_currency, (order or picking).company_id, order.date_order if order else fields.Date.today())
             return {'success': True,
                     'price': price,
                     'error_message': False,
@@ -204,25 +228,30 @@ class Providerdhl(models.Model):
             shipment_request['Billing'] = srm._set_billing(account_number, "S", self.dhl_duty_payment, self.dhl_dutiable)
             shipment_request['Consignee'] = srm._set_consignee(picking.partner_id)
             shipment_request['Shipper'] = srm._set_shipper(account_number, picking.company_id.partner_id, picking.picking_type_id.warehouse_id.partner_id)
-            total_value = sum([line.product_id.lst_price * line.product_uom_qty for line in picking.move_lines])
-            currency_name = picking.sale_id.currency_id.name or picking.company_id.currency_id.name
+            total_value, currency_name = self._dhl_calculate_value(picking)
             if self.dhl_dutiable:
                 incoterm = picking.sale_id.incoterm or self.env.company.incoterm_id
                 shipment_request['Dutiable'] = srm._set_dutiable(total_value, currency_name, incoterm)
+            if picking._should_generate_commercial_invoice():
+                shipment_request['UseDHLInvoice'] = 'Y'
+                shipment_request['DHLInvoiceType'] = 'CMI'
+                shipment_request['ExportDeclaration'] = srm._set_export_declaration(self, picking)
             shipment_request['ShipmentDetails'] = srm._set_shipment_details(picking)
             shipment_request['LabelImageFormat'] = srm._set_label_image_format(self.dhl_label_image_format)
             shipment_request['Label'] = srm._set_label(self.dhl_label_template)
             shipment_request['schemaVersion'] = 10.0
             shipment_request['LanguageCode'] = 'en'
+            self._dhl_add_custom_data_to_request(shipment_request, 'ship')
             dhl_response = srm._process_shipment(shipment_request)
             traking_number = dhl_response.AirwayBillNumber
             logmessage = (_("Shipment created into DHL <br/> <b>Tracking Number : </b>%s") % (traking_number))
             dhl_labels = [('LabelDHL-%s.%s' % (traking_number, self.dhl_label_image_format), dhl_response.LabelImage[0].OutputImage)]
-            if picking.sale_id:
-                for pick in picking.sale_id.picking_ids:
-                    pick.message_post(body=logmessage, attachments=dhl_labels)
-            else:
-                picking.message_post(body=logmessage, attachments=dhl_labels)
+            dhl_cmi = [('DocumentDHL-%s.%s' % (mlabel.DocName, mlabel.DocFormat), mlabel.DocImageVal) for mlabel in dhl_response.LabelImage[0].MultiLabels.MultiLabel] if dhl_response.LabelImage[0].MultiLabels else None
+            lognote_pickings = picking.sale_id.picking_ids if picking.sale_id else picking
+            for pick in lognote_pickings:
+                pick.message_post(body=logmessage, attachments=dhl_labels)
+                if dhl_cmi:
+                    pick.message_post(body=_("DHL Documents"), attachments=dhl_cmi)
             shipping_data = {
                 'exact_price': 0,
                 'tracking_number': traking_number,
@@ -247,11 +276,14 @@ class Providerdhl(models.Model):
         shipment_request['Billing'] = srm._set_billing(account_number, "S", "S", self.dhl_dutiable)
         shipment_request['Consignee'] = srm._set_consignee(picking.picking_type_id.warehouse_id.partner_id)
         shipment_request['Shipper'] = srm._set_shipper(account_number, picking.partner_id, picking.partner_id)
-        total_value = sum([line.product_id.lst_price * line.product_uom_qty for line in picking.move_lines])
-        currency_name = picking.sale_id.currency_id.name or picking.company_id.currency_id.name
+        total_value, currency_name = self._dhl_calculate_value(picking)
         if self.dhl_dutiable:
             incoterm = picking.sale_id.incoterm or self.env.company.incoterm_id
             shipment_request['Dutiable'] = srm._set_dutiable(total_value, currency_name, incoterm)
+        if picking._should_generate_commercial_invoice():
+            shipment_request['UseDHLInvoice'] = 'Y'
+            shipment_request['DHLInvoiceType'] = 'CMI'
+            shipment_request['ExportDeclaration'] = srm._set_export_declaration(self, picking, is_return=True)
         shipment_request['ShipmentDetails'] = srm._set_shipment_details(picking)
         shipment_request['LabelImageFormat'] = srm._set_label_image_format(self.dhl_label_image_format)
         shipment_request['Label'] = srm._set_label(self.dhl_label_template)
@@ -259,10 +291,17 @@ class Providerdhl(models.Model):
         shipment_request['SpecialService'].append(srm._set_return())
         shipment_request['schemaVersion'] = 10.0
         shipment_request['LanguageCode'] = 'en'
+        self._dhl_add_custom_data_to_request(shipment_request, 'return')
         dhl_response = srm._process_shipment(shipment_request)
         traking_number = dhl_response.AirwayBillNumber
         logmessage = (_("Shipment created into DHL <br/> <b>Tracking Number : </b>%s") % (traking_number))
-        picking.message_post(body=logmessage, attachments=[('%s-%s-%s.%s' % (self.get_return_label_prefix(), traking_number, 1, self.dhl_label_image_format), dhl_response.LabelImage[0].OutputImage)])
+        dhl_labels = [('%s-%s-%s.%s' % (self.get_return_label_prefix(), traking_number, 1, self.dhl_label_image_format), dhl_response.LabelImage[0].OutputImage)]
+        dhl_cmi = [('ReturnDocumentDHL-%s.%s' % (mlabel.DocName, mlabel.DocFormat), mlabel.DocImageVal) for mlabel in dhl_response.LabelImage[0].MultiLabels.MultiLabel] if dhl_response.LabelImage[0].MultiLabels else None
+        lognote_pickings = picking.sale_id.picking_ids if picking.sale_id else picking
+        for pick in lognote_pickings:
+            pick.message_post(body=logmessage, attachments=dhl_labels)
+            if dhl_cmi:
+                pick.message_post(body=_("DHL Documents"), attachments=dhl_cmi)
         shipping_data = {
             'exact_price': 0,
             'tracking_number': traking_number,
@@ -286,13 +325,43 @@ class Providerdhl(models.Model):
             weight = weight_uom_id._compute_quantity(weight, self.env.ref('uom.product_uom_kgm'), round=False)
         return float_repr(weight, 3)
 
+    def _dhl_add_custom_data_to_request(self, request, request_type):
+        """Adds the custom data to the request.
+        When there are multiple items in a list, they will all be affected by
+        the change.
+        for example, with
+        {"ShipmentDetails": {"Pieces": {"Piece": {"AdditionalInformation": "custom info"}}}}
+        the AdditionalInformation of each piece will be updated.
+        """
+        if not self.dhl_custom_data_request:
+            return
+        try:
+            custom_data = const_eval('{%s}' % self.dhl_custom_data_request).get(request_type, {})
+        except SyntaxError:
+            raise UserError(_('Invalid syntax for DHL custom data.'))
 
-    def _dhl_convert_size(self, dimensions, unit):
-        size_uom_id = self.env['product.template']._get_length_uom_id_from_ir_config_parameter()
-        target_uom_unit = 'uom.product_uom_inch' if unit == 'I' else 'uom.product_uom_cm'
+        def extra_data_to_request(request, custom_data):
+            """recursive function that adds custom data to the current request."""
+            for key, new_value in custom_data.items():
+                request[key] = current_value = serialize_object(request.get(key, {})) or None
+                if isinstance(current_value, list):
+                    for item in current_value:
+                        extra_data_to_request(item, new_value)
+                elif isinstance(new_value, dict) and isinstance(current_value, dict):
+                    extra_data_to_request(current_value, new_value)
+                else:
+                    request[key] = new_value
 
-        width = size_uom_id._compute_quantity(dimensions.width, self.env.ref(target_uom_unit), round=False)
-        height = size_uom_id._compute_quantity(dimensions.height, self.env.ref(target_uom_unit), round=False)
-        length = size_uom_id._compute_quantity(dimensions.packaging_length, self.env.ref(target_uom_unit), round=False)
+        extra_data_to_request(request, custom_data)
 
-        return float_repr(width, 3), float_repr(height, 3), float_repr(length, 3)
+    def _dhl_calculate_value(self, picking):
+        sale_order = picking.sale_id
+        if sale_order:
+            total_value = sum(line.price_reduce_taxinc * line.product_uom_qty for line in
+                              sale_order.order_line.filtered(
+                                  lambda l: l.product_id.type in ('consu', 'product') and not l.display_type))
+            currency_name = picking.sale_id.currency_id.name
+        else:
+            total_value = sum([line.product_id.lst_price * line.product_qty for line in picking.move_ids])
+            currency_name = picking.company_id.currency_id.name
+        return total_value, currency_name

@@ -16,6 +16,7 @@ from odoo.tools.misc import get_lang
 
 _logger = logging.getLogger(__name__)
 pattern = re.compile("^[a-z0-9-_]+$")
+runbot_pattern = re.compile(r"^https:\/\/[a-z0-9-_]+\.[a-z0-9-_]+\.odoo\.com$")
 
 class AccountOnlineAccount(models.Model):
     _name = 'account.online.account'
@@ -31,6 +32,16 @@ class AccountOnlineAccount(models.Model):
     journal_ids = fields.One2many('account.journal', 'account_online_account_id', string='Journal', domain=[('type', '=', 'bank')])
     last_sync = fields.Date("Last synchronization")
     company_id = fields.Many2one('res.company', related='account_online_link_id.company_id')
+    currency_id = fields.Many2one('res.currency')
+
+    inverse_balance_sign = fields.Boolean(
+        string="Inverse Balance Sign",
+        help="If checked, the balance sign will be inverted",
+    )
+    inverse_transaction_sign = fields.Boolean(
+        string="Inverse Transaction Sign",
+        help="If checked, the transaction sign will be inverted",
+    )
 
     @api.constrains('journal_ids')
     def _check_journal_ids(self):
@@ -52,7 +63,7 @@ class AccountOnlineAccount(models.Model):
             # 2 calls, the reason is that those field contains the encrypted information needed to access the provider
             # and first call can result in an error due to the encrypted token inside provider_data being expired for example.
             # In such a case, we renew the token with the provider and send back the newly encrypted token inside provider_data
-            # which result in the information having changed, henceforth why those field are passed at every loop.
+            # which result in the information having changed, henceforth why those fields are passed at every loop.
             data.update({
                 'provider_data': self.account_online_link_id.provider_data,
                 'account_data': self.account_data
@@ -70,7 +81,7 @@ class AccountOnlineAccount(models.Model):
     def _retrieve_transactions(self):
         start_date = self.last_sync or fields.Date().today() - relativedelta(days=15)
         last_stmt_line = self.env['account.bank.statement.line'].search([
-                ('date', '<=', start_date), 
+                ('date', '<=', start_date),
                 ('online_transaction_identifier', '!=', False),
                 ('journal_id', 'in', self.journal_ids.ids),
                 ('online_account_id', '=', self.id)
@@ -87,14 +98,15 @@ class AccountOnlineAccount(models.Model):
             # 2 calls, the reason is that those field contains the encrypted information needed to access the provider
             # and first call can result in an error due to the encrypted token inside provider_data being expired for example.
             # In such a case, we renew the token with the provider and send back the newly encrypted token inside provider_data
-            # which result in the information having changed, henceforth why those field are passed at every loop.
+            # which result in the information having changed, henceforth why those fields are passed at every loop.
             data.update({
                 'provider_data': self.account_online_link_id.provider_data,
                 'account_data': self.account_data
             })
             resp_json = self.account_online_link_id._fetch_odoo_fin('/proxy/v1/transactions', data=data)
             if resp_json.get('balance'):
-                self.balance = resp_json['balance']
+                sign = -1 if self.inverse_balance_sign else 1
+                self.balance = sign * resp_json['balance']
             if resp_json.get('account_data'):
                 self.account_data = resp_json['account_data']
             transactions += resp_json.get('transactions', [])
@@ -102,32 +114,36 @@ class AccountOnlineAccount(models.Model):
                 break
             data['next_data'] = resp_json.get('next_data') or {}
 
-        return self.env['account.bank.statement']._online_sync_bank_statement(transactions, self)
+        return self.env['account.bank.statement.line']._online_sync_bank_statement(transactions, self)
 
 
 class AccountOnlineLink(models.Model):
     _name = 'account.online.link'
-    _description = 'connection to an online banking institution'
-    _inherit = ['mail.thread']
+    _description = 'Bank Connection'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     def _compute_next_synchronization(self):
         for rec in self:
             rec.next_refresh = self.env['ir.cron'].sudo().search([('id', '=', self.env.ref('account_online_synchronization.online_sync_cron').id)], limit=1).nextcall
 
     account_online_account_ids = fields.One2many('account.online.account', 'account_online_link_id')
-    last_refresh = fields.Datetime(readonly=True, default=fields.Datetime.now())
+    last_refresh = fields.Datetime(readonly=True, default=fields.Datetime.now)
     next_refresh = fields.Datetime("Next synchronization", compute='_compute_next_synchronization')
-    state = fields.Selection([('connected', 'Connected'), ('error', 'Error'), ('disconnected', 'Not Connected')], default='disconnected',
-        tracking=True, required=True, readonly=True)
-    auto_sync = fields.Boolean(default=True, string="Automatic synchronization", help="If possible, we will try to automatically fetch new transactions for this record")
+    state = fields.Selection([('connected', 'Connected'), ('error', 'Error'), ('disconnected', 'Not Connected')],
+                             default='disconnected', tracking=True, required=True, readonly=True)
+    auto_sync = fields.Boolean(default=True, string="Automatic synchronization",
+                               help="If possible, we will try to automatically fetch new transactions for this record")
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
 
     # Information received from OdooFin, should not be tampered with
     name = fields.Char(help="Institution Name", readonly=True)
     client_id = fields.Char(help="Represent a link for a given user towards a banking institution", readonly=True)
-    refresh_token = fields.Char(help="Token used to sign API request, Never disclose it", readonly=True, groups="base.group_system")
+    refresh_token = fields.Char(help="Token used to sign API request, Never disclose it",
+                                readonly=True, groups="base.group_system")
     access_token = fields.Char(help="Token used to access API.", readonly=True, groups="account.group_account_user")
-    provider_data = fields.Char(help="Information needed to interract with third party provider", readonly=True)
+    provider_data = fields.Char(help="Information needed to interact with third party provider", readonly=True)
+    expiring_synchronization_date = fields.Date(help="Date when the consent for this connection expires",
+                                                readonly=True)
 
     ##########################
     # Wizard opening actions #
@@ -151,11 +167,11 @@ class AccountOnlineLink(models.Model):
         }
 
     def _link_accounts_to_journals_action(self, accounts):
-        '''
+        """
         This method opens a wizard allowing the user to link
-        his bank accounts with new or existing journal.\n
+        his bank accounts with new or existing journal.
         :return: An action openning a wizard to link bank accounts with account journal.
-        '''
+        """
         self.ensure_one()
         account_link_journal_wizard = self.env['account.link.journal'].create({
             'number_added': len(accounts),
@@ -177,23 +193,22 @@ class AccountOnlineLink(models.Model):
     def _show_fetched_transactions_action(self, stmt_line_ids):
         if self.env.context.get('dont_show_transactions'):
             return
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'bank_statement_reconciliation_view',
-            'context': {'statement_line_ids': stmt_line_ids.ids, 'company_ids': self.mapped('company_id').ids},
-        }
+        return self.env['account.bank.statement.line']._action_open_bank_reconciliation_widget(
+            extra_domain=[('id', 'in', stmt_line_ids.ids)],
+            name=_('Fetched Transactions'),
+        )
 
     #######################################################
     # Generic methods to contact server and handle errors #
     #######################################################
 
     def _fetch_odoo_fin(self, url, data=None, ignore_status=False):
-        '''
+        """
         Method used to fetch data from the Odoo Fin proxy.
         :param url: Proxy's URL end point.
         :param data: HTTP data request.
         :return: A dict containing all data.
-        '''
+        """
         if not data:
             data = {}
         if self.state == 'disconnected' and not ignore_status:
@@ -201,9 +216,11 @@ class AccountOnlineLink(models.Model):
 
         timeout = int(self.env['ir.config_parameter'].sudo().get_param('account_online_synchronization.request_timeout')) or 60
         proxy_mode = self.env['ir.config_parameter'].sudo().get_param('account_online_synchronization.proxy_mode') or 'production'
-        if not pattern.match(proxy_mode):
+        if not pattern.match(proxy_mode) and not runbot_pattern.match(proxy_mode):
             raise UserError(_('Invalid value for proxy_mode config parameter.'))
         endpoint_url = 'https://%s.odoofin.com%s' % (proxy_mode, url)
+        if runbot_pattern.match(proxy_mode):
+            endpoint_url = '%s%s' % (proxy_mode, url)
         data['utils'] = {
             'request_timeout': timeout,
             'lang': get_lang(self.env).code,
@@ -213,7 +230,7 @@ class AccountOnlineLink(models.Model):
         }
 
         try:
-            # We have to use sudo to pass record as some field are protected from read for common users.
+            # We have to use sudo to pass record as some fields are protected from read for common users.
             resp = requests.post(url=endpoint_url, json=data, timeout=timeout, auth=OdooFinAuth(record=self.sudo()))
             resp_json = resp.json()
             return self._handle_response(resp_json, url, data, ignore_status)
@@ -252,7 +269,7 @@ class AccountOnlineLink(models.Model):
                 self._get_access_token()
                 # We need to commit here because if we got a new refresh token, and a new access token
                 # It means that the token is active on the proxy and any further call resulting in an
-                # error would loose the new refresh_token hence blocking the account ad vitam eternam
+                # error would lose the new refresh_token hence blocking the account ad vitam eternam
                 self.env.cr.commit()
                 return self._fetch_odoo_fin(url, data, ignore_status)
             elif error.get('code') == 300: # redirect, not an error
@@ -270,12 +287,11 @@ class AccountOnlineLink(models.Model):
             state = error_details.get('odoofin_state') or 'error'
 
             self._log_information(state=state, subject=subject, message=message, reset_tx=True)
-            
 
     def _log_information(self, state, subject=None, message=None, reset_tx=False):
-        # If the reset_tx flag is passed, it means that we have an error and we want to log it on the record
-        # and then raise the error to the end user. To do that we first rollback the current transaction,
-        # then we write the error on the record, we commit those changes and finally we raise the error.
+        # If the reset_tx flag is passed, it means that we have an error, and we want to log it on the record
+        # and then raise the error to the end user. To do that we first roll back the current transaction,
+        # then we write the error on the record, we commit those changes, and finally we raise the error.
         if reset_tx:
             self.env.cr.rollback()
         try:
@@ -337,6 +353,11 @@ class AccountOnlineLink(models.Model):
             resp_json = self._fetch_odoo_fin('/proxy/v1/accounts', data)
             for acc in resp_json.get('accounts', []):
                 acc['account_online_link_id'] = self.id
+                currency_id = self.env['res.currency'].with_context(active_test=False).search([('name', '=', acc.pop('currency_code', ''))], limit=1)
+                if currency_id:
+                    if not currency_id.active:
+                        currency_id.active = True
+                    acc['currency_id'] = currency_id.id
                 accounts[str(acc.get('online_identifier'))] = acc
             if not resp_json.get('next_data'):
                 break
@@ -373,6 +394,36 @@ class AccountOnlineLink(models.Model):
 
         return self._show_fetched_transactions_action(bank_statement_line_ids)
 
+    def _get_consent_expiring_date(self):
+        self.ensure_one()
+        resp_json = self._fetch_odoo_fin('/proxy/v1/consent_expiring_date', ignore_status=True)
+
+        if resp_json.get('consent_expiring_date'):
+            expiring_synchronization_date = fields.Date.to_date(resp_json['consent_expiring_date'])
+            if expiring_synchronization_date != self.expiring_synchronization_date:
+                bank_sync_activity_type_id = self.env.ref('account_online_synchronization.bank_sync_activity_update_consent')
+                account_online_link_model_id = self.env['ir.model']._get_id('account.online.link')
+
+                # Remove old activities
+                self.env['mail.activity'].search([
+                    ('res_id', '=', self.id),
+                    ('res_model_id', '=', account_online_link_model_id),
+                    ('activity_type_id', '=', bank_sync_activity_type_id.id),
+                    ('date_deadline', '<=', self.expiring_synchronization_date),
+                    ('user_id', '=', self.env.user.id),
+                ]).unlink()
+
+                # Create a new activity
+                self.expiring_synchronization_date = expiring_synchronization_date
+                self.env['mail.activity'].create({
+                    'res_id': self.id,
+                    'res_model_id': account_online_link_model_id,
+                    'date_deadline': self.expiring_synchronization_date,
+                    'summary': _("Bank Synchronization: Update your consent"),
+                    'note': resp_json.get('activity_message') or '',
+                    'activity_type_id': bank_sync_activity_type_id.id,
+                })
+
     ################################
     # Callback methods from iframe #
     ################################
@@ -387,6 +438,8 @@ class AccountOnlineLink(models.Model):
             # that provider_data is commited in database as soon as we received it.
             if data.get('provider_data'):
                 self.env.cr.commit()
+
+            self._get_consent_expiring_date()
         # if for some reason we just have to update the record without doing anything else, the mode will be set to 'none'
         if mode == 'none':
             return {'type': 'ir.actions.client', 'tag': 'reload'}
@@ -395,7 +448,7 @@ class AccountOnlineLink(models.Model):
             method = getattr(self, method_name)
         except AttributeError:
             message = _("This version of Odoo appears to be outdated and does not support the '%s' sync mode. "
-                "Installing the latest update might solve this.", mode)
+                        "Installing the latest update might solve this.", mode)
             _logger.info('Online sync: %s' % (message,))
             self.env.cr.rollback()
             self._log_information(state='error', subject=_('Internal Error'), message=message, reset_tx=True)

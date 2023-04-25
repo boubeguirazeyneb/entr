@@ -15,7 +15,7 @@ tour.register(
             trigger: ".o_web_studio_navbar_item",
             content: _t("Want to customize the background? Let’s activate <b>Odoo Studio</b>."),
             position: "bottom",
-            extra_trigger: ".o_home_menu",
+            extra_trigger: ".o_home_menu_background",
         },
         {
             trigger: ".o_web_studio_home_studio_menu .dropdown-toggle",
@@ -95,7 +95,7 @@ tour.register(
             timeout: 60000 /* previous step reloads registry, etc. - could take a long time */,
         },
         {
-            trigger: ".o_web_studio_form_view_editor td.o_td_label",
+            trigger: ".o_web_studio_form_view_editor .o_wrap_label label",
             content: _t("To <b>customize a field</b>, click on its <i>label</i>."),
             position: "bottom",
         },
@@ -109,7 +109,7 @@ tour.register(
         },
         {
             // wait for the field to be renamed
-            extra_trigger: ".o_web_studio_form_view_editor td.o_td_label:contains(My Field)",
+            extra_trigger: ".o_web_studio_form_view_editor .o_wrap_label label:contains(My Field)",
             trigger: ".o_web_studio_sidebar .o_web_studio_new",
             content: _t("Good job! To add more <b>fields</b>, come back to the <i>Add tab</i>."),
             position: "bottom",
@@ -182,18 +182,18 @@ tour.register(
             position: "left",
         },
         {
-            trigger: "input.o_required_modifier",
+            trigger: ".o_field_char.o_required_modifier > input",
             auto: true,
             position: "bottom",
         },
         {
-            trigger: ".o_control_panel .o_cp_buttons .o_form_button_save",
+            trigger: ".o_control_panel .o_form_button_save",
             content: _t("Save."),
             position: "right",
         },
         {
             trigger: ".o_web_studio_navbar_item",
-            extra_trigger: ".o_form_view.o_form_readonly",
+            extra_trigger: ".o_form_view .o_form_saved",
             content: _t(
                 "Wow, nice! And I’m sure you can make it even better! Use this icon to open <b>Odoo Studio</b> and customize any screen."
             ),

@@ -20,12 +20,12 @@
         <field name="name">hr.payslip.run.tree</field>
         <field name="model">hr.payslip.run</field>
         <field name="arch" type="xml">
-            <tree string="Payslips Batches" sample="1">
+            <tree string="Payslips Batches" class="o_payslip_run_list" sample="1">
                 <field name="name"/>
                 <field name="date_start"/>
                 <field name="date_end"/>
-                <field name="credit_note"/>
                 <field name="state"/>
+                <field name="payslip_count" string="Payslips Count"/>
                 <field name="company_id" groups="base.group_multi_company"/>
             </tree>
         </field>
@@ -44,16 +44,13 @@
                                     <strong><field name="name"/></strong>
                                 </div>
                                 <div class="col-6">
-                                    <span class="float-right badge badge-secondary">
+                                    <span class="float-end badge text-bg-secondary">
                                         <field name="state"/>
                                     </span>
                                 </div>
                                 <div class="col-12">
                                     <span>
                                         <field name="date_start"/> - <field name="date_end"/>
-                                    </span>
-                                    <span class="float-right" title="Is a Blocking Reason?">
-                                        <field name="credit_note" widget="boolean"/>
                                     </span>
                                 </div>
                             </div>
@@ -82,7 +79,7 @@
                         <div class="o_field_widget o_stat_info">
                             <span class="o_stat_value"><field name="payslip_count"/></span>
                             <span class="o_stat_text">Payslips</span>
-                         </div>
+                        </div>
                     </button>
                 </div>
                 <label for="name" string="Batch Name"/>
@@ -92,18 +89,22 @@
                 <group>
                     <group>
                         <label for="date_start" string="Period"/>
-                         <div class="o_row">
-                               <field name="date_start" class="oe_inline"/> - <field name="date_end" class="oe_inline"/>
-                         </div>
-                     </group>
-                     <group>
-                        <field name="credit_note"/>
+                        <div class="o_row">
+                            <field name="date_start" class="oe_inline o_hr_narrow_field"/> - <field name="date_end" class="oe_inline o_hr_narrow_field"/>
+                        </div>
+                    </group>
+                    <group>
                         <field name="company_id" groups="base.group_multi_company"/>
                         <field name="country_id" invisible="1"/>
                         <field name="country_code" invisible="1"/>
                     </group>
                 </group>
             </sheet>
+            <div class="oe_chatter">
+                <field name="message_follower_ids"/>
+                <field name="activity_ids"/>
+                <field name="message_ids"/>
+            </div>
             </form>
         </field>
     </record>
@@ -115,4 +116,14 @@
         <field name="search_view_id" ref="hr_payslip_run_filter"/>
     </record>
 
+    <record id="action_hr_payslip_run_generate" model="ir.actions.server">
+        <field name="name">Add payslips</field>
+        <field name="model_id" ref="model_hr_payslip_run"/>
+        <field name="binding_model_id" ref="model_hr_payslip_run"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">
+action = records._generate_payslips()
+        </field>
+    </record>
 </odoo>

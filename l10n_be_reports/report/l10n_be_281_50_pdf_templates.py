@@ -12,7 +12,7 @@ class ReportL10nBePDFReports28150(models.AbstractModel):
     def _get_report_values(self, docids, data=None):
         return {
             'doc_ids': docids,
-            'doc_model': self.env['res.partner'],
+            'doc_model': self.env['l10n_be.form.281.50'],
             'data': data,
             'docs': docids,
         }

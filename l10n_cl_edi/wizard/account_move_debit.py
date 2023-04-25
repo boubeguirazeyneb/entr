@@ -38,7 +38,7 @@ class AccountDebitNote(models.TransientModel):
         # the base line, since there is no repartition line for the base line.
         if line.tax_line_id:
             return [[6, 0, line.tax_line_id.get_tax_tags(False, 'tax').ids]]
-        elif line.account_id.user_type_id.type not in ['receivable', 'payable']:
+        elif line.account_id.account_type not in ['asset_receivable', 'liability_payable']:
             return [[6, 0, line.tax_ids.get_tax_tags(False, 'base').ids]]
         return [[5]]
 
@@ -65,7 +65,7 @@ class AccountDebitNote(models.TransientModel):
         default_values['l10n_cl_reference_ids'] = [[0, 0, {
             'move_id': move.id,
             'origin_doc_number': move.l10n_latam_document_number,
-            'l10n_cl_reference_doc_type_selection': move.l10n_latam_document_type_id.code,
+            'l10n_cl_reference_doc_type_id': move.l10n_latam_document_type_id.id,
             'reference_doc_code': self.l10n_cl_edi_reference_doc_code,
             'reason': self.reason,
             'date': move.invoice_date, }, ], ]
@@ -73,24 +73,22 @@ class AccountDebitNote(models.TransientModel):
             # this is needed to reverse a credit note: we must include the same items we have in the credit note
             # if we make this with traditional "with_context(internal_type='debit_note').copy(default=default_values)
             # the values will appear negative in the debit note
-            default_values['line_ids'] = [[5, 0]]
-            for line in move.line_ids.filtered(lambda x: not x.display_type):
+            default_values['line_ids'] = [[5, 0, 0]]
+            for line in move.line_ids.filtered(lambda x: x.display_type not in ('line_note', 'line_section')):
                 default_values['line_ids'].append([0, 0, {
                     'product_id': line.product_id.id,
                     'account_id': line.account_id.id,
-                    'analytic_account_id': line.analytic_account_id.id,
-                    'analytic_tag_ids': [[6, 0, line.analytic_tag_ids.ids]],
+                    'analytic_distribution': line.analytic_distribution,
                     'name': line.name,
                     'quantity': line.quantity,
                     'price_unit': line.price_unit,
-                    'exclude_from_invoice_tab': line.move_id.is_invoice() and (line.account_id.user_type_id.type in [
-                        'receivable', 'payable'] or line.tax_line_id),
                     'tax_repartition_line_id': self._get_repartition_line(line).id,
                     'tax_ids': [[6, 0, line.tax_ids.ids]],
                     'tax_tag_ids': self._get_opposite_tax_tag(line),
+                    'discount': line.discount,
                 }, ])
         elif self.l10n_cl_edi_reference_doc_code == '2':
-            default_values['line_ids'] = [[5, 0], [0, 0, {
+            default_values['line_ids'] = [[5, 0, 0], [0, 0, {
                 'account_id': move.journal_id.default_account_id.id,
                 'name': _('Where it says: %s should say: %s') % (
                     self._context.get('default_l10n_cl_original_text'),

@@ -45,9 +45,9 @@ class LuxembourgAssetsReportTaxesTest(TestAccountReportsCommon):
             'journal_id': self.company_data['default_journal_purchase'].id,
             'original_value': 100.00,
         }).validate()
-        report = self.env['account.assets.report']
+        report = self.env.ref('account_asset.assets_report')
         report, options = self._get_report_and_options(report, datetime.today() - relativedelta(days=365), datetime.today())
-        data = report._get_lu_xml_2_0_report_values(options)['forms'][0]['tables'][0]
+        data = report.l10n_lu_asset_report_get_xml_2_0_report_values(options)['forms'][0]['tables'][0]
         self.assertNotIn('504', data[0].keys())
         self.assertNotIn('505', data[0].keys())
 
@@ -74,7 +74,7 @@ class LuxembourgAssetsReportTaxesTest(TestAccountReportsCommon):
         account = self.env['account.account'].create({
             'name': 'multiple_assets_per_line_test_account',
             'code': '000001',
-            'user_type_id': self.env.ref('account.data_account_type_non_current_assets').id,
+            'account_type': 'asset_non_current',
             'asset_type': 'purchase',
             'multiple_assets_per_line': True,
             'create_asset': "validate",
@@ -91,12 +91,15 @@ class LuxembourgAssetsReportTaxesTest(TestAccountReportsCommon):
             line_form.tax_ids.add(self.tax_17)
         move = move_form.save()
         move.action_post()
-        report = self.env['account.assets.report']
+        report = self.env.ref('account_asset.assets_report')
         # Assets must be in a state different from draft in order to be reported
         for asset in move.asset_ids:
-            asset.state = 'open'
+            asset.account_depreciation_id = self.company_data['default_account_expense']
+            asset.account_depreciation_expense_id = self.company_data['default_account_assets']
+            asset.validate()
         report, options = self._get_report_and_options(report, datetime.today() - relativedelta(days=365), datetime.today())
-        data = report._get_lu_xml_2_0_report_values(options)['forms'][0]['tables'][0]
+        data = report.l10n_lu_asset_report_get_xml_2_0_report_values(options)['forms'][0]['tables'][0]
+
         self.assertEqual(len(data), 10)
         for line in data:
             self.assertEqual((1000.0 + 170.0) / 10, line.get('504', {}).get('value'))
@@ -105,12 +108,15 @@ class LuxembourgAssetsReportTaxesTest(TestAccountReportsCommon):
     @classmethod
     def _get_report_and_options(cls, report, date_from, date_to):
         report = report.with_context(date_from=date_from, date_to=date_to, lang='EN_us')
-        options = report._get_options({'date': {'date_from': date_from, 'date_to': date_to, 'filter': 'custom'}})
+        options = cls._generate_options(report, date_from, date_to)
         return report, options
 
     @classmethod
     def _get_report_data_linked_assets(cls, invoice_lines):
         asset_form = Form(cls.env['account.asset'].with_context(asset_type='purchase'))
+        # `original_move_line_ids` is not visible when it's empty by default
+        # {'invisible' : [('original_move_line_ids', '=', [])]}
+        asset_form._view['modifiers']['original_move_line_ids']['invisible'] = False
         for line in invoice_lines:
             asset_form.original_move_line_ids.add(line)
         asset_form.account_depreciation_id = cls.company_data['default_account_expense']
@@ -118,9 +124,9 @@ class LuxembourgAssetsReportTaxesTest(TestAccountReportsCommon):
         asset_form.journal_id = cls.company_data['default_journal_purchase']
         asset_form = asset_form.save()
         asset_form.validate()
-        report = cls.env['account.assets.report']
+        report = cls.env.ref('account_asset.assets_report')
         report, options = cls._get_report_and_options(report, datetime.today() - relativedelta(days=365), datetime.today())
-        data = report._get_lu_xml_2_0_report_values(options)['forms'][0]['tables'][0]
+        data = report.l10n_lu_asset_report_get_xml_2_0_report_values(options)['forms'][0]['tables'][0]
         return data
 
     @classmethod

@@ -1,24 +1,18 @@
 /** @odoo-module **/
 
 import { NavBar } from "@web/webclient/navbar/navbar";
-import { useService } from "@web/core/utils/hooks";
+import { useService, useBus } from "@web/core/utils/hooks";
 
-const { hooks } = owl;
-const { useRef } = hooks;
+import { useEffect, useRef } from "@odoo/owl";
 
 export class EnterpriseNavBar extends NavBar {
     setup() {
         super.setup();
         this.hm = useService("home_menu");
         this.menuAppsRef = useRef("menuApps");
-        this.menuBrand = useRef("menuBrand");
-        hooks.onMounted(() => {
-            this.env.bus.on("HOME-MENU:TOGGLED", this, () => this._updateMenuAppsIcon());
-            this._updateMenuAppsIcon();
-        });
-        hooks.onPatched(() => {
-            this._updateMenuAppsIcon();
-        });
+        this.navRef = useRef("nav");
+        useBus(this.env.bus, "HOME-MENU:TOGGLED", () => this._updateMenuAppsIcon());
+        useEffect(() => this._updateMenuAppsIcon());
     }
     get hasBackgroundAction() {
         return this.hm.hasBackgroundAction;
@@ -29,13 +23,17 @@ export class EnterpriseNavBar extends NavBar {
     _updateMenuAppsIcon() {
         const menuAppsEl = this.menuAppsRef.el;
         menuAppsEl.classList.toggle("o_hidden", !this.isInApp && !this.hasBackgroundAction);
-        menuAppsEl.classList.toggle("fa-th", this.isInApp);
-        menuAppsEl.classList.toggle("fa-chevron-left", !this.isInApp && this.hasBackgroundAction);
-        const title = !this.isInApp && this.hasBackgroundAction ? "Previous view" : "Home menu";
+        menuAppsEl.classList.toggle(
+            "o_menu_toggle_back",
+            !this.isInApp && this.hasBackgroundAction
+        );
+        const { _t } = this.env;
+        const title =
+            !this.isInApp && this.hasBackgroundAction ? _t("Previous view") : _t("Home menu");
         menuAppsEl.title = title;
         menuAppsEl.ariaLabel = title;
 
-        const menuBrand = this.menuBrand.el;
+        const menuBrand = this.navRef.el.querySelector(".o_menu_brand");
         if (menuBrand) {
             menuBrand.classList.toggle("o_hidden", !this.isInApp);
         }

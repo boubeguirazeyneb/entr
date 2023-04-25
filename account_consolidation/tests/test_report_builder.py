@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+# pylint: disable=W0612
 from odoo.tests import tagged
 from odoo.addons.account_consolidation.tests.account_consolidation_test_classes import AccountConsolidationTestCase
 from odoo.addons.account_consolidation.report.builder.comparison import ComparisonBuilder
@@ -44,21 +44,21 @@ class TestAbstractBuilder(AccountConsolidationTestCase):
         patched_get_plain.assert_not_called()
 
         # WITH HIERARCHY
-        options = {'hierarchy': True}
+        options = {'consolidation_hierarchy': True}
         self.assertListEqual(patched_get_hierarchy.return_value, self.builder.get_lines(period_ids, options, None))
         patched_get_hierarchy.assert_called_once_with(options, None, **kwargs)
         patched_get_hierarchy.reset_mock()
         patched_get_plain.assert_not_called()
 
         # WITH HIERARCHY AND LINE ID
-        options = {'hierarchy': True}
+        options = {'consolidation_hierarchy': True}
         self.assertListEqual(patched_get_hierarchy.return_value, self.builder.get_lines(period_ids, options, 1))
         patched_get_hierarchy.assert_called_once_with(options, 1, **kwargs)
         patched_get_hierarchy.reset_mock()
         patched_get_plain.assert_not_called()
 
         # WITHOUT HIERARCHY
-        options = {'hierarchy': False}
+        options = {'consolidation_hierarchy': False}
         self.assertListEqual(patched_get_plain.return_value, self.builder.get_lines(period_ids, options, None))
         patched_get_plain.assert_called_once_with(options, **kwargs)
         patched_get_plain.reset_mock()
@@ -94,18 +94,18 @@ class TestAbstractBuilder(AccountConsolidationTestCase):
     @patch('odoo.addons.account_consolidation.report.builder.comparison.ComparisonBuilder._build_total_line')
     def test__get_hierarchy(self, patched_total, patched_sections, patched_root, patched_orphan):
         patched_total.return_value = {
-            'columns': [{'no_format_name': 4242}, {'no_format_name': 2424}]
+            'columns': [{'no_format': 4242}, {'no_format': 2424}]
         }
         patched_sections.return_value = ([42, 24], [
             {'id': 'rootsect1', 'name': 'rootsect1', 'columns': [
-                {'no_format_name': 40}, {'no_format_name': 20}
+                {'no_format': 40}, {'no_format': 20}
             ]},
             {'id': 'sect2', 'name': 'sect2', 'parent_id': 'rootsect1', 'columns': [
-                {'no_format_name': 2}, {'no_format_name': 4}
+                {'no_format': 2}, {'no_format': 4}
             ]}])
         patched_root.return_value = [1]  # Need at least 1
         patched_orphan.return_value = ([4200, 2400], [{'id': 1, 'name': 'orphan1', 'columns': [
-            {'no_format_name': 4200}, {'no_format_name': 2400}
+            {'no_format': 4200}, {'no_format': 2400}
         ]}])
         chart_ids = []
         cols_amount = 2
@@ -129,13 +129,13 @@ class TestAbstractBuilder(AccountConsolidationTestCase):
         section_totals = [4200.42, 28.0, -0.01]
         patched_build.return_value = (section_totals, [
             {
-                'columns': [{'no_format_name': section_total} for section_total in section_totals]
+                'columns': [{'no_format': section_total} for section_total in section_totals]
             },
             {
-                'columns': [{'no_format_name': -0.42}, {'no_format_name': -42.01}, {'no_format_name': 0.02}]
+                'columns': [{'no_format': -0.42}, {'no_format': -42.01}, {'no_format': 0.02}]
             },
             {
-                'columns': [{'no_format_name': 4200.84}, {'no_format_name': 14.01}, {'no_format_name': -0.03}]
+                'columns': [{'no_format': 4200.84}, {'no_format': 14.01}, {'no_format': -0.03}]
             },
         ])
         sections = ['fake1', 'fake2']
@@ -257,7 +257,7 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
             })
 
         expected = [4242.42, 8484.84]
-        actual = self.builder._compute_account_totals(account.id, period_ids=[p.id for p in periods])
+        actual = self.builder._compute_account_totals(account, period_ids=[p.id for p in periods])
         self.assertListEqual(expected, actual)
 
     def test__get_default_line_totals(self):
@@ -298,7 +298,7 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
         options = {'unfold_all': True}
         expected = [
             {
-                'id': 'section-%s' % section.id,
+                'id': self.env['account.report']._get_generic_line_id(None, None, 'section_%s' % section.id),
                 'name': section.name,
                 'level': level,
                 'unfoldable': True,
@@ -306,56 +306,55 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
                 'columns': [
                     {
                         'name': f'1,000.00{NON_BREAKING_SPACE}€',
-                        'no_format_name': 1000.0
+                        'no_format': 1000.0
                     },
                     {
                         'name': f'-2,000.00{NON_BREAKING_SPACE}€',
-                        'no_format_name': -2000.0
+                        'no_format': -2000.0
                     }
                 ]
             },
             {
-                'id': 'section-%s' % section.child_ids[0].id,
+                'id': self.env['account.report']._get_generic_line_id(None, None, 'section_%s' % section.child_ids[0].id),
                 'name': section.child_ids[0].name,
                 'level': level + 1,
                 'unfoldable': True,
                 'unfolded': True,
-                'parent_id': 'section-%s' % section.id,
+                'parent_id': self.env['account.report']._get_generic_line_id(None, None, 'section_%s' % section.id),
                 'columns': [
                     {
                         'name': f'1,000.00{NON_BREAKING_SPACE}€',
-                        'no_format_name': 1000.0
+                        'no_format': 1000.0
                     },
                     {
                         'name': f'-2,000.00{NON_BREAKING_SPACE}€',
-                        'no_format_name': -2000.0
+                        'no_format': -2000.0
                     }
                 ]
             },
             {
-                'id': section.child_ids[0].account_ids[0].id,
+                'id': self.env['account.report']._get_generic_line_id(None, None, section.child_ids[0].account_ids[0].id),
                 'name': '%s' % section.child_ids[0].account_ids[0].name_get()[0][1],
                 'title_hover': '%s (Closing Rate Currency Conversion Method)' %
                                section.child_ids[0].account_ids[0].name_get()[0][1],
                 'columns': [
                     {
                         'name': f'1,000.00{NON_BREAKING_SPACE}€',
-                        'no_format_name': 1000.0,
+                        'no_format': 1000.0,
                         'class': 'number'
                     },
                     {
                         'name': f'-2,000.00{NON_BREAKING_SPACE}€',
-                        'no_format_name': -2000.0,
+                        'no_format': -2000.0,
                         'class': 'number'
                     }
                 ],
                 'level': level + 2,
-                'parent_id': 'section-%s' % section.child_ids[0].id,
+                'parent_id': self.env['account.report']._get_generic_line_id(None, None, 'section_%s' % section.child_ids[0].id),
                 'unfolded': True
             }
         ]
-        section_totals, section_line = self.builder._build_section_line(section, level, options,
-                                                                        include_percentage=False)
+        section_totals, section_line = self.builder._build_section_line(section, level, options, include_percentage=False)
         self.assertListEqual(section_line, expected)
 
     def test__build_section_line_no_children_no_accounts(self):
@@ -365,17 +364,16 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
             'chart_id': self.chart.id,
         })
         options = {}
-        section_totals, section_line = self.builder._build_section_line(section, level, options, cols_amount=2,
-                                                                        include_percentage=False)
+        section_totals, section_line = self.builder._build_section_line(section, level, options, cols_amount=2, include_percentage=False)
         expected = [{
-            'id': 'section-%s' % section.id,
+            'id': self.env['account.report']._get_generic_line_id(None, None, 'section_%s' % section.id),
             'name': 'BLUH',
             'level': level,
             'unfoldable': True,
             'unfolded': False,
             'columns': [
-                {'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format_name': 0.0},
-                {'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format_name': 0.0}
+                {'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format': 0.0},
+                {'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format': 0.0}
             ]
         }]
         self.assertListEqual(expected, section_line)
@@ -393,7 +391,7 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
         self.assertListEqual(expected, section_line)
 
         options['unfold_all'] = False
-        options['unfolded_lines'] = ['section-%s' % section.id]
+        options['unfolded_lines'] = [self.env['account.report']._get_generic_line_id(None, None, 'section_%s' % section.id)]
         section_totals, section_line = self.builder._build_section_line(section, level, options, cols_amount=2,
                                                                         include_percentage=False)
         self.assertListEqual(expected, section_line)
@@ -412,13 +410,13 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
             self.assertIn('name', perc_column)
             # NO FORMAT NAME
             if exp_percent != 'n/a':
-                self.assertIn('no_format_name', perc_column)
+                self.assertIn('no_format', perc_column)
                 if isinstance(exp_percent, float):
-                    self.assertAlmostEqual(perc_column['no_format_name'], exp_percent)
+                    self.assertAlmostEqual(perc_column['no_format'], exp_percent)
                 else:
-                    self.assertEqual(perc_column['no_format_name'], exp_percent)
+                    self.assertEqual(perc_column['no_format'], exp_percent)
             else:
-                self.assertNotIn('no_format_name', perc_column)
+                self.assertNotIn('no_format', perc_column)
 
             # CLASS
             if exp_class is not None:
@@ -428,7 +426,7 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
                 self.assertNotIn('class', perc_column)
 
     @patch('odoo.addons.account_consolidation.report.builder.comparison.ComparisonBuilder._build_percentage_column',
-           return_value={'name': '0 %', 'no_format_name': 0})
+           return_value={'name': '0 %', 'no_format': 0})
     def test__build_total_line(self, patched_bpc):
         other_chart = self.env['consolidation.chart'].create({
             'name': 'Other chart',
@@ -438,10 +436,11 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
         totals = [0.0, 1500000.0, -2000.0]
         # NO PERCENTAGE
         # €
-        euro_exp = {'id': 'grouped_accounts_total', 'name': 'Total', 'class': 'total', 'level': 1,
-                    'columns': [{'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format_name': 0.0, 'class': 'number'},
-                                {'name': f'1,500,000.00{NON_BREAKING_SPACE}€', 'no_format_name': 1500000.0, 'class': 'number text-danger'},
-                                {'name': f'-2,000.00{NON_BREAKING_SPACE}€', 'no_format_name': -2000.0, 'class': 'number text-danger'}]}
+        euro_exp = {'id': self.env['account.report']._get_generic_line_id(None, None, 'grouped_accounts_total'),
+                    'name': 'Total', 'class': 'total', 'level': 1,
+                    'columns': [{'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format': 0.0, 'class': 'number'},
+                                {'name': f'1,500,000.00{NON_BREAKING_SPACE}€', 'no_format': 1500000.0, 'class': 'number text-danger'},
+                                {'name': f'-2,000.00{NON_BREAKING_SPACE}€', 'no_format': -2000.0, 'class': 'number text-danger'}]}
         euro_total_line = self.builder._build_total_line(totals, {}, include_percentage=False)
         self.assertDictEqual(euro_total_line, euro_exp)
         # $
@@ -449,18 +448,20 @@ class TestComparisonBuilder(AccountConsolidationTestCase):
         us_builder = ComparisonBuilder(self.env, ap_usd._format_value)
         usd_total_line = us_builder._build_total_line(totals, [ap_usd], include_percentage=False)
 
-        usd_exp = {'id': 'grouped_accounts_total', 'name': 'Total', 'class': 'total', 'level': 1,
-                   'columns': [{'name': f'${NON_BREAKING_SPACE}0.00', 'no_format_name': 0.0, 'class': 'number'},
-                               {'name': f'${NON_BREAKING_SPACE}1,500,000.00', 'no_format_name': 1500000.0, 'class': 'number text-danger'},
-                               {'name': f'${NON_BREAKING_SPACE}-2,000.00', 'no_format_name': -2000.0, 'class': 'number text-danger'}]}
+        usd_exp = {'id': self.env['account.report']._get_generic_line_id(None, None, 'grouped_accounts_total'),
+                   'name': 'Total', 'class': 'total', 'level': 1,
+                   'columns': [{'name': f'${NON_BREAKING_SPACE}0.00', 'no_format': 0.0, 'class': 'number'},
+                               {'name': f'${NON_BREAKING_SPACE}1,500,000.00', 'no_format': 1500000.0, 'class': 'number text-danger'},
+                               {'name': f'${NON_BREAKING_SPACE}-2,000.00', 'no_format': -2000.0, 'class': 'number text-danger'}]}
         self.assertDictEqual(usd_total_line, usd_exp)
         patched_bpc.assert_not_called()
         # WITH PERCENTAGE
         totals = [0.0, -2000.0]
         euro_prct_total_line = self.builder._build_total_line(totals, {}, include_percentage=True)
-        euro_exp_prct = {'id': 'grouped_accounts_total', 'name': 'Total', 'class': 'total', 'level': 1,
-                         'columns': [{'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format_name': 0.0, 'class': 'number'},
-                                     {'name': f'-2,000.00{NON_BREAKING_SPACE}€', 'no_format_name': -2000.0, 'class': 'number text-danger'},
+        euro_exp_prct = {'id': self.env['account.report']._get_generic_line_id(None, None, 'grouped_accounts_total'),
+                         'name': 'Total', 'class': 'total', 'level': 1,
+                         'columns': [{'name': f'0.00{NON_BREAKING_SPACE}€', 'no_format': 0.0, 'class': 'number'},
+                                     {'name': f'-2,000.00{NON_BREAKING_SPACE}€', 'no_format': -2000.0, 'class': 'number text-danger'},
                                      patched_bpc.return_value]}
         self.assertDictEqual(euro_prct_total_line, euro_exp_prct)
 
@@ -507,7 +508,7 @@ class TestDefaultBuilder(AccountConsolidationTestCase):
         self.assertListEqual(res['period_ids'], [self.ap.id])
 
     def test__compute_account_totals(self):
-        res = self.builder._compute_account_totals(self.consolidation_account.id)
+        res = self.builder._compute_account_totals(self.consolidation_account)
         expected = [4242.4, 3901.0, 8143.4]
         self.assertEqual(res, expected)
 
@@ -518,13 +519,13 @@ class TestDefaultBuilder(AccountConsolidationTestCase):
         account_name = self.consolidation_account.name
         account_currency_name = self.consolidation_account.get_display_currency_mode()
         expected = {
-            'id': self.consolidation_account.id,
+            'id': self.env['account.report']._get_generic_line_id(None, None, self.consolidation_account.id),
             'level': level,
             'name': account_name,
             'title_hover': "%s (%s Currency Conversion Method)" % (account_name, account_currency_name),
             'columns': [{
                 'name': self.builder.value_formatter(t),
-                'no_format_name': t,
+                'no_format': t,
                 'class': 'number',
                 'journal_id': False  # False as no company period id is set on journals
             } for t in totals]

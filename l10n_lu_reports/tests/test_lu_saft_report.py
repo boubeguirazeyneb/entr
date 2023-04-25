@@ -77,11 +77,11 @@ class TestLuSaftReport(TestAccountReportsCommon):
 
     @freeze_time('2019-12-31')
     def test_saft_report_values(self):
-        report = self.env['account.general.ledger']
-        options = self._init_options(report, fields.Date.from_string('2019-01-01'), fields.Date.from_string('2019-12-31'))
+        report = self.env.ref('account_reports.general_ledger_report')
+        options = self._generate_options(report, fields.Date.from_string('2019-01-01'), fields.Date.from_string('2019-12-31'))
 
         self.assertXmlTreeEqual(
-            self.get_xml_tree_from_string(report.get_xml(options)),
+            self.get_xml_tree_from_string(self.env[report.custom_handler_model_name].with_context(skip_xsd=True).l10n_lu_export_saft_to_xml(options)['file_content']),
             self.get_xml_tree_from_string('''
                 <AuditFile xmlns="urn:OECD:StandardAuditFile-Taxation/2.00">
                     <Header>
@@ -197,6 +197,12 @@ class TestLuSaftReport(TestAccountReportsCommon):
                                 </TaxCodeDetails>
                             </TaxTableEntry>
                         </TaxTable>
+                        <UOMTable>
+                            <UOMTableEntry>
+                                <UnitOfMeasure>Units</UnitOfMeasure>
+                                <Description>Unit</Description>
+                            </UOMTableEntry>
+                        </UOMTable>
                         <Products>
                             <Product>
                                 <ProductCode>PA</ProductCode>
@@ -371,6 +377,7 @@ class TestLuSaftReport(TestAccountReportsCommon):
                                     <ProductCode>PA</ProductCode>
                                     <ProductDescription>[PA] product_a</ProductDescription>
                                     <Quantity>5.0</Quantity>
+                                    <InvoiceUOM>Units</InvoiceUOM>
                                     <UnitPrice>1000.00</UnitPrice>
                                     <TaxPointDate>2019-01-01</TaxPointDate>
                                     <Description>[PA] product_a</Description>
@@ -427,6 +434,7 @@ class TestLuSaftReport(TestAccountReportsCommon):
                                     <ProductCode>PA</ProductCode>
                                     <ProductDescription>[PA] product_a</ProductDescription>
                                     <Quantity>3.0</Quantity>
+                                    <InvoiceUOM>Units</InvoiceUOM>
                                     <UnitPrice>1000.00</UnitPrice>
                                     <TaxPointDate>2019-03-01</TaxPointDate>
                                     <Description>[PA] product_a</Description>

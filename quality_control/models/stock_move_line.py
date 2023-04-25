@@ -25,23 +25,26 @@ class StockMoveLine(models.Model):
             else:
                 line.check_state = "pass"
 
-    @api.model
+    @api.model_create_multi
     def create(self, vals_list):
-        mls = super(StockMoveLine, self).create(vals_list)
-        mls._filter_move_lines_applicable_for_quality_check()._create_check()
-        return mls
+        lines = super().create(vals_list)
+        lines._filter_move_lines_applicable_for_quality_check()._create_check()
+        return lines
 
     def write(self, vals):
         if self._create_quality_check_at_write(vals):
-            self.filtered(lambda ml: not ml.qty_done)._create_check()
+            self.filtered(lambda ml: not ml.qty_done and not ml.check_ids)._create_check()
         return super().write(vals)
 
     def unlink(self):
-        self.check_ids.filtered(lambda qc: qc._check_to_unlink()).unlink()
+        self.sudo()._unlink_quality_check()
         return super(StockMoveLine, self).unlink()
 
     def action_open_quality_check_wizard(self):
         return self.check_ids.action_open_quality_check_wizard()
+
+    def _unlink_quality_check(self):
+        self.check_ids.filtered(lambda qc: qc._check_to_unlink()).unlink()
 
     def _create_quality_check_at_write(self, vals):
         return vals.get('qty_done')
@@ -49,7 +52,7 @@ class StockMoveLine(models.Model):
     def _create_check(self):
         check_values_list = []
         quality_points_domain = self.env['quality.point']._get_domain(
-            self.product_id, self.move_id.picking_type_id, measure_on='product')
+            self.product_id, self.move_id.picking_type_id, measure_on='move_line')
         quality_points = self.env['quality.point'].sudo().search(quality_points_domain)
         quality_points_by_product_picking_type = {}
         for quality_point in quality_points:
@@ -73,7 +76,7 @@ class StockMoveLine(models.Model):
         for ml in self:
             quality_points_product = quality_points_by_product_picking_type.get((ml.product_id, ml.move_id.picking_type_id), set())
             quality_points_all_products = ml._get_quality_points_all_products(quality_points_by_product_picking_type)
-            quality_points = self.env['quality.point'].search([('id', 'in', list(quality_points_product | quality_points_all_products))])
+            quality_points = self.env['quality.point'].sudo().search([('id', 'in', list(quality_points_product | quality_points_all_products))])
             for quality_point in quality_points:
                 if quality_point.check_execute_now():
                     check_values = ml._get_check_values(quality_point)

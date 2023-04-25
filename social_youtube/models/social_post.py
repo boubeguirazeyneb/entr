@@ -24,6 +24,11 @@ class SocialPostYoutube(models.Model):
         compute='_compute_youtube_accounts_count')
     youtube_accounts_other_count = fields.Integer('Selected Other Accounts',
         compute='_compute_youtube_accounts_count')
+    youtube_video_privacy = fields.Selection([('public', 'Public'), ('unlisted', 'Unlisted'), ('private', 'Private')],
+        string='Video Privacy', default='public', required=True,
+        help='Once posted, set the video as Public/Private/Unlisted')
+    youtube_video_url = fields.Char('YouTube Video Url', compute="_compute_youtube_video_url")
+    youtube_thumbnail_url = fields.Char('YouTube Thumbnail Url', compute="_compute_youtube_thumbnail_url")
 
     @api.constrains('message')
     def _check_message_not_empty(self):
@@ -51,11 +56,12 @@ class SocialPostYoutube(models.Model):
     @api.depends('youtube_title', 'youtube_description', 'youtube_video_id', 'scheduled_date')
     def _compute_youtube_preview(self):
         for post in self:
-            post.youtube_preview = self.env.ref('social_youtube.youtube_preview')._render({
+            post.youtube_preview = self.env['ir.qweb']._render('social_youtube.youtube_preview', {
                 'youtube_title': post.youtube_title or _('Video'),
                 'youtube_description': post.youtube_description,
                 'youtube_video_id': post.youtube_video_id,
                 'published_date': post.scheduled_date if post.scheduled_date else fields.Datetime.now(),
+                'post_link': "https://www.youtube.com/watch?v=%s" % post.youtube_video_id,
             })
 
     @api.depends('account_ids.media_type')
@@ -65,6 +71,16 @@ class SocialPostYoutube(models.Model):
                 lambda account: account.media_type == 'youtube'))
             post.youtube_accounts_other_count = len(post.account_ids) - post.youtube_accounts_count
 
+    @api.depends('youtube_video_id')
+    def _compute_youtube_thumbnail_url(self):
+        for post in self:
+            post.youtube_thumbnail_url = "http://i3.ytimg.com/vi/%s/hqdefault.jpg" % post.youtube_video_id
+
+    @api.depends('youtube_video_id')
+    def _compute_youtube_video_url(self):
+        for post in self:
+            post.youtube_video_url = "https://www.youtube.com/watch?v=%s" % post.youtube_video_id
+
     def _check_post_access(self):
         super(SocialPostYoutube, self)._check_post_access()
 
@@ -73,6 +89,18 @@ class SocialPostYoutube(models.Model):
                 raise UserError(_("Please select a single YouTube account at a time."))
             if not social_post.youtube_video_id and 'youtube' in social_post.media_ids.mapped('media_type'):
                 raise UserError(_("You have to upload a video when posting on YouTube."))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """The names of the UTM sources are generated based on the content of _rec_name.
+
+        But for Youtube, the message field is not required, so we should use the title
+        of the video instead.
+        """
+        for values in vals_list:
+            if not values.get('message') and not values.get('name') and values.get('youtube_title'):
+                values['name'] = self.env['utm.source']._generate_name(self, values.get('youtube_title'))
+        return super().create(vals_list)
 
     def _get_stream_post_domain(self):
         domain = super(SocialPostYoutube, self)._get_stream_post_domain()

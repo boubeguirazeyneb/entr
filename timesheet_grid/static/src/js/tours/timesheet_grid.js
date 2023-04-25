@@ -6,10 +6,11 @@ const {Markup} = require('web.utils');
 var tour = require('web_tour.tour');
 
 var _t = core._t;
+const { markup } = owl;
 
 tour.register('timesheet_tour', {
     sequence: 100,
-    rainbowManMessage: _t("Congratulations, you are now a master of Timesheets.</b> <i>Psst: try the  [a] - [Enter] - [b] - [Enter] - shift + [A]  sequence on your keyboard and see what happens next!</i>"),
+    rainbowManMessage: markup(_t("Congratulations, you are now a master of Timesheets.")),
     url: "/web",
 }, [tour.stepUtils.showAppsMenuItem(), {
     trigger: '.o_app[data-menu-xmlid="hr_timesheet.timesheet_menu_root"]',
@@ -29,14 +30,14 @@ tour.register('timesheet_tour', {
     position: 'bottom',
 }, {
     trigger: '.btn_stop_timer',
-    content: Markup(_t('Stop the <b>timer</b> when you are done. <i>Tip: hit <b>[Enter]</b> from the description to automatically log your entry.</i>')),
+    content: Markup(_t('Stop the <b>timer</b> when you are done. <i>Tip: hit <b>[Enter]</b> in the description to automatically log your activity.</i>')),
     position: 'bottom',
 }, {
     trigger: '.btn_timer_line',
-    content: Markup(_t('Launch the <b>timer</b> for this project by hitting the <b>[a] key</b>. You can easily switch from one project to another using those keys. <i>Tip: you can also directly add 15 minutes to this project by hitting the <b>shift + [A] keys</b>.</i>')),
+    content: Markup(_t('Launch the <b>timer</b> for this project by pressing the <b>[a] key</b>. Easily switch from one project to another by using those keys. <i>Tip: you can also directly add 15 minutes to this project by hitting the <b>shift + [A] keys</b>.</i>')),
     position: 'right',
 }, {
-    trigger: 'td:not(.o_grid_unavailable)',
+    trigger: '.o_view_grid tbody:not(.o_grid_section) td:not(.o_grid_unavailable) .o_grid_input',
     content: Markup(_t('Set the number of hours you spent on this project (e.g. 1:30 or 1.5). <i>Tip: use the tab keys to easily navigate from one cell to another.</i>')),
     position: 'bottom',
     consumeEvent: 'change',

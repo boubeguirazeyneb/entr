@@ -60,23 +60,34 @@ class L10nBeEcoVouchersWizard(models.TransientModel):
         # € 125 x 7/12 + € 250 x 5/12 = € 177.07
         unpaid_work_entry_types = self.env.ref(
             'l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'
-        ).unpaid_work_entry_type_ids.filtered(lambda wet: wet.code not in ['LEAVE210', 'LEAVE230'])
+        ).unpaid_work_entry_type_ids.filtered(lambda wet: wet.code not in ['LEAVE210', 'LEAVE230', 'LEAVE250'])
 
 
         for wizard in self:
             date_from = date(wizard.reference_year - 1, 6, 1)
             date_to = date(wizard.reference_year, 5, 31)
-            # Get all the employee contracts, even people who doesn't work in the company anymore
-            # as it's their right to get the eco-vouchers for the given period
             all_contracts = self.env['hr.employee']._get_all_contracts(date_from, date_to, ['open', 'close'])
+            # Coming from out batch, restrict to out employees
+            batch_specific = 'employee_ids' in self.env.context
+            if batch_specific:
+                all_contracts = all_contracts.filtered(lambda c: c.employee_id.id in self.env.context['employee_ids'])
             all_employees = all_contracts.mapped('employee_id')
             all_payslips = self.env['hr.payslip'].search([
                 ('employee_id', 'in', all_employees.ids),
                 ('company_id', '=', wizard.company_id.id),
-                ('date_from', '>=', date_from),
+                ('date_from', '>=', date_from + relativedelta(months=1)),
                 ('date_to', '<=', date_to),
-                ('state', 'in', ['done', 'paid'])
+                ('state', 'in', ['done', 'paid', 'verify'] if batch_specific else ['done', 'paid'])
             ])
+            # Remove out employees who already got their eco-vouchers during the year
+            if not batch_specific:
+                already_paid_payslips = all_payslips.filtered(
+                    lambda p: 'ECOVOUCHERS' in p.input_line_ids.input_type_id.mapped('code'))
+                already_paid_employees = already_paid_payslips.employee_id
+                all_contracts = all_contracts.filtered(lambda c: c.employee_id not in already_paid_employees)
+                all_employees -= already_paid_employees
+                all_payslips = all_payslips.filtered(lambda p: p.employee_id not in already_paid_employees)
+
             employee_contracts = defaultdict(lambda: self.env['hr.contract'])
             for contract in all_contracts.filtered(lambda c: c.active and c.company_id == wizard.company_id):
                 employee_contracts[contract.employee_id] |= contract
@@ -91,6 +102,8 @@ class L10nBeEcoVouchersWizard(models.TransientModel):
                 for contracts, occupation_from, occupation_to in occupations:
                     contract = contracts[0]
                     occupation_from = max(date_from, occupation_from)
+                    if occupation_from.day < 7:
+                        occupation_from = occupation_from + relativedelta(day=1)
                     occupation_to = min(date_to, occupation_to if occupation_to else date_to)
                     # So that 1/1/2020 to 28/02/2020 -> 2 months
                     occupation_to = occupation_to + relativedelta(days=1)
@@ -102,7 +115,9 @@ class L10nBeEcoVouchersWizard(models.TransientModel):
                     # ‐ The first month of incapacity covered by a guaranteed salary as provided
                     #   for by the law of 03/07/1978 on employment contracts.
                     employee_payslips = all_payslips.filtered(
-                        lambda p: p.employee_id == employee and p.date_from >= occupation_from and p.date_to <= occupation_to)
+                        lambda p: p.employee_id == employee \
+                                  and p.date_from >= occupation_from + relativedelta(day=1) \
+                                  and p.date_to <= occupation_to + relativedelta(day=31))
                     employee_worked_days = employee_payslips.mapped('worked_days_line_ids').filtered(
                         lambda wd: wd.work_entry_type_id in unpaid_work_entry_types)
                     invalid_hours = sum(employee_worked_days.mapped('number_of_hours'))
@@ -157,13 +172,19 @@ class L10nBeEcoVouchersWizard(models.TransientModel):
                     'employee_id': line.employee_id.id,
                     'contract_id': line.employee_id.contract_id.id,
                     'struct_id': monthly_pay.id,
+                    'worked_days_line_ids': [(5, 0, 0)],
                     'input_line_ids': [(0, 0, {
                         'input_type_id': eco_voucher_type.id,
                         'amount': line.amount,
                     })],
+                    'payslip_run_id': self.env.context.get('batch_id', False),
                 })
+                if not payslip.contract_id:
+                    history = self.env['hr.contract.history'].search([('employee_id', '=', payslip.employee_id.id)], limit=1)
+                    contracts = history.contract_ids.filtered(lambda c: c.active and c.state in ['open', 'close'])[0]
+                    payslip.contract_id = contracts[0] if contracts else False
                 payslips |= payslip
-                payslip.compute_sheet()
+                payslip.with_context(no_paid_amount=True).compute_sheet()
         action = self.env["ir.actions.actions"]._for_xml_id("hr_payroll.action_view_hr_payslip_month_form")
         action.update({'domain': [('id', 'in', payslips.ids)]})
         return action

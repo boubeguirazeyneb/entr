@@ -4,17 +4,16 @@ import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 import { NewViewDialog } from "@web_studio/client_action/editor/new_view_dialogs/new_view_dialog";
 import { MapNewViewDialog } from "@web_studio/client_action/editor/new_view_dialogs/map_new_view_dialog";
-import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { ConfirmationDialog, AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import ActionEditor from "web_studio.ActionEditor";
 import { ActionEditorMain } from "../../legacy/action_editor_main";
-import { AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 export class EditorAdapter extends ComponentAdapter {
-    constructor(parent, props) {
+    constructor(props) {
         // force dummy Component not to crash
-        props.Component = owl.Component;
+        props.Component = Component;
         super(...arguments);
     }
 
@@ -33,6 +32,7 @@ export class EditorAdapter extends ComponentAdapter {
         this.dialog = useService("dialog");
         this.viewService = useService("view");
         this.rpc = useService("rpc");
+        this.wowlEnv = this.env;
         this.env = Component.env; // use the legacy env
     }
 
@@ -99,7 +99,7 @@ export class EditorAdapter extends ComponentAdapter {
         if (viewAdded !== true) {
             viewAdded = new Promise((resolve) => {
                 let DialogClass;
-                let dialogProps = {
+                const dialogProps = {
                     confirm: async () => {
                         await this.editAction(action, args);
                         resolve(true);
@@ -208,7 +208,7 @@ export class EditorAdapter extends ComponentAdapter {
             });
             this.env.bus.trigger("clear_cache");
             // To restore the default view from an inherited one, we need first to retrieve the default view id
-            const fieldsView = await this.viewService.loadViews(
+            const result = await this.viewService.loadViews(
                 {
                     resModel: res_model,
                     views,
@@ -218,7 +218,7 @@ export class EditorAdapter extends ComponentAdapter {
             );
 
             return this.rpc("/web_studio/restore_default_view", {
-                view_id: fieldsView[viewType].viewId,
+                view_id: result.views[viewType].id,
             });
         };
 
@@ -239,6 +239,7 @@ export class EditorAdapter extends ComponentAdapter {
                     viewType: editedViewType,
                     controllerState: editedControllerState,
                     x2mEditorPath: x2mEditorPath,
+                    wowlEnv: this.wowlEnv,
                 },
             ];
         }

@@ -3,10 +3,11 @@
     <!-- Recurrent payment emails -->
     <record id="email_payment_close" model="mail.template">
         <field name="name">Subscription: Payment Failure</field>
-        <field name="model_id" ref="sale_subscription.model_sale_subscription"/>
-        <field name="subject">Termination of subscription {{ object.code }}</field>
+        <field name="model_id" ref="sale_subscription.model_sale_order"/>
+        <field name="subject">Termination of subscription {{ object.client_order_ref or object.name }}</field>
         <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email or user.email_formatted) }}</field>
         <field name="email_to">{{ object.partner_id.email_formatted }}</field>
+        <field name="description">Sent to customer to indicate that subscription is automatically terminated</field>
         <field name="body_html" type="html">
 <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #F1F1F1; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;"><tr><td align="center">
 <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: white; color: #454748; border-collapse:separate;">
@@ -101,10 +102,11 @@
 
     <record id="email_payment_reminder" model="mail.template">
         <field name="name">Subscription: Payment Reminder</field>
-        <field name="model_id" ref="sale_subscription.model_sale_subscription"/>
-        <field name="subject">Payment reminder for subscription {{ object.code }}</field>
+        <field name="model_id" ref="sale_subscription.model_sale_order"/>
+        <field name="subject">Payment reminder for subscription {{ object.client_order_ref or object.name }}</field>
         <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email or user.email_formatted) }}</field>
         <field name="email_to">{{ object.partner_id.email_formatted }}</field>
+        <field name="description">Sent to customer when payment failed but subscription is not yet cancelled</field>
         <field name="body_html" type="html">
 <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #F1F1F1; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;"><tr><td align="center">
 <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: white; color: #454748; border-collapse:separate;">
@@ -136,7 +138,7 @@
                     <t t-if="ctx.get('payment_token') and ctx.get('total_amount')">
                         We were unable to process a payment for your subscription using your payment method
                         <t t-out="ctx['payment_token'] or ''">TOKEN</t>
-                        for <t t-out="ctx['total_amount'] or ''">10</t> <t t-out="ctx.get('currency') or ''">$</t>.
+                        for <t t-out="ctx['total_amount'] or ''">10</t> <t t-out="ctx.get('currency_name') or ''">$</t>.
                         <t t-if="ctx.get('error')">
                             Your bank or credit institution gave the following details about the issue: <pre t-out="ctx['error'] or ''"></pre>.
                         </t>
@@ -202,11 +204,12 @@
 </record>
 
     <record id="email_payment_success" model="mail.template">
-        <field name="name">Subscription: Payment Success</field>
+        <field name="name">Subscription: Payment Success And Invoice</field>
         <field name="model_id" ref="account.model_account_move"/>
-        <field name="subject">Invoice for subscription {{ ctx.get('code') }}</field>
+        <field name="subject">Invoice for subscription {{ ctx.get('code', ctx.get('subscription_name')) }}</field>
         <field name="email_from">{{ (object.invoice_user_id.email_formatted or object.company_id.email or user.email_formatted) }}</field>
         <field name="email_to">{{ object.partner_id.email_formatted }}</field>
+        <field name="description">Sent automatically with subscription invoice when payment is successful</field>
         <field name="body_html" type="html">
 <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #F1F1F1; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;"><tr><td align="center">
 <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: white; color: #454748; border-collapse:separate;">
@@ -218,7 +221,7 @@
                 <tr><td valign="middle">
                     <t t-set="company" t-value="object.company_id or object.invoice_user_id.company_id or user.company_id"/>
                     <span style="font-size: 10px;">Your Subscription</span><br/>
-                    <span style="font-size: 20px; font-weight: bold;" t-out="ctx.get('code') or 'Document'">Document</span>
+                    <span style="font-size: 20px; font-weight: bold;" t-out="ctx.get('code', ctx.get('subscription_name')) or 'Document'">Document</span>
                 </td></tr>
                 <tr><td valign="middle" align="right">
                     <img t-attf-src="/logo.png?company={{ company.id }}" style="padding: 0px; margin: 0px; height: auto; width: 80px;" t-att-alt="company.name"/>
@@ -235,13 +238,16 @@
             <table border="0" cellpadding="0" cellspacing="0" width="590" style="min-width: 590px; background-color: white; padding: 0px 8px 0px 8px; border-collapse:separate;">
                 <tr><td valign="top" style="font-size: 13px;">
                     Dear <t t-out="object.partner_id.name or ''">Brandon Freeman</t>,<br/><br/>
-                    Your Subscription (<t t-out="ctx.get('code') or ''">CODE</t>) has just been renewed
-                    <t t-f="ctx.get('total_amount') and ctx.get('payment_token')">
-                        via a payment of <t t-out="ctx.get('total_amount') or ''">100</t> <t t-out="ctx.get('currency') or ''">$</t> charged on <t t-out="ctx.get('payment_token') or ''">PAYMENT_TOKEN</t>.
+                    Your Subscription (<t t-out="ctx.get('subscription_name') or ''">CODE</t>
+                    <t t-if="ctx.get('code')">
+                    , Reference: <t t-out="ctx.get('code')"/>
+                    </t>) has just been renewed
+                    <t t-if="ctx.get('total_amount') and ctx.get('payment_token')">
+                        via a payment of <t t-out="ctx.get('total_amount') or ''">100</t> <t t-out="ctx.get('currency_name') or ''">$</t> charged on <t t-out="ctx.get('payment_token') or ''">PAYMENT_TOKEN</t>.
                     </t>
                     <br/><br/>
                     You will find your invoice attached.
-                    <t t-f="ctx.get('next_date')">
+                    <t t-if="ctx.get('next_date')">
                         Your next invoice will be on <t t-out="format_date(ctx.get('next_date')) or ''">05/05/2021</t>.
                     </t>
                     <br/><br/>
@@ -294,7 +300,7 @@
 </table>
         </field>
         <field name="report_template" ref="account.account_invoices" />
-        <field name="report_name">Invoice_{{ ctx.get('code') }}_{{ format_date(ctx.get('previous_date')) }}</field>
+        <field name="report_name">Invoice_{{ ctx.get('code', ctx.get('subscription_name')) }}_{{ format_date(ctx.get('previous_date')) }}</field>
         <field name="lang">{{ object.partner_id.lang }}</field>
         <field name="auto_delete" eval="True"/>
     </record>
@@ -302,14 +308,15 @@
     <!-- Mail sent to request a rating for a subscription -->
     <record id="mail_template_subscription_rating" model="mail.template">
         <field name="name">Subscription: Rating Request</field>
-        <field name="model_id" ref="sale_subscription.model_sale_subscription"/>
+        <field name="model_id" ref="sale_subscription.model_sale_order"/>
         <field name="subject">{{ object.company_id.name }}: Service Rating Request</field>
-        <field name="email_from">{{ (object.rating_get_rated_partner_id().email_formatted or user.email_formatted) }}</field>
-        <field name="partner_to" >{{ object.rating_get_partner_id().id }}</field>
+        <field name="email_from">{{ (object._rating_get_operator().email_formatted or user.email_formatted) }}</field>
+        <field name="partner_to" >{{ object._rating_get_partner().id }}</field>
         <field name="auto_delete" eval="True"/>
+        <field name="description">Set on subscription's stage (e.g. Closed, Upsell) to ask a rating to customers</field>
         <field name="body_html" type="html">
             <div style="background:#F0F0F0;color:#515166;padding:10px 0px;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
-            <t t-set="access_token" t-value="object.rating_get_access_token()"/>
+            <t t-set="access_token" t-value="object._rating_get_access_token()"/>
                 <table style="width:600px;margin:5px auto;">
                     <tbody>
                         <tr><td>
@@ -324,7 +331,7 @@
                         <tr><td style="padding:15px 20px 10px 20px;">
                             <p>Hello,</p>
                             <p>Please take a moment to rate our services related to your subscription "<strong t-out="object.name or ''">Office Cleaning Service"</strong>"
-                               assigned to <strong t-out="object.rating_get_rated_partner_id().name or ''">Mitchell Admin</strong>.</p>
+                               assigned to <strong t-out="object._rating_get_operator().name or ''">Mitchell Admin</strong>.</p>
                             <p>We appreciate your feedback. It helps us to improve continuously.</p>
                         </td></tr>
                         <tr><td style="padding:10px 20px">
@@ -379,11 +386,12 @@
     <!-- Mail sent to request a rating for a subscription -->
     <record id="mail_template_subscription_alert" model="mail.template">
         <field name="name">Subscription: Default Email Alert</field>
-        <field name="model_id" ref="sale_subscription.model_sale_subscription"/>
+        <field name="model_id" ref="sale_subscription.model_sale_order"/>
         <field name="subject">{{ object.company_id.name }}: Please check the subscription {{ object.name }}</field>
         <field name="email_from">{{ (object.user_id.email_formatted or user.email_formatted) }}</field>
         <field name="partner_to" >{{ object.partner_id.id }}</field>
         <field name="auto_delete" eval="True"/>
+        <field name="description">Template to be used on customized alerts for subscriptions requiring attention</field>
         <field name="body_html" type="html">
             <div style="background:#F0F0F0;color:#515166;padding:10px 0px;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
                 <table style="width:600px;margin:5px auto;">
@@ -391,7 +399,7 @@
                         <tr><td>
                             <a href="/"><img src="/web/binary/company_logo" style="vertical-align:baseline;max-width:100px;" /></a>
                         </td><td style="text-align:right;vertical-align:middle;">
-                                Subscription Feedback
+                                Subscription Renewal
                         </td></tr>
                     </tbody>
                 </table>
@@ -400,7 +408,7 @@
                         <tr><td style="padding:15px 20px 10px 20px;">
                             <p>Dear <t t-out="object.partner_id.name or ''">Brandon Freeman</t>,</p>
                             <p>Your subscription <strong t-out="object.name or ''">Office Cleaning Service"</strong> needs your attention.</p>
-                            <p>If you have some concerns about it, please contact your contact person <t t-out="object.user_id.name or ''">Mitchell Admin</t> or reply to this email.</p>
+                            <p>We invite you to renew it by clicking on the following link.</p>
                             <p>Kind regards.</p>
                         </td></tr>
                         <tr><td style="padding:15px 20px 10px 20px;" t-out="object.user_id.signature or ''">--<br/>Mitchell Admin</td></tr>
@@ -413,55 +421,46 @@
 
     <!--Email template -->
     <record id="mail_template_subscription_invoice" model="mail.template">
-        <field name="name">Subscription Invoice: Send by Email</field>
+        <field name="name">Subscription: Subscription Invoice</field>
         <field name="model_id" ref="account.model_account_move"/>
         <field name="email_from">{{ (object.invoice_user_id.email_formatted or user.email_formatted) }}</field>
         <field name="partner_to">{{ object.partner_id.id }}</field>
         <field name="subject">{{ object.company_id.name }} Invoice (Ref {{ object.name or 'n/a' }})</field>
+        <field name="description">Sent manually to customers with the invoice in attachment</field>
         <field name="body_html" type="html">
-            <div style="background:#F0F0F0;color:#515166;padding:10px 0px;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
-                <table style="width:600px;margin:5px auto;">
-                    <tbody>
-                        <tr><td>
-                            <a href="/"><img src="/web/binary/company_logo" style="vertical-align:baseline;max-width:100px;" /></a>
-                        </td><td style="text-align:right;vertical-align:middle;">
-                                Subscription Invoice
-                        </td></tr>
-                    </tbody>
-                </table>
-                <table style="width:600px;margin:0px auto;background:white;border:1px solid #e1e1e1;">
-                    <tbody>
-                        <tr><td style="padding:15px 20px 10px 20px;">
-                            <p>Dear <t t-out="object.partner_id.name or ''">Brandon Freeman</t>
-                                <t t-if="object.partner_id.parent_id">
-                                    (<t t-out="object.partner_id.parent_id.name or ''">Azure Interior</t>)
-                                </t>
-                            </p>
-                            <p>
-                                Here is, in attachment, your
-                                <t t-if="object.name">
-                                    invoice <strong t-out="object.name or ''">Office Cleaning Service"</strong>
-                                </t>
-                                <t t-else="">
-                                    invoice
-                                </t>
-                                <t t-if="object.invoice_origin">
-                                    (with reference: <t t-out="object.invoice_origin or ''">INVOICE_ORIGIN</t> )
-                                </t>
-                                amounting in <strong t-out="format_amount(object.amount_total, object.currency_id) or ''">$ 10.00</strong>
-                                from <t t-out="object.company_id.name or ''">YourCompany</t>.
-                                <t t-if="object.payment_state in ('paid', 'in_payment')">
-                                    This invoice is already paid.
-                                </t>
-                                <t t-else="">
-                                    Please remit payment at your earliest convenience.
-                                </t>
-                            </p>
-                            <p>Do not hesitate to contact us if you have any questions.</p>
-                        </td></tr>
-                        <tr><td style="padding:15px 20px 10px 20px;" t-out="object.invoice_user_id.signature or ''">--<br/>Mitchell Admin</td></tr>
-                    </tbody>
-                </table>
+            <div style="margin: 0px; padding: 0px;">
+                <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                    Dear <t t-out="object.partner_id.name or ''">Brandon Freeman</t>
+                    <t t-if="object.partner_id.parent_id">
+                        (<t t-out="object.partner_id.parent_id.name or ''">Azure Interior</t>)
+                    </t>,
+                    <br /><br />
+                    Here is, in attachment, your subscription
+                    <t t-if="object.name">
+                        invoice <span style="font-weight:bold;" t-out="object.name or ''">Office Cleaning Service</span>
+                    </t>
+                    <t t-else="">
+                        invoice
+                    </t>
+                    <t t-if="object.invoice_origin">
+                        (with reference: <t t-out="object.invoice_origin or ''">INVOICE_ORIGIN</t>)
+                    </t>
+                    amounting in <span style="font-weight:bold;" t-out="format_amount(object.amount_total, object.currency_id) or ''">$ 10.00</span>
+                    from <t t-out="object.company_id.name or ''">YourCompany</t>.
+                    <t t-if="object.payment_state in ('paid', 'in_payment')">
+                        This invoice is already paid.
+                    </t>
+                    <t t-else="">
+                        Please remit payment at your earliest convenience.
+                    </t>
+                    <br /><br />
+                    Do not hesitate to contact us if you have any questions.
+                    <br /><br />
+                    <t t-if="not is_html_empty(object.invoice_user_id.signature)">
+                        <br /><br />
+                        <t t-out="object.invoice_user_id.signature or ''">--<br />Mitchell Admin</t>
+                    </t>
+                </p>
             </div>
         </field>
         <field name="report_template" ref="account.account_invoices"/>

@@ -4,64 +4,31 @@
 //
 
 //------------------------------------------------------------------------------
-// Generic Input
-//------------------------------------------------------------------------------
-
-.o_input {
-    border-width: 0 0 $input-border-width 0;
-}
-
-//------------------------------------------------------------------------------
 // Fields
 //------------------------------------------------------------------------------
 
-.o_field_widget {
+.o_field_widget.o_legacy_field_widget {
     .o_field_many2one, .o_field_many2manytags {
-         .o_input_dropdown .o_input {
-            // Overlap legacy menus border-top with the underneath input border.
-            border-bottom: $input-border-width solid #{var(--o-input-border-color)};
+        .o_input_dropdown .o_input {
             transform: translateY($input-border-width + $dropdown-border-width);
         }
     }
 
-    // Percent pie field
-    &.o_field_percent_pie {
-        $pie-dimension: $o-statbutton-height - 2 * $o-statbutton-vpadding;
-        $pie-ring-width: 4px;
-
-        .o_pie {
-            width: $pie-dimension;
-            height: $pie-dimension;
-
-            &:after { // Outside pie border to go over border-radius irregularities
-                border: 1px solid $o-brand-secondary;
-            }
-
-            .o_pie_value {
-                @include o-position-absolute($pie-ring-width, $pie-ring-width);
-                width: $pie-dimension - 2 * $pie-ring-width;
-                height: $pie-dimension - 2 * $pie-ring-width;
-                border: 1px solid $o-brand-secondary;
-                background-color: $o-brand-lightsecondary;
-            }
-        }
-    }
-
     // HTML fields
-    &.oe_form_field_html.oe_form_field_html { // Make rules more important
+    &.o_field_html.o_field_html { // Make rules more important
         .note-editor {
-            border-color: gray('400');
+            border-color: map-get($grays, '400');
         }
-        >.note-editable {
+        .note-editable {
             border-radius: 0;
         }
-        &:not(.oe-bordered-editor)>.note-editable {
-            border-width: 0 0 1px 0;
-            padding: 3px 0 5px;
+        :not(.oe-bordered-editor).note-editable {
+            border: 0;
+            padding: 3px 40px 5px 0px;
         }
         .note-toolbar.panel-heading, .popover-body {
-            border-color: gray('400');
-            background: gray('100');
+            border-color: map-get($grays, '400');
+            background: map-get($grays, '100');
 
             .btn-secondary {
                 background: transparent;
@@ -71,12 +38,12 @@
             .show .btn-secondary, .btn-secondary.active, .btn-secondary:focus {
                 background: white !important;
                 color: $body-color !important;
-                border-color: gray('400');
+                border-color: map-get($grays, '400');
             }
             .dropdown-menu {
                 margin-top: 0;
                 border-top: none;
-                border-color: gray('400');
+                border-color: map-get($grays, '400');
                 background-color: white;
                 box-shadow: none;
 
@@ -85,7 +52,7 @@
                     color: $body-color;
 
                     &:hover {
-                        background-color: gray('200');
+                        background-color: map-get($grays, '200');
                     }
                 }
                 &.show .btn-secondary, .btn-secondary.active, .btn-secondary:focus {

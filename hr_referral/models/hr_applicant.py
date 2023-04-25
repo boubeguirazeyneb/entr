@@ -6,7 +6,7 @@ from werkzeug.urls import url_encode
 
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
-from odoo.osv import expression
+from odoo.tools.misc import str2bool
 
 
 class Applicant(models.Model):
@@ -40,7 +40,7 @@ class Applicant(models.Model):
     def _check_referral_fields_access(self, fields):
         referral_fields = {'name', 'partner_name', 'job_id', 'referral_points_ids', 'earned_points', 'max_points', 'active', 'response_id',
                            'shared_item_infos', 'referral_state', 'user_id', 'friend_id', '__last_update', 'ref_user_id', 'id'}
-        if not (self.env.is_admin() or self.user_has_groups('hr_recruitment.group_hr_recruitment_user')):
+        if not (self.env.is_admin() or self.user_has_groups('hr_recruitment.group_hr_recruitment_interviewer') or self.user_has_groups('hr_recruitment.group_hr_recruitment_user')):
             if set(fields or []) - referral_fields:
                 raise AccessError(_('You are not allowed to access applicant records.'))
 
@@ -49,7 +49,7 @@ class Applicant(models.Model):
         self._check_referral_fields_access(fields)
         return super().search_read(domain=domain, fields=fields, offset=offset, limit=limit, order=order)
 
-    def read(self, fields, load='_classic_read'):
+    def read(self, fields=None, load='_classic_read'):
         self._check_referral_fields_access(fields)
         return super().read(fields, load)
 
@@ -106,17 +106,20 @@ class Applicant(models.Model):
                         applicant.referral_state = 'progress'
         return res
 
-    @api.model
-    def create(self, vals):
-        res = super(Applicant, self).create(vals)
-        if res.ref_user_id and res.stage_id:
-            res.sudo()._update_points(res.stage_id.id, False)
-            if res.stage_id.use_in_referral:
-                res.last_valuable_stage_id = res.stage_id
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        applicants = super().create(vals_list)
+        for applicant in applicants:
+            if applicant.ref_user_id and applicant.stage_id:
+                applicant.sudo()._update_points(applicant.stage_id.id, False)
+                if applicant.stage_id.use_in_referral:
+                    applicant.last_valuable_stage_id = applicant.stage_id
+        return applicants
 
     def archive_applicant(self):
         self.write({'referral_state': 'closed'})
+        if self.ref_user_id:
+            self._send_notification(_("Sorry, your referral %s has been refused in the recruitment process.") % self.name)
         return super(Applicant, self).archive_applicant()
 
     def _send_notification(self, body):
@@ -200,6 +203,7 @@ class Applicant(models.Model):
                 self._send_notification(_('Your referrer got a step further!') + additional_message)
 
         self.env['hr.referral.points'].create(point_stage)
+        self.invalidate_recordset(['earned_points'])
 
     def choose_a_friend(self, friend_id):
         self.ensure_one()
@@ -234,8 +238,14 @@ class Applicant(models.Model):
         } for friend in self.env['hr.referral.friend'].search([])]
 
     @api.model
+    def retrieve_referral_data(self):
+        return {
+            'show_grass': str2bool(self.env["ir.config_parameter"].sudo().get_param('hr_referral.show_grass')),
+        }
+
+    @api.model
     def retrieve_referral_welcome_screen(self):
-        result = {}
+        result = self.retrieve_referral_data()
         user_id = self.env.user
 
         result['id'] = user_id.id

@@ -1,4 +1,11 @@
+
+from unittest.mock import patch
+
+import odoo
+
 from odoo.tests.common import TransactionCase
+from odoo.addons.web_studio.controllers.export import MODELS_TO_EXPORT, FIELDS_TO_EXPORT, \
+     FIELDS_NOT_TO_EXPORT, CDATA_FIELDS, XML_FIELDS
 from odoo.addons.web_studio.models.ir_model import OPTIONS_WL
 from odoo.exceptions import ValidationError
 from odoo import Command
@@ -39,7 +46,7 @@ class TestStudioIrModel(TransactionCase):
         model_options = ['use_partner', 'use_stages', 'use_image',
                          'use_responsible', 'lines']
         (model, extra_models) = self.env['ir.model'].studio_model_create('Rockets', options=model_options)
-        self.assertEqual(len(extra_models), 1, 'one extra model should have been created for stages')
+        self.assertEqual(extra_models.mapped('name'), ['Rockets Stages'], 'Only stages should be returned')
 
         line_model = self.env['ir.model'].search([('model', 'like', model.model + '_line')])
         self.assertEqual(len(line_model), 1, 'one extra model should have been created for lines')
@@ -65,7 +72,7 @@ class TestStudioIrModel(TransactionCase):
         })
         # ensure the partner is suggested in email and sms communication
         mail_suggested_recipients = bfr._message_get_suggested_recipients()
-        self.assertIn((self.partner_elon.id, '"Elon Tusk" <elon@spacex.com>', 'Contact'),
+        self.assertIn((self.partner_elon.id, '"Elon Tusk" <elon@spacex.com>', None, 'Contact'),
                       mail_suggested_recipients.get(bfr.id),
                       'custom partner field should be suggested in mail communications')
         sms_suggested_recipients = bfr._sms_get_partner_fields()
@@ -179,7 +186,7 @@ class TestStudioIrModel(TransactionCase):
         self.assertTrue(value_field.tracking, 'the x_studio_value field should be tracked')
         main_company = self.env.ref('base.main_company')
         default = self.env['ir.default'].get(model.model, 'x_studio_currency_id', company_id=main_company.id)
-        self.assertEqual(default, main_company.id, 'the default value for the x_studio_currency_id should be set')
+        self.assertEqual(default, main_company.currency_id.id, 'the default value for the x_studio_currency_id should be set')
         new_company = self.env['res.company'].create({'name': 'SpaceY', 'currency_id': self.env.ref('base.INR').id})
         new_default = self.env['ir.default'].get(model.model, 'x_studio_currency_id', company_id=new_company.id)
         self.assertEqual(new_default, new_company.currency_id.id, 'default currency for new companies should be create with the company')
@@ -415,3 +422,37 @@ class TestStudioIrModel(TransactionCase):
         # rename the menu name
         new_menu.name = 'new Rockets'
         self.assertEqual(action.name, new_menu.name, 'rename the menu name should rename the window action name')
+
+    def test_23_export_hardcoded_models_and_fields(self):
+        """Test that all models and fields from hardcoded lists exist in the data model"""
+
+        for model in MODELS_TO_EXPORT:
+            self.assertIn(model, self.env)
+
+        for model, fields in FIELDS_TO_EXPORT.items():
+            for field in fields:
+                self.assertIn(field, self.env[model]._fields)
+
+        for model, fields in FIELDS_NOT_TO_EXPORT.items():
+            for field in fields:
+                self.assertIn(field, self.env[model]._fields)
+
+        for model, field in CDATA_FIELDS:
+            self.assertIn(field, self.env[model]._fields)
+
+        for model, field in XML_FIELDS:
+            self.assertIn(field, self.env[model]._fields)
+
+    def test_performance_01_fields_batch(self):
+        """Test number of call to setup_models when creating a model with multiple"""
+        count_setup_models = 0
+        orig_setup_models = odoo.modules.registry.Registry.setup_models
+        def setup_models(registry, cr):
+            nonlocal count_setup_models
+            count_setup_models += 1
+            orig_setup_models(registry, cr)
+        with patch('odoo.modules.registry.Registry.setup_models', new=setup_models):
+            # not: using a specific model (PerformanceIssues and not Rockets) is important since after the rollback of the test,
+            # the model will be missing but x_rockets is still in the pool, breaking some optimizations
+            self.env['ir.model'].with_context(studio=True).studio_model_create('PerformanceIssues', options=OPTIONS_WL)
+        self.assertEqual(count_setup_models, 1)

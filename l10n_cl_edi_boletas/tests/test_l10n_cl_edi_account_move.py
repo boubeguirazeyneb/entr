@@ -52,4 +52,3 @@ class TestL10nClDTE(TestL10nClEdiCommon):
             self.get_xml_tree_from_attachment(invoice.l10n_cl_sii_send_file),
             self.get_xml_tree_from_string(xml_expected_dte.encode()),
         )
-

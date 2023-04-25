@@ -1,21 +1,29 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+import re
 from itertools import groupby
 import base64
 import io
 
 from odoo import api, models, tools, _
 from odoo.exceptions import UserError
+from odoo.tools import get_lang
 
 
 class AccountGeneralLedger(models.AbstractModel):
-    _inherit = 'account.general.ledger'
+    _inherit = 'account.general.ledger.report.handler'
 
-    def _get_reports_buttons(self, options):
-        res = super()._get_reports_buttons(options)
-        if self._get_report_country_code(options) == 'LU':
-            res.append({'name': _('FAIA'), 'sequence': 3, 'action': 'print_xml', 'file_export_type': _('XML')})
-        return res
+    def _custom_options_initializer(self, report, options, previous_options=None):
+        super()._custom_options_initializer(report, options, previous_options)
+        if self.env.company.account_fiscal_country_id.code == 'LU':
+            options.setdefault('buttons', []).append({
+                'name': _('FAIA'),
+                'sequence': 50,
+                'action': 'export_file',
+                'action_param': 'l10n_lu_export_saft_to_xml',
+                'file_export_type': _('XML')
+            })
+
 
     @api.model
     def _fill_l10n_lu_saft_report_invoices_values(self, options, values):
@@ -54,7 +62,7 @@ class AccountGeneralLedger(models.AbstractModel):
                         'rate': line_vals['rate'],
                     })
                     move_vals['total_invoice_tax_balance'] -= line_vals['balance']
-                elif not line_vals['account_internal_type'] in ('receivable', 'payable') and not line_vals['exclude_from_invoice_tab']:
+                elif not line_vals['account_type'] in ('asset_receivable', 'liability_payable') and line_vals['display_type'] == 'product':
                     move_vals['total_invoice_untaxed_balance'] -= line_vals['balance']
                     if line_vals['balance'] > 0.0:
                         res['total_invoices_debit'] += line_vals['balance']
@@ -78,15 +86,19 @@ class AccountGeneralLedger(models.AbstractModel):
         res['uoms'] = uoms
 
         # Fill 'product_vals_list'.
-        self._cr.execute('''
+        lang = self.env.user.lang or get_lang(self.env).code
+        product_template_name = f"COALESCE(product_template.name->>'{lang}', product_template.name->>'en_US')"
+        uom_name = f"COALESCE(uom.name->>'{lang}', uom.name->>'en_US')"
+        base_uom_name = f"COALESCE(base_uom.name->>'{lang}', base_uom.name->>'en_US')"
+        self._cr.execute(f'''
             SELECT
                 product.id,
                 product.barcode,
-                product_template.name,
+                {product_template_name}             AS name,
                 product.product_tmpl_id,
                 product.default_code,
                 product_category.name               AS product_category,
-                uom.name                            AS standard_uom,
+                {uom_name}                          AS standard_uom,
                 uom.uom_type                        AS uom_type,
                 TRUNC(uom.factor, 8)                AS uom_ratio,
                 CASE
@@ -94,7 +106,7 @@ class AccountGeneralLedger(models.AbstractModel):
                     THEN TRUNC((1.0 / uom.factor), 8)
                     ELSE 0
                 END                                 AS ratio,
-                base_uom.name                       AS base_uom
+                {base_uom_name}                     AS base_uom
             FROM product_product product
                 LEFT JOIN product_template          ON product_template.id = product.product_tmpl_id
                 LEFT JOIN product_category          ON product_category.id = product_template.categ_id
@@ -128,12 +140,8 @@ class AccountGeneralLedger(models.AbstractModel):
         values.update(res)
 
     @api.model
-    def _prepare_saft_report_values(self, options):
-        # OVERRIDE
-        template_vals = super()._prepare_saft_report_values(options)
-
-        if self.env.company.account_fiscal_country_id.code != 'LU':
-            return template_vals
+    def _l10n_lu_prepare_saft_report_values(self, report, options):
+        template_vals = report._saft_prepare_report_values(options)
 
         template_vals.update({
             'xmlns': 'urn:OECD:StandardAuditFile-Taxation/2.00',
@@ -144,15 +152,14 @@ class AccountGeneralLedger(models.AbstractModel):
         return template_vals
 
     @api.model
-    def get_xml(self, options):
-        # OVERRIDE
-        content = super().get_xml(options)
+    def l10n_lu_export_saft_to_xml(self, options):
+        report = self.env['account.report'].browse(options['report_id'])
+        template_vals = self._l10n_lu_prepare_saft_report_values(report, options)
+        content = self.env['ir.qweb']._render('l10n_lu_reports.saft_template_inherit_l10n_lu_saft', template_vals)
+        self.env['ir.attachment'].l10n_lu_reports_validate_xml_from_attachment(content, 'saft')
 
-        if self.env.company.account_fiscal_country_id.code != 'LU':
-            return content
-
-        xsd_attachment = self.env['ir.attachment'].search([('name', '=', 'xsd_cached_FAIA_v_2_01_reduced_version_A_xsd')])
-        if xsd_attachment:
-            with io.BytesIO(base64.b64decode(xsd_attachment.with_context(bin_size=False).datas)) as xsd:
-                tools.xml_utils._check_with_xsd(content, xsd)
-        return content
+        return {
+            'file_name': report.get_default_report_filename('xml'),
+            'file_content': "\n".join(re.split(r'\n\s*\n', content)).encode(),
+            'file_type': 'xml',
+        }

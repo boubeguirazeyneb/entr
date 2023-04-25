@@ -6,12 +6,15 @@ odoo.define('web_grid.GridRenderer', function (require) {
     const utils = require('web.utils');
 
     const gridComponentRegistry = require('web_grid.component_registry');
-    const { useListener } = require('web.custom_hooks');
-    const {useRef, useState} = owl.hooks;
+    const { useListener } = require("@web/core/utils/hooks");
+
+    const { onPatched, onWillUpdateProps, useRef, useState } = owl;
 
     class GridRenderer extends AbstractRenderer {
-        constructor(parent, props) {
-            super(parent, props);
+        setup() {
+            super.setup();
+            
+            this.root = useRef("root");
             this.state = useState({
                 editMode: false,
                 currentPath: "",
@@ -20,16 +23,19 @@ odoo.define('web_grid.GridRenderer', function (require) {
             this.currentInput = useRef("currentInput");
             useListener('mouseover', 'td:not(:first-child), th:not(:first-child)', this._onMouseEnter);
             useListener('mouseout', 'td:not(:first-child), th:not(:first-child)', this._onMouseLeave);
+
+            onWillUpdateProps(this.onWillUpdateProps);
+            onPatched(this.onPatched);
         }
 
-        willUpdateProps(nextProps) {
+        onWillUpdateProps(nextProps) {
             if (nextProps.data[0].next.grid_anchor !== this.props.data[0].next.grid_anchor) {
                 //if we change the range of dates we are looking at,
                 //the cells should not be in error state anymore
                 this.state.errors = {};
             }
         }
-        patched() {
+        onPatched() {
             if (this.currentInput.el) {
                 this.currentInput.el.select();
             }
@@ -66,8 +72,9 @@ odoo.define('web_grid.GridRenderer', function (require) {
          * @returns {Array}
          */
         get emptyRows() {
+            const rowLength = this.props.isGrouped ? this.props.data.reduce((count, d) => count + d.rows.length + 1, 0) : this.props.data[0].rows.length;
             return Array.from({
-                length: Math.max(5 - this.props.data[0].rows.length, 0)
+                length: Math.max(5 - rowLength, 0)
             }, (_, i) => i);
         }
         /**
@@ -162,12 +169,18 @@ odoo.define('web_grid.GridRenderer', function (require) {
             const grid_path = cell_path.slice(0, -3);
             const row_path = grid_path.concat(['rows'], cell_path.slice(-2, -1));
             const col_path = grid_path.concat(['cols'], cell_path.slice(-1));
+            const $glassIcon = $(`div[data-path="${path}"]`).find('i');
+            $glassIcon.css('pointer-events', 'none');
             this.trigger('cell-edited', {
                 cell_path,
                 row_path,
                 col_path,
                 value,
-                doneCallback,
+                doneCallback: () => {
+                    const res = doneCallback && doneCallback();
+                    $glassIcon.css('pointer-events', 'auto');
+                    return res;
+                },
             });
         }
         /**
@@ -248,9 +261,8 @@ odoo.define('web_grid.GridRenderer', function (require) {
 
         /**
          * @private
-         * @param {OwlEvent} ev
          */
-        _onClickCreateInline(ev) {
+        _onClickCreateInline() {
             this.trigger('create-inline');
         }
         /**
@@ -265,11 +277,11 @@ odoo.define('web_grid.GridRenderer', function (require) {
         }
         /**
          * @private
-         * @param {OwlEvent} ev
+         * @param {string} path
          */
-        _onFocusComponent(ev) {
+        _onFocusComponent(path) {
             this.state.editMode = true;
-            this.state.currentPath = ev.detail.path;
+            this.state.currentPath = path;
         }
         /**
          * @private
@@ -304,13 +316,10 @@ odoo.define('web_grid.GridRenderer', function (require) {
         }
         /**
          * @private
-         * @param {CustomEvent} ev
+         * @param {Object}
          */
-        _onUpdateValue(ev) {
+        _onUpdateValue({ path, value, doneCallback }) {
             this.state.editMode = false;
-            const value = ev.detail.value;
-            const doneCallback = ev.detail.doneCallback;
-            const path = ev.detail.path;
             if (value !== undefined) {
                 this._cellEdited(path, value, doneCallback);
             }
@@ -325,7 +334,7 @@ odoo.define('web_grid.GridRenderer', function (require) {
             const cellParent = ev.target.closest('td,th');
             const rowParent = ev.target.closest('tr');
             const index = [...rowParent.children].indexOf(cellParent) + 1;
-            this.el.querySelectorAll(`td:nth-child(${index}), th:nth-child(${index})`)
+            this.root.el.querySelectorAll(`td:nth-child(${index}), th:nth-child(${index})`)
                 .forEach(el => {
                     if (cellParent.querySelector('.o_grid_total_title')) {
                         el.classList.add('o_cell_highlight');
@@ -339,7 +348,7 @@ odoo.define('web_grid.GridRenderer', function (require) {
          * @private
          */
         _onMouseLeave() {
-            this.el.querySelectorAll('.o_cell_hover')
+            this.root.el.querySelectorAll('.o_cell_hover')
                 .forEach(el => el.classList.remove('o_cell_hover', 'o_cell_highlight'));
         }
     }
@@ -360,16 +369,28 @@ odoo.define('web_grid.GridRenderer', function (require) {
             type: String,
             optional: true
         },
-        cellComponentOptions: Object,
+        cellComponentOptions: {
+            type: Object,
+            optional: true,
+        },
         cellField: String,
         colField: String,
         createInline: Boolean,
         displayEmpty: Boolean,
         fields: Object,
         groupBy: Array,
-        hasBarChartTotal: Boolean,
-        hideColumnTotal: Boolean,
-        hideLineTotal: Boolean,
+        hasBarChartTotal: {
+            type: Boolean,
+            optional: true,
+        },
+        hideColumnTotal: {
+            type: Boolean,
+            optional: true,
+        },
+        hideLineTotal: {
+            type: Boolean,
+            optional: true,
+        },
         measureLabel: {
             type: String,
             optional: true

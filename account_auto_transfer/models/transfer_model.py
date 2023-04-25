@@ -20,8 +20,11 @@ class TransferModel(models.Model):
         company = self.env.company
         return company.compute_fiscalyear_dates(date.today())['date_from'] if company else None
 
+    def _get_default_journal(self):
+        return self.env['account.journal'].search([('company_id', '=', self.env.company.id), ('type', '=', 'general')], limit=1)
+
     name = fields.Char(required=True)
-    journal_id = fields.Many2one('account.journal', required=True, string="Destination Journal")
+    journal_id = fields.Many2one('account.journal', required=True, string="Destination Journal", default=_get_default_journal)
     company_id = fields.Many2one('res.company', readonly=True, related='journal_id.company_id')
     date_start = fields.Date(string="Start Date", required=True, default=_get_default_date_start)
     date_stop = fields.Date(string="Stop Date", required=False)
@@ -122,10 +125,10 @@ class TransferModel(models.Model):
                 next_move_date = record._get_next_move_date(start_date)
 
                 # (Re)Generate moves in draft untill today
-                # Journal entries will be recomputed everyday untill posted.
+                # Journal entries will be recomputed everyday until posted.
                 while next_move_date <= max_date:
                     record._create_or_update_move_for_period(start_date, next_move_date)
-                    start_date = next_move_date
+                    start_date = next_move_date + relativedelta(days=1)
                     next_move_date = record._get_next_move_date(start_date)
 
                 # (Re)Generate move for one more period if needed
@@ -147,8 +150,8 @@ class TransferModel(models.Model):
         return [
             ('account_id', 'in', self.account_ids.ids),
             ('date', '>=', start_date),
-            ('date', '<', end_date),
-            ('move_id.state', '=', 'posted')
+            ('date', '<=', end_date),
+            ('parent_state', '=', 'posted')
         ]
 
     # PROTECTEDS
@@ -213,7 +216,7 @@ class TransferModel(models.Model):
             delta = relativedelta(months=3)
         else:
             delta = relativedelta(years=1)
-        return date + delta
+        return date + delta - relativedelta(days=1)
 
     def _get_auto_transfer_move_line_values(self, start_date, end_date):
         """ Get all the transfer move lines values for a given period
@@ -248,21 +251,21 @@ class TransferModel(models.Model):
         """
         self.ensure_one()
         domain = self._get_move_lines_base_domain(start_date, end_date)
-        domain = expression.AND([domain, [
-            ('analytic_account_id', 'not in', self.line_ids.analytic_account_ids.ids),
-            ('partner_id', 'not in', self.line_ids.partner_ids.ids),
-        ]])
-        total_balance_by_accounts = self.env['account.move.line'].read_group(domain, ['balance', 'account_id'],
-                                                                             ['account_id'])
-
+        domain = expression.AND([domain, [('partner_id', 'not in', self.line_ids.partner_ids.ids), ]])
+        query = self.env['account.move.line']._search(domain)
+        query.order = None
+        self.line_ids.analytic_account_ids.ids and query.add_where('(NOT analytic_distribution ?| array[%s] OR analytic_distribution IS NULL)', [[str(account_id) for account_id in self.line_ids.analytic_account_ids.ids]])
+        query_string, query_param = query.select('SUM(balance) AS balance', 'account_id')
+        query_string = f"{query_string} GROUP BY account_id"
+        self._cr.execute(query_string, query_param)
         # balance = debit - credit
         # --> balance > 0 means a debit so it should be credited on the source account
         # --> balance < 0 means a credit so it should be debited on the source account
         values_list = []
-        for total_balance_account in total_balance_by_accounts:
+        for total_balance_account in self._cr.dictfetchall():
             initial_amount = abs(total_balance_account['balance'])
             source_account_is_debit = total_balance_account['balance'] >= 0
-            account_id = total_balance_account['account_id'][0]
+            account_id = total_balance_account['account_id']
             account = self.env['account.account'].browse(account_id)
             if not float_is_zero(initial_amount, precision_digits=9):
                 move_lines_values, amount_left = self._get_non_analytic_transfer_values(account, lines, end_date,
@@ -364,14 +367,23 @@ class TransferModelLine(models.Model):
         already_handled_move_line_ids = []
         for transfer_model_line in self:
             domain = transfer_model_line._get_move_lines_domain(start_date, end_date, already_handled_move_line_ids)
-            total_balances_by_account = self.env['account.move.line'].read_group(domain, ['ids:array_agg(id)', 'balance', 'account_id'], ['account_id'])
+
+            query = self.env['account.move.line']._search(domain)
+            if transfer_model_line.analytic_account_ids:
+                query.add_where('account_move_line.analytic_distribution ?| array[%s]', [[str(account_id) for account_id in transfer_model_line.analytic_account_ids.ids]])
+            query.order = None
+            query_string, query_param = query.select('array_agg("account_move_line".id) AS ids', 'SUM(balance) AS balance', 'account_id')
+            query_string = f"{query_string} GROUP BY account_id"
+            self._cr.execute(query_string, query_param)
+            total_balances_by_account = [expense for expense in self._cr.dictfetchall()]
+
             for total_balance_account in total_balances_by_account:
                 already_handled_move_line_ids += total_balance_account['ids']
                 balance = total_balance_account['balance']
                 if not float_is_zero(balance, precision_digits=9):
                     amount = abs(balance)
                     source_account_is_debit = balance > 0
-                    account_id = total_balance_account['account_id'][0]
+                    account_id = total_balance_account['account_id']
                     account = self.env['account.account'].browse(account_id)
                     transfer_values += transfer_model_line._get_transfer_values(account, amount, source_account_is_debit,
                                                                             end_date)
@@ -391,8 +403,6 @@ class TransferModelLine(models.Model):
         move_lines_domain = self.transfer_model_id._get_move_lines_base_domain(start_date, end_date)
         if avoid_move_line_ids:
             move_lines_domain.append(('id', 'not in', avoid_move_line_ids))
-        if self.analytic_account_ids:
-            move_lines_domain.append(('analytic_account_id', 'in', self.analytic_account_ids.ids))
         if self.partner_ids:
             move_lines_domain.append(('partner_id', 'in', self.partner_ids.ids))
         return move_lines_domain

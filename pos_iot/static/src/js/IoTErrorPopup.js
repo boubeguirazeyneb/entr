@@ -5,15 +5,19 @@ odoo.define('pos_iot.IoTErrorPopup', function(require) {
     const Registries = require('point_of_sale.Registries');
 
     class IoTErrorPopup extends AbstractAwaitablePopup {
-        mounted() {
+        setup() {
+            super.setup();
+            owl.onMounted(this.onMounted);
+        }
+        onMounted() {
             this.playSound('error');
         }
     }
     IoTErrorPopup.template = 'IoTErrorPopup';
     IoTErrorPopup.defaultProps = {
         confirmText: 'Ok',
-        cancelText: 'Cancel',
         title: 'Error',
+        cancelKey: false,
     };
 
     Registries.Component.add(IoTErrorPopup);

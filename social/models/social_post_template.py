@@ -5,6 +5,7 @@ import json
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+from odoo.tools import format_datetime
 
 
 class SocialPostTemplate(models.Model):
@@ -13,7 +14,7 @@ class SocialPostTemplate(models.Model):
     It can generate multiple 'social.post' records to be sent on social medias
 
     This model contains all information related to the post content (message, images) but
-    also some common methods. He can be used to prepare a social post without creating
+    also some common methods. They can be used to prepare a social post without creating
     one (that can be useful in other application, like `social_event` e.g.).
 
     'social.post.template' is therefore a template model used to generate `social.post`.
@@ -41,14 +42,15 @@ class SocialPostTemplate(models.Model):
     image_ids = fields.Many2many(
         'ir.attachment', string='Attach Images',
         help="Will attach images to your posts (if the social media supports it).")
+    # JSON array capturing the URLs of the images to make it easy to display them in the kanban view
     image_urls = fields.Text(
-        'Images URLs', compute='_compute_image_urls',
-        help="Technical JSON array capturing the URLs of the images to make it easy to display them in the kanban view.")
+        'Images URLs', compute='_compute_image_urls')
     # Account management
     account_ids = fields.Many2many('social.account', string='Social Accounts',
                                    help="The accounts on which this post will be published.",
                                    compute='_compute_account_ids', store=True, readonly=False)
     has_active_accounts = fields.Boolean('Are Accounts Available?', compute='_compute_has_active_accounts')
+    message_length = fields.Integer(compute='_compute_message_length')
 
     @api.constrains('message')
     def _check_message_not_empty(self):
@@ -68,6 +70,12 @@ class SocialPostTemplate(models.Model):
         for post in self:
             post.image_urls = json.dumps(['web/image/%s' % image_id.id for image_id in post.image_ids if image_id.id])
 
+    @api.depends('message')
+    def _compute_message_length(self):
+        for post in self:
+            # compute length of message to check it while posting the message
+            post.message_length = len(post.message or "")
+
     def _compute_account_ids(self):
         """If there are less than 3 social accounts available, select them all by default."""
         all_account_ids = self.env['social.account'].sudo().search([])
@@ -82,6 +90,14 @@ class SocialPostTemplate(models.Model):
         for post in self:
             post.has_active_accounts = has_active_accounts
 
+    def _prepare_preview_values(self, media):
+        """ Generic function called by media specific _compute_*media*_preview methods. This function returns the
+        live_post_link (in the case the compute is used in the context of a social_post) and the published date. """
+        self.ensure_one()
+        values = {
+            'published_date': format_datetime(self.env, fields.Datetime.now(), tz=self.env.user.tz, dt_format="short"),
+        }
+        return values
     def _set_attachemnt_res_id(self):
         """ Set res_id of created attachements, the many2many_binary widget
         might create them without res_id, and if it's the case,

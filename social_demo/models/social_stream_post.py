@@ -18,7 +18,7 @@ class DemoSocialStreamPost(models.Model):
     def _facebook_comment_fetch(self, next_records_token=False, count=20):
         return {
             'comments': self._get_demo_comments(),
-            'summary': {'totalCount': 1}
+            'summary': {'total_count': 2}
         }
 
     def _facebook_comment_post(self, endpoint_url, message, existing_attachment_id=None, attachment=None):
@@ -75,7 +75,7 @@ class DemoSocialStreamPost(models.Model):
 
         return {
             'comments': comments,
-            'summary': {'totalCount': len(comments)}
+            'summary': {'total_count': 2}
         }
 
     # TWITTER
@@ -90,6 +90,26 @@ class DemoSocialStreamPost(models.Model):
         }
 
     def _twitter_tweet_like(self, stream, tweet_id, like):
+        return True
+
+    def _twitter_do_retweet(self):
+        """ In the demo module, we simply increment the retweet counter. """
+        self.write({
+            'twitter_retweet_count': self.twitter_retweet_count + 1
+        })
+        return True
+
+    def _twitter_undo_retweet(self):
+        """ In the demo module, we simple return `True` to remove a retweet. """
+        return True
+
+    def _twitter_tweet_quote(self, message, attachment=None):
+        """
+        In the demo module, we return `True` if the user wrote a message.
+        If no message is provided, a new retweet will be created.
+        """
+        if not message:
+            return self._twitter_do_retweet()
         return True
 
     # YOUTUBE
@@ -132,6 +152,7 @@ class DemoSocialStreamPost(models.Model):
 
         return [{
             'id': 1,
+            'created_time': '2019-02-10T09:12:30+0000',
             'formatted_created_time': '10/02/2019',
             'likes': {'summary': {'total_count': 53}},
             'from': {
@@ -144,6 +165,7 @@ class DemoSocialStreamPost(models.Model):
             'comments': {'data': self._get_demo_sub_comments()},
         }, {
             'id': 2,
+            'created_time': '2019-02-09T08:12:30+0000',
             'formatted_created_time': '09/02/2019',
             'likes': {'summary': {'total_count': 4}},
             'from': {
@@ -167,6 +189,7 @@ class DemoSocialStreamPost(models.Model):
         return [{
             'id': 3,
             'formatted_created_time': '10/02/2019',
+            'created_time': '2019-02-10T10:12:30+0000',
             'likes': {'summary': {'total_count': 21}},
             'from': {
                 'name': 'Ready Mat',
@@ -176,6 +199,7 @@ class DemoSocialStreamPost(models.Model):
             'message': 'I agree!'
         }, {
             'id': 4,
+            'created_time': '2019-02-10T12:12:30+0000',
             'formatted_created_time': '10/02/2019',
             'likes': {'summary': {'total_count': 13}},
             'from': {

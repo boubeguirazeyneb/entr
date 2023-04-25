@@ -3,8 +3,10 @@
 
 from odoo.tests.common import TransactionCase
 
+from odoo.addons.hr_timesheet.tests.test_timesheet import TestCommonTimesheet
 
-class TestHelpdeskTimesheetCommon(TransactionCase):
+
+class TestHelpdeskTimesheetCommon(TestCommonTimesheet):
 
     @classmethod
     def setUpClass(cls):
@@ -15,9 +17,15 @@ class TestHelpdeskTimesheetCommon(TransactionCase):
             'email': 'customer@task.com',
         })
 
+        cls.analytic_plan = cls.env['account.analytic.plan'].create({
+            'name': 'Plan',
+            'company_id': False,
+        })
+
         cls.analytic_account = cls.env['account.analytic.account'].create({
             'name': 'Analytic Account for Test Customer',
             'partner_id': cls.partner.id,
+            'plan_id': cls.analytic_plan.id,
             'code': 'TEST',
         })
 

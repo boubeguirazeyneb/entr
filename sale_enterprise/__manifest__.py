@@ -9,14 +9,11 @@
     'description': """
 Contains advanced features for sale management
     """,
-    'depends': ['sale', 'web_dashboard'],
+    'depends': ['sale'],
     'data': [
         'report/sale_report_views.xml',
-        ],
-    'demo': [
     ],
     'installable': True,
-    'application': False,
     'auto_install': ['sale'],
     'license': 'OEEL-1',
     'assets': {

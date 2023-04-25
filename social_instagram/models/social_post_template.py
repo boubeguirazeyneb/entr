@@ -35,7 +35,8 @@ class SocialPostTemplate(models.Model):
         See #_get_instagram_image_error() for more information. """
 
         for post in self:
-            post.instagram_preview = self.env.ref('social_instagram.instagram_preview')._render({
+            post.instagram_preview = self.env['ir.qweb']._render('social_instagram.instagram_preview', {
+                **post._prepare_preview_values("instagram"),
                 'error_code': post._get_instagram_image_error(),
                 'image': post.instagram_image_id.with_context(bin_size=False).datas if post.instagram_image_id else False,
                 'image_multiple': len(post.image_ids) > 1,
@@ -43,7 +44,6 @@ class SocialPostTemplate(models.Model):
                     post.message,
                     'instagram',
                     **{field: post[field] for field in post._get_post_message_modifying_fields()}),
-                'published_date': fields.Datetime.now(),
             })
 
     def _get_instagram_image_error(self):
@@ -59,7 +59,7 @@ class SocialPostTemplate(models.Model):
         See: https://developers.facebook.com/docs/instagram-api/reference/ig-user/media
 
         We want to avoid any kind of dynamic resizing / format change to make sure what the user
-        uploads and sees in the preview is as close as possible to what he will get as a result on
+        uploads and sees in the preview is as close as possible to what they will get as a result on
         Instagram. """
 
         self.ensure_one()

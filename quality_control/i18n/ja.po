@@ -3,21 +3,18 @@
 # 	* quality_control
 # 
 # Translators:
-# Ryoko Tsuda <ryoko@quartile.co>, 2022
-# Norimichi Sugimoto <norimichi.sugimoto@tls-ltd.co.jp>, 2022
-# Shigekazu N. <shigekazu.noka@gmail.com>, 2022
 # Martin Trigaux, 2022
-# Noma Yuki, 2022
-# Yoshi Tashiro (Quartile) <tashiro@roomsfor.hk>, 2022
+# Yoshi Tashiro (Quartile) <tashiro@roomsfor.hk>, 2023
+# Ryoko Tsuda <ryoko@quartile.co>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:42+0000\n"
-"Last-Translator: Yoshi Tashiro (Quartile) <tashiro@roomsfor.hk>, 2022\n"
-"Language-Team: Japanese (https://www.transifex.com/odoo/teams/41243/ja/)\n"
+"POT-Creation-Date: 2022-12-15 13:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Ryoko Tsuda <ryoko@quartile.co>, 2023\n"
+"Language-Team: Japanese (https://app.transifex.com/odoo/teams/41243/ja/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -69,12 +66,12 @@ msgstr ""
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.stock_picking_view_form_inherit_quality
 msgid "<span class=\"o_stat_text text-danger\">Quality Checks</span>"
-msgstr ""
+msgstr "<span class=\"o_stat_text text-danger\">品質検査</span>"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.stock_picking_view_form_inherit_quality
 msgid "<span class=\"o_stat_text text-success\">Quality Checks</span>"
-msgstr ""
+msgstr "<span class=\"o_stat_text text-success\">品質検査</span>"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_point_view_form_inherit_quality_control
@@ -104,7 +101,7 @@ msgstr "<span class=\"o_stat_text\">品質検査</span>"
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.stock_picking_view_form_inherit_quality
 msgid "<span class=\"o_stat_text\">Quality Checks</span>"
-msgstr ""
+msgstr "<span class=\"o_stat_text\">品質検査</span>"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_point_view_form_inherit_quality_control
@@ -269,7 +266,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:quality_control.field_quality_point__measure_frequency_type
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_point_view_form_inherit_quality_control
 msgid "Control Frequency"
-msgstr ""
+msgstr "管理頻度"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_view_form
@@ -292,7 +289,7 @@ msgstr "管理ポイント"
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__measure_on
 #: model:ir.model.fields,field_description:quality_control.field_quality_point__measure_on
 msgid "Control per"
-msgstr ""
+msgstr "管理単位"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_wizard_form_failure
@@ -352,15 +349,6 @@ msgid ""
 "Define Quality Control Points in order to automatically generate\n"
 "              quality checks at the right logistic operation: transfers, manufacturing orders."
 msgstr "適正なロジスティックオペレーション（運送/製造オーダ）の際に自動的に品質検査が生成されるように品質検査ポイントを定義しましょう"
-
-#. module: quality_control
-#: model:ir.model.fields,help:quality_control.field_quality_check__measure_on
-#: model:ir.model.fields,help:quality_control.field_quality_check_wizard__measure_on
-#: model:ir.model.fields,help:quality_control.field_quality_point__measure_on
-msgid ""
-"Defines if the Quality Check is done at the Operation level or at a more "
-"granular Lot/SN level"
-msgstr ""
 
 #. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__testing_percentage_within_lot
@@ -465,7 +453,7 @@ msgstr "進行中"
 #. module: quality_control
 #: model:ir.model.fields,help:quality_control.field_quality_check__move_line_id
 msgid ""
-"In case of Quality Check by Lot/SN, Move Line on which the Quality Check "
+"In case of Quality Check by Quantity, Move Line on which the Quality Check "
 "applies"
 msgstr ""
 
@@ -513,7 +501,7 @@ msgid "Lot/SN"
 msgstr ""
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_stock_production_lot
+#: model:ir.model,name:quality_control.model_stock_lot
 msgid "Lot/Serial"
 msgstr "ロット/シリアル"
 
@@ -578,6 +566,7 @@ msgid "Nb Checks"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "New"
@@ -658,6 +647,16 @@ msgid "Operation"
 msgstr "工程"
 
 #. module: quality_control
+#: model:ir.model.fields,help:quality_control.field_quality_check__measure_on
+#: model:ir.model.fields,help:quality_control.field_quality_check_wizard__measure_on
+#: model:ir.model.fields,help:quality_control.field_quality_point__measure_on
+msgid ""
+"Operation = One quality check is requested at the operation level.\n"
+"                  Product = A quality check is requested per product.\n"
+"                 Quantity = A quality check is requested for each new product quantity registered, with partial quantity checks also possible."
+msgstr ""
+
+#. module: quality_control
 #: model:ir.ui.menu,name:quality_control.menu_quality_dashboard
 msgid "Overview"
 msgstr "概要"
@@ -706,6 +705,7 @@ msgid "Picture"
 msgstr "画像"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "Picture Uploaded"
@@ -727,7 +727,7 @@ msgid "Previous"
 msgstr "前"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_product_product
+#: model:ir.model,name:quality_control.model_product_template
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__product_id
 #: model:ir.model.fields.selection,name:quality_control.selection__quality_check__measure_on__product
 #: model:ir.model.fields.selection,name:quality_control.selection__quality_point__measure_on__product
@@ -741,15 +741,15 @@ msgid "Product Moves (Stock Move Line)"
 msgstr "製品の移動(在庫移動ライン)"
 
 #. module: quality_control
-#: model:ir.model,name:quality_control.model_product_template
-msgid "Product Template"
-msgstr "プロダクトテンプレート"
-
-#. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__uom_id
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__uom_id
 msgid "Product Unit of Measure"
 msgstr "プロダクト単位"
+
+#. module: quality_control
+#: model:ir.model,name:quality_control.model_product_product
+msgid "Product Variant"
+msgstr "プロダクトバリアント"
 
 #. module: quality_control
 #: model:ir.ui.menu,name:quality_control.quality_control_menu_product_variant
@@ -768,6 +768,7 @@ msgid "Quality"
 msgstr "品質"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.model,name:quality_control.model_quality_alert
@@ -813,9 +814,11 @@ msgid "Quality Alerts"
 msgstr "品質アラート"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.actions.act_window,name:quality_control.action_quality_check_wizard
 #: model:ir.model,name:quality_control.model_quality_check
+#: model_terms:ir.ui.view,arch_db:quality_control.view_stock_move_line_detailed_operation_tree_inherit_quality
 #, python-format
 msgid "Quality Check"
 msgstr "品質検査"
@@ -832,6 +835,7 @@ msgid "Quality Check Fail"
 msgstr "品質検査不合格"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/wizard/quality_check_wizard.py:0
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_check_wizard_form_failure
 #, python-format
@@ -844,7 +848,7 @@ msgid "Quality Check Picture"
 msgstr ""
 
 #. module: quality_control
-#: model:ir.model.fields,field_description:quality_control.field_stock_production_lot__quality_check_qty
+#: model:ir.model.fields,field_description:quality_control.field_stock_lot__quality_check_qty
 msgid "Quality Check Qty"
 msgstr ""
 
@@ -854,6 +858,7 @@ msgid "Quality Check:"
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #: model:ir.actions.act_window,name:quality_control.quality_check_action_main
 #: model:ir.actions.act_window,name:quality_control.quality_check_action_picking
@@ -917,7 +922,7 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:quality_control.product_product_form_view_quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.product_template_form_view_quality_control
 msgid "Quality Points"
-msgstr ""
+msgstr "品質ポイント"
 
 #. module: quality_control
 #: model:ir.actions.act_window,name:quality_control.quality_tag_action
@@ -953,11 +958,13 @@ msgstr ""
 msgid ""
 "Quality control points define the quality checks which should be\n"
 "              performed at each operation, for your different products."
-msgstr ""
+msgstr "品質管理ポイントは各オペレーションで実行すべき品質チェックをそれぞれのプロダクトに対して定義します。"
 
 #. module: quality_control
 #: model:ir.model.fields,field_description:quality_control.field_quality_check__qty_line
 #: model:ir.model.fields,field_description:quality_control.field_quality_check_wizard__qty_line
+#: model:ir.model.fields.selection,name:quality_control.selection__quality_check__measure_on__move_line
+#: model:ir.model.fields.selection,name:quality_control.selection__quality_point__measure_on__move_line
 msgid "Quantity"
 msgstr "数量"
 
@@ -1062,7 +1069,7 @@ msgstr "チーム"
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_alert_team_view_form
 msgid "Team Name"
-msgstr ""
+msgstr "チーム名"
 
 #. module: quality_control
 #: model_terms:ir.ui.view,arch_db:quality_control.quality_alert_team_view_tree
@@ -1149,20 +1156,29 @@ msgstr ""
 #. module: quality_control
 #: model:ir.actions.report,name:quality_control.quality_check_report
 msgid "Worksheet Report - External (PDF)"
-msgstr ""
+msgstr "ワークシートレポート - 外部 (PDF)"
 
 #. module: quality_control
 #: model:ir.actions.report,name:quality_control.quality_check_report_internal
 msgid "Worksheet Report - Internal (PDF)"
-msgstr ""
+msgstr "ワークシートレポート - 内部 (PDF)"
 
 #. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/quality.py:0
 #, python-format
 msgid "You measured %.2f %s and it should be between %.2f and %.2f %s."
 msgstr ""
 
 #. module: quality_control
+#. odoo-python
+#: code:addons/quality_control/wizard/quality_check_wizard.py:0
+#, python-format
+msgid "You must provide a picture before validating"
+msgstr ""
+
+#. module: quality_control
+#. odoo-python
 #: code:addons/quality_control/models/stock_picking.py:0
 #, python-format
 msgid "You still need to do the quality checks!"

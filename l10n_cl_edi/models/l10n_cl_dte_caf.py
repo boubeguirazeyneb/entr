@@ -64,7 +64,7 @@ class L10nClDteCaf(models.Model):
         self.l10n_latam_document_type_id = self.env['l10n_latam.document.type'].search([
             ('code', '=', l10n_latam_document_type_code),
             ('country_id.code', '=', 'CL'),
-        ])
+        ], limit=1)
         self.issued_date = result.xpath('FA')[0].text
         rut_n = result.xpath('RE')[0].text
         if not self.company_id.vat:
@@ -78,8 +78,9 @@ class L10nClDteCaf(models.Model):
     def action_spend(self):
         self.status = 'spent'
 
-    @api.model
-    def create(self, values):
-        res = super().create(values)
-        res.action_enable()
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        files = super().create(vals_list)
+        for file in files:
+            file.action_enable()
+        return files

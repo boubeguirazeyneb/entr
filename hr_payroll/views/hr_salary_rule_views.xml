@@ -28,7 +28,7 @@
                                     <strong><field name="name"/></strong>
                                 </div>
                                 <div class="col-4">
-                                    <span class="float-right"><field name="category_id"/></span>
+                                    <span class="float-end"><field name="category_id"/></span>
                                 </div>
                             </div>
                             <div class="row">
@@ -61,6 +61,8 @@
                    <field name="struct_id"/>
                    <field name="active" widget="boolean_toggle"/>
                    <field name="appears_on_payslip"/>
+                   <field name="appears_on_employee_cost_dashboard"/>
+                   <field name="appears_on_payroll_report"/>
                 </group>
                 <notebook colspan="6">
                     <page name="general" string="General">
@@ -82,7 +84,7 @@
                                 <field name="amount_percentage" attrs="{'invisible':[('amount_select','!=','percentage')], 'required':[('amount_select','=','percentage')]}"/>
                             </group>
                             <group colspan="4">
-                                <field colspan="4" name="amount_python_compute" attrs="{'invisible':[('amount_select','!=','code')], 'required':[('amount_select','=','code')]}"/>
+                                <field name="amount_python_compute" attrs="{'invisible':[('amount_select','!=','code')], 'required':[('amount_select','=','code')]}"/>
                             </group>
                             <group string="Company Contribution">
                                 <field name="partner_id"/>

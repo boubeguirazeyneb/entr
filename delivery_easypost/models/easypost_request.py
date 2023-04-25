@@ -18,6 +18,7 @@ class EasypostRequest():
     def __init__(self, api_key, debug_logger):
         self.api_key = api_key
         self.debug_logger = debug_logger
+        self.is_domestic_shipping = None
 
     def _make_api_request(self, endpoint, request_type='get', data=None):
         """make an api call, return response"""
@@ -58,6 +59,14 @@ class EasypostRequest():
             raise UserError(_("You have no carrier linked to your Easypost Account.\
                 Please connect to Easypost, link your account to carriers and then retry."))
 
+    def fetch_easypost_user(self):
+        """ Import data about the current user
+        https://www.easypost.com/docs/api/curl#retrieve-a-user
+        It returns a dict of info regarding the current user,
+        such as its `id` or his related `insurance_fee_rate`.
+        """
+        return self._make_api_request('users')
+
     def _check_required_value(self, carrier, recipient, shipper, order=False, picking=False):
         """ Check if the required value are present in order
         to process an API call.
@@ -82,15 +91,15 @@ class EasypostRequest():
         if order:
             if not order.order_line:
                 raise UserError(_("Please provide at least one item to ship."))
-            error_lines = order.order_line.filtered(lambda line: not line.product_id.weight and not line.is_delivery and line.product_id.type != 'service' and not line.display_type)
+            error_lines = order.order_line.filtered(lambda line: not line.product_id.weight and line.product_qty != 0 and not line.is_delivery and line.product_id.type != 'service' and not line.display_type)
             if error_lines:
                 return _("The estimated shipping price cannot be computed because the weight is missing for the following product(s): \n %s") % ", ".join(error_lines.product_id.mapped('name'))
 
         # check required value for picking
         if picking:
-            if not picking.move_lines:
+            if not picking.move_ids:
                 raise UserError(_("Please provide at least one item to ship."))
-            if picking.move_lines.filtered(lambda line: not line.weight):
+            if picking.move_ids.filtered(lambda line: not line.weight and line.product_qty != 0):
                 raise UserError(_('The estimated price cannot be computed because the weight of your product is missing.'))
         return True
 
@@ -115,52 +124,15 @@ class EasypostRequest():
                    if addr_obj[addr_obj_field]}
         address['order[%s][name]' % addr_type] = (addr_obj.name or addr_obj.display_name)[:25]
         if addr_obj.state_id:
-            address['order[%s][state]' % addr_type] = addr_obj.state_id.name
+            address['order[%s][state]' % addr_type] = addr_obj.state_id.code
         address['order[%s][country]' % addr_type] = addr_obj.country_id.code
         if addr_obj.commercial_company_name:
             address['order[%s][company]' % addr_type] = addr_obj.commercial_company_name[:25]
         return address
 
-    def _prepare_order_shipments(self, carrier, order):
-        """ Method used in order to estimate delivery
-        cost for a quotation. It estimates the price with
-        the default package defined on the carrier.
-        e.g: if the default package on carrier is a 10kg Fedex
-        box and the customer ships 35kg it will create a shipment
-        with 4 packages (3 with 10kg and the last with 5 kg.).
-        It ignores reality with dimension or the fact that items
-        can not be cut in multiple pieces in order to allocate them
-        in different packages. It also ignores customs info.
-        """
-        # Max weight for carrier default package
-        max_weight = carrier._easypost_convert_weight(carrier.easypost_default_package_type_id.max_weight)
-        # Order weight
-        total_weight = carrier._easypost_convert_weight(order._get_estimated_weight())
-        # Order Dimensions
-        self.width, self.height, self.package_length = carrier._easypost_convert_size(carrier.easypost_default_package_type_id)
-
-        # Create shipments
-        shipments = {}
-        if max_weight and total_weight > max_weight:
-            # Integer division for packages with maximal weight.
-            total_shipment = int(total_weight // max_weight)
-            # Remainder for last package.
-            last_shipment_weight = float_round(total_weight % max_weight, precision_digits=1)
-            for shp_id in range(0, total_shipment):
-                shipments.update(self._prepare_parcel(shp_id, carrier.easypost_default_package_type_id, max_weight, carrier.easypost_label_file_type))
-                shipments.update(self._options(shp_id, carrier))
-            if not float_is_zero(last_shipment_weight, precision_digits=1):
-                shipments.update(self._prepare_parcel(total_shipment, carrier.easypost_default_package_type_id, last_shipment_weight, carrier.easypost_label_file_type))
-                shipments.update(self._options(total_shipment, carrier))
-        else:
-            shipments.update(self._prepare_parcel(0, carrier.easypost_default_package_type_id, total_weight, carrier.easypost_label_file_type))
-            shipments.update(self._options(0, carrier))
-        return shipments
-
-    def _prepare_picking_shipments(self, carrier, picking, is_return=False):
+    def _prepare_shipments(self, carrier, packages, is_return=False):
         """ Prepare easypost order's shipments with the real
-        value used in the picking. It will put everything in
-        a single package if no packages are used in the picking.
+        value used in the picking.
         It will iterates over multiple packages if they are used.
         It returns a dict with the necessary shipments (containing
         parcel/customs info used for each stock.move.line result package.
@@ -168,116 +140,72 @@ class EasypostRequest():
         in a single package.
         """
         shipment = {}
-        shipment_id = 0
-        move_lines_with_package = picking.move_line_ids.filtered(lambda ml: ml.result_package_id)
-        move_lines_without_package = picking.move_line_ids - move_lines_with_package
-        if move_lines_without_package:
-            # If the user didn't use a specific package we consider
-            # that he put everything inside a single package.
-            # The user still able to reorganise its packages if a
-            # mistake happens.
-            if picking.picking_type_code == 'incoming':
-                weight = sum([ml.product_id.weight * ml.product_uom_id._compute_quantity(ml.product_qty, ml.product_id.uom_id, rounding_method='HALF-UP') for ml in move_lines_without_package])
-            else:
-                weight = sum([ml.product_id.weight * ml.product_uom_id._compute_quantity(ml.qty_done, ml.product_id.uom_id, rounding_method='HALF-UP') for ml in move_lines_without_package])
-            weight = carrier._easypost_convert_weight(weight)
-            self.width, self.height, self.package_length = carrier._easypost_convert_size(
-                carrier.easypost_default_package_type_id)
-            shipment.update(self._prepare_parcel(0, carrier.easypost_default_package_type_id, weight, carrier.easypost_label_file_type))
-            # Add customs info for this package.
-            shipment.update(self._customs_info(0, move_lines_without_package.filtered(lambda ml: ml.product_id.type in ['product', 'consu'])))
-            shipment.update(self._options(0, carrier))
-            shipment_id += 1
-        if move_lines_with_package:
-            # Generate an easypost shipment for each package in picking.
-            for package in picking.package_ids:
-                # compute move line weight in package
-                move_lines = picking.move_line_ids.filtered(lambda ml: ml.result_package_id == package)
-                if picking.picking_type_code == 'incoming':
-                    weight = sum([ml.product_id.weight * ml.product_uom_id._compute_quantity(ml.product_qty, ml.product_id.uom_id, rounding_method='HALF-UP') for ml in move_lines])
-                else:
-                    weight = package.shipping_weight
-                weight = carrier._easypost_convert_weight(weight)
-                self.width, self.height, self.package_length = carrier._easypost_convert_size(
-                    package.package_type_id)
-
-                # Prepare an easypost parcel with same info than package.
-                shipment.update(self._prepare_parcel(shipment_id, package.package_type_id, weight=weight, label_format=carrier.easypost_label_file_type))
-                # Add customs info for current shipment.
-                shipment.update(self._customs_info(shipment_id, move_lines))
-                shipment.update(self._options(shipment_id, carrier))
-                shipment_id += 1
+        for shp_id, pkg in enumerate(packages):
+            shipment.update(self._prepare_parcel(carrier, shp_id, pkg, carrier.easypost_label_file_type))
+            shipment.update(self._customs_info(carrier, shp_id, pkg.commodities, pkg.currency_id))
+            shipment.update(self._options(shp_id, carrier))
         if is_return:
             shipment.update({'order[is_return]': True})
         return shipment
 
-    def _prepare_parcel(self, shipment_id, package, weight=False, label_format='pdf'):
+    def _prepare_parcel(self, carrier, shipment_id, delivery_package, label_format='pdf'):
         """ Prepare parcel for used package. (carrier default if it comes from
         an order). https://www.easypost.com/docs/api.html#parcels
         params:
         - Shipment_id int: The current easypost shipement.
-        - Package 'stock.package.type': Used package for shipement
+        - delivery_package: custom 'DeliveryPackage' -> used package for shipement.
         - Weight float(oz): Product's weight contained in package
         - label_format str: Format for label to print.
         return dict: a dict with necessary keys in order to create
         a easypost parcel for the easypost shipement with shipment_id
         """
         shipment = {
-            'order[shipments][%d][parcel][weight]' % shipment_id: weight,
+            'order[shipments][%d][parcel][weight]' % shipment_id: carrier._easypost_convert_weight(delivery_package.weight),
             'order[shipments][%d][options][label_format]' % shipment_id: label_format,
             'order[shipments][%d][options][label_date]' % shipment_id: datetime.datetime.now().isoformat()
         }
-        if package.package_carrier_type == 'easypost':
-            if package.shipper_package_code:
-                shipment.update({
-                    'order[shipments][%d][parcel][predefined_package]' % shipment_id: package.shipper_package_code
-                })
-            if not package.shipper_package_code or (package.packaging_length > 0 and package.width > 0 and package.height > 0):
-                shipment.update({
-                    'order[shipments][%d][parcel][width]' % shipment_id: self.width,
-                    'order[shipments][%d][parcel][height]' % shipment_id: self.height,
-                    'order[shipments][%d][parcel][length]' % shipment_id: self.package_length
-
-                })
+        # If this is not an EasyPost predefined package, then we give the dimensions.
+        packages = carrier._easypost_get_services_and_package_types()[0]
+        if delivery_package.packaging_type and any(delivery_package.packaging_type in pkg_names for pkg_names in packages.values()):
+            shipment.update({
+                'order[shipments][%d][parcel][predefined_package]' % shipment_id: delivery_package.packaging_type
+            })
+        elif all(dim > 0 for dim in delivery_package.dimension.values()):
+            shipment.update({
+                'order[shipments][%d][parcel][%s]' % (shipment_id, dim): delivery_package.dimension[dim]
+                for dim in 'height width length'.split()
+            })
         else:
-            raise UserError(_('Package type used in pack %s is not configured for easypost.', package.display_name))
+            raise UserError(_('Package type used in pack %s is not configured for easypost.', delivery_package.name))
         return shipment
 
-    def _customs_info(self, shipment_id, lines):
+    def _customs_info(self, carrier, shipment_id, commodities, currency):
         """ generate a dict with customs info for each package.
         https://www.easypost.com/customs-guide.html
         Currently general customs info for all packages are not generate.
         For each shipment add a customs items by move line containing
         - Product description (care it crash if bracket are used)
         - Quantity for this product in the current package
-        - Product price
-        - Product price currency
+        - Total Value (unit value * qty)
+        - Total Value currency
         - Total weight in ounces.
         - Original country code(warehouse)
         """
+        # Customs information should be given only for international deliveries
+        if self.is_domestic_shipping:
+            return {}
+
         customs_info = {}
-        customs_item_id = 0
-        for line in lines:
-            # skip service
-            if line.product_id.type not in ['product', 'consu']:
-                continue
-            if line.picking_id.picking_type_code == 'incoming':
-                unit_quantity = line.product_uom_id._compute_quantity(line.product_qty, line.product_id.uom_id, rounding_method='HALF-UP')
-            else:
-                unit_quantity = line.product_uom_id._compute_quantity(line.qty_done, line.product_id.uom_id, rounding_method='HALF-UP')
-            rounded_qty = max(1, float_round(unit_quantity, precision_digits=0, rounding_method='HALF-UP'))
-            rounded_qty = float_repr(rounded_qty, precision_digits=0)
-            hs_code = line.product_id.hs_code or ''
+        for customs_item_id, commodity in enumerate(commodities):
             customs_info.update({
-                'order[shipments][%d][customs_info][customs_items][%d][description]' % (shipment_id, customs_item_id): line.product_id.name,
-                'order[shipments][%d][customs_info][customs_items][%d][quantity]' % (shipment_id, customs_item_id): rounded_qty,
-                'order[shipments][%d][customs_info][customs_items][%d][value]' % (shipment_id, customs_item_id): line.sale_price,
-                'order[shipments][%d][customs_info][customs_items][%d][currency]' % (shipment_id, customs_item_id): line.picking_id.company_id.currency_id.name,
-                'order[shipments][%d][customs_info][customs_items][%d][weight]' % (shipment_id, customs_item_id): line.env['delivery.carrier']._easypost_convert_weight(line.product_id.weight * unit_quantity),
-                'order[shipments][%d][customs_info][customs_items][%d][origin_country]' % (shipment_id, customs_item_id): line.picking_id.picking_type_id.warehouse_id.partner_id.country_id.code,
-                'order[shipments][%d][customs_info][customs_items][%d][hs_tariff_number]' % (shipment_id, customs_item_id): hs_code,
+                'order[shipments][%d][customs_info][customs_items][%d][description]' % (shipment_id, customs_item_id): commodity.product_id.name,
+                'order[shipments][%d][customs_info][customs_items][%d][quantity]' % (shipment_id, customs_item_id): commodity.qty,
+                'order[shipments][%d][customs_info][customs_items][%d][value]' % (shipment_id, customs_item_id): commodity.monetary_value * commodity.qty,
+                'order[shipments][%d][customs_info][customs_items][%d][currency]' % (shipment_id, customs_item_id): currency.name,
+                'order[shipments][%d][customs_info][customs_items][%d][weight]' % (shipment_id, customs_item_id): carrier._easypost_convert_weight(commodity.product_id.weight * commodity.qty),
+                'order[shipments][%d][customs_info][customs_items][%d][origin_country]' % (shipment_id, customs_item_id): commodity.country_of_origin,
+                'order[shipments][%d][customs_info][customs_items][%d][hs_tariff_number]' % (shipment_id, customs_item_id): commodity.product_id.hs_code,
             })
-            customs_item_id += 1
         return customs_info
 
     def _options(self, shipment_id, carrier):
@@ -296,8 +224,6 @@ class EasypostRequest():
         - recipient address (check _prepare_address for more info)
         - shipper address (check _prepare_address for more info)
         - prepare shipments (with parcel/customs info)
-            - check _prepare_picking_shipments for more info in picking case
-            - check _prepare_order_shipments for more info in SO case
         - Do the API request
         If a service level is defined on the delivery carrier it will
         returns the rate for this service or an error if there is no
@@ -327,12 +253,24 @@ class EasypostRequest():
         if carrier.easypost_default_service_id._require_residential_address():
             order_payload['order[to_address][residential]'] = True
 
+        # The request differ depending on if it is a domestic shipping or an international one
+        self.is_domestic_shipping = order_payload["order[from_address][country]"] == order_payload["order[to_address][country]"]
+
         # if picking then count total_weight of picking move lines, else count on order
         # easypost always takes weight in ounces(oz)
         if picking:
-            order_payload.update(self._prepare_picking_shipments(carrier, picking, is_return=is_return))
+            delivery_packages = carrier._get_packages_from_picking(picking, carrier.easypost_default_package_type_id)
         else:
-            order_payload.update(self._prepare_order_shipments(carrier, order))
+            delivery_packages = carrier._get_packages_from_order(order, carrier.easypost_default_package_type_id)
+        order_payload.update(self._prepare_shipments(carrier, delivery_packages, is_return=is_return))
+
+        insured_amount = 0.0
+        if carrier.shipping_insurance:
+            for pkg in delivery_packages:
+                insured_amount += carrier._easypost_usd_insured_value(pkg.total_cost, pkg.currency_id)
+        insurance_cost = 0
+        if insured_amount:
+            insurance_cost = carrier._easypost_usd_estimated_insurance_cost(insured_amount)
 
         # request for rate
         response = self._make_api_request("orders", "post", data=order_payload)
@@ -379,6 +317,9 @@ class EasypostRequest():
         response.update({
             'error_message': error_message,
             'rate': rate,
+            'insurance_cost': insurance_cost,
+            'insured_amount': insured_amount,
+            'shipment_ids': [shipment['id'] for shipment in response.get('shipments', [])],
         })
 
         return response
@@ -413,13 +354,23 @@ class EasypostRequest():
         response = self._post_process_ship_response(response, carrier=carrier, picking=picking)
         # explicitly check response for any messages
         messages = response.get('messages', [])
-        type = messages[0].get('type') if messages else None
-        if type and type not in NON_BLOCKING_MESSAGES:
+        message_type = messages[0].get('type') if messages else None
+        if message_type and message_type not in NON_BLOCKING_MESSAGES:
             raise UserError('\n'.join([x['carrier'] + ': ' + x['type'] + ' -- ' + x['message'] for x in response['messages']]))
 
         # get tracking code and lable file url
-        result['track_shipments_url'] = {res['tracking_code']: res['tracker']['public_url'] for res in response['shipments']}
-        result['track_label_data'] = {res['tracking_code']: res['postage_label']['label_url'] for res in response['shipments']}
+        result['track_shipments_url'] = {res['tracking_code']: res['tracker']['public_url'] for res in response['shipments'] if res['tracker']}
+        result['track_label_data'] = {res['tracking_code']: res['postage_label']['label_url'] for res in response['shipments'] if res['postage_label']}
+
+        # get commercial invoice + other forms
+        result['forms'] = {form['form_type']: form['form_url'] for res in response['shipments'] for form in res.get('forms', [])}
+
+        # buy insurance after successful order purchase
+        for shp_id in result.get('shipment_ids'):
+            insured_amount = result.get('insured_amount')
+            if not float_is_zero(insured_amount, precision_rounding=2):
+                endpoint = "shipments/%s/insure" % shp_id
+                response = self._make_api_request(endpoint, 'post', data={'amount': insured_amount})
         return result
 
     def get_tracking_link(self, order_id):
@@ -460,15 +411,24 @@ class EasypostRequest():
         modify the returned response in order to make it standard compare to
         other carrier.
         """
-        # An order for UPS will generate a rate for first shipment with the
-        # rate for all shipments but compare to other carriers, it will return
-        # messages for following shipments explaining that their rates is in the
-        # first shipment (other carrier just return an empty list).
-        if response.get('messages') and\
-                carrier.easypost_delivery_type == 'UPS' and\
-                len(response.get('shipments', [])) > 1:
-            if len(response.get('shipments')[0].get('rates', [])) > 0 and all(s.get('messages') for s in response['shipments'][1:]):
-                if picking:
-                    picking.message_post(body=response.get('messages'))
-                response['messages'] = False
+        # With multiples shipments, some carrier will return a message explaining that
+        # the rates are on the first shipments and not on the next ones.
+        if response.get('messages') and carrier.easypost_delivery_type in ['Purolator', 'DPD UK', 'UPS'] and \
+                len(response.get('shipments', [])) > 1 and \
+                len(response.get('shipments')[0].get('rates', [])) > 0 and \
+                all(len(s.get('rates', [])) == 0 for s in response['shipments'][1:]):
+            if carrier.easypost_delivery_type == 'UPS' and not all(s.get('messages') for s in response['shipments'][1:]):
+                # UPS also send a message on following shipments explaining that their rates is in the
+                # first shipment (other carrier just return an empty list).
+                return response
+            if carrier.easypost_delivery_type in ['Purolator', 'DPD UK'] and (
+                    len(response['messages']) != 1 or
+                    response['messages'][0].get('type', '') != 'rate_error' or
+                    "multi-shipment rate includes this shipment." not in response['messages'][0].get('message', '')):
+                # Purolator & DPD UK send a rate_error message for this situation.
+                return response
+
+            if picking:
+                picking.message_post(body=response.get('messages'))
+            response['messages'] = False
         return response

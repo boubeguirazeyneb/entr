@@ -2,15 +2,15 @@ odoo.define('web_studio.ReportEditorManager_tests', function (require) {
 "use strict";
 
 var ace = require('web_editor.ace');
-const ajax = require('web.ajax');
 var config = require('web.config');
-const core = require('web.core');
 const { Markup } = require('web.utils');
-var MediaDialog = require('wysiwyg.widgets.MediaDialog');
+const { MediaDialogWrapper } = require('@web_editor/components/media_dialog/media_dialog');
 var testUtils = require('web.test_utils');
-var testUtilsDom = require('web.test_utils_dom');
 var studioTestUtils = require('web_studio.testUtils');
 var session = require('web.session');
+const { patchWithCleanup } = require("@web/../tests/helpers/utils");
+
+const { useEffect } = require("@odoo/owl");
 
 function getFloatSizeFromPropertyInPixels($element, propertyName) {
     var size = $element.css(propertyName);
@@ -80,7 +80,6 @@ QUnit.module('Studio', {}, function () {
 
 QUnit.module('ReportEditorManager', {
     beforeEach: async function () {
-        await ajax.loadXML('/web_editor/static/src/xml/editor.xml', core.qweb);
         this.models = {
             'model.test': 'Model Test',
             'model.test.child': 'Model Test Child',
@@ -1312,8 +1311,8 @@ QUnit.module('ReportEditorManager', {
                                     '<td/>' +
                                     '<td/>' +
                                     '<td/>' +
-                                    '<td class="text-right" colspan="2"><span class="o_bold">Total</span></td>' +
-                                    '<td class="text-right"><span class="o_bold"><t t-esc="sum(docs.mapped(\'total\'))"/></span></td>' +
+                                    '<td class="text-end" colspan="2"><span class="o_bold">Total</span></td>' +
+                                    '<td class="text-end"><span class="o_bold"><t t-esc="sum(docs.mapped(\'total\'))"/></span></td>' +
                                 '</tr>' +
                             '</tbody>' +
                         '</table>' +
@@ -1613,8 +1612,8 @@ QUnit.module('ReportEditorManager', {
                                     '<td/>' +
                                     '<td/>' +
                                     '<td/>' +
-                                    '<td class="text-right" colspan="2"><span class="o_bold">Total</span></td>' +
-                                    '<td class="text-right"><span class="o_bold"><t t-esc="sum(docs.mapped(\'total\'))"/></span></td>' +
+                                    '<td class="text-end" colspan="2"><span class="o_bold">Total</span></td>' +
+                                    '<td class="text-end"><span class="o_bold"><t t-esc="sum(docs.mapped(\'total\'))"/></span></td>' +
                                 '</tr>' +
                             '</tbody>' +
                         '</table>' +
@@ -1771,7 +1770,7 @@ QUnit.module('ReportEditorManager', {
                             '<div class="row">' +
                                 '<div class="col-5">' +
                                     '<table class="table table-sm">' +
-                                        '<t t-set="tax_totals" t-value="json.loads(o.tax_totals_json)"/>' +
+                                        '<t t-set="tax_totals" t-value="o.tax_totals"/>' +
                                         '<t t-call="account.document_tax_totals"/>' +
                                     '</table>' +
                                 '</div>' +
@@ -1877,7 +1876,7 @@ QUnit.module('ReportEditorManager', {
         await rem.editorIframeDef.then(async function () {
             await testUtils.dom.click(rem.$('iframe').contents().find('main th'));
             var $card = rem.$('.o_web_studio_sidebar .card:has(.o_text:contains(table))');
-            await testUtils.dom.click($card.find('[data-toggle="collapse"]'));
+            await testUtils.dom.click($card.find('[data-bs-toggle="collapse"]'));
             $card = rem.$('.o_web_studio_sidebar .card.o_web_studio_active');
             assert.strictEqual($card.find('.o_text').text().trim(), 'table',
                 'Correct card should be active after sidebar updation');
@@ -1972,6 +1971,7 @@ QUnit.module('ReportEditorManager', {
             assert.strictEqual($('.o_technical_modal h4:contains(Alert)').length, 1, "Should display an alert because the selected field is wrong");
 
             await testUtils.dom.click($('.o_technical_modal:contains(Alert) .btn-primary'));
+            $('.o_web_studio_field_modal .o_field_selector').trigger('focusin');
             await testUtils.dom.click($('.o_web_studio_field_modal .o_field_selector_item[data-name="children"]'));
             await testUtils.dom.click($('.o_web_studio_field_modal .btn-primary'));
 
@@ -2051,9 +2051,8 @@ QUnit.module('ReportEditorManager', {
     });
 
     QUnit.test('drag & drop block "Image"', async function (assert) {
-        assert.expect(2);
+        assert.expect(1);
         var done = assert.async();
-        var self = this;
 
         this.templates.push({
             key: 'template1',
@@ -2075,13 +2074,6 @@ QUnit.module('ReportEditorManager', {
             reportViews: studioTestUtils.getReportViews(this.templates),
             reportMainViewID: 42,
             mockRPC: function (route, args) {
-                // Bypass mockSearchRead domain evauation
-                if (route === '/web/dataset/call_kw/ir.attachment/search_read') {
-                    return Promise.resolve([self.data['ir.attachment'].records[0]]);
-                }
-                if (route.match(/\/web_editor\/attachment\/\d+\/update/)) {
-                    return Promise.resolve(this.data['ir.attachment'].records[0]);
-                }
                 if (route === '/web_studio/edit_report_view') {
                     if (editReportViewCalls === 0) {
                         assert.strictEqual(
@@ -2102,33 +2094,30 @@ QUnit.module('ReportEditorManager', {
 
         // Process to use the report editor
         await rem.editorIframeDef.then(async function () {
-            var defMediaDialogInit = testUtils.makeTestPromise();
-            testUtils.mock.patch(MediaDialog, {
-                init: function () {
-                    this._super.apply(this, arguments);
-                    this.opened(defMediaDialogInit.resolve.bind(defMediaDialogInit));
+            var $page = rem.$('iframe').contents().find('.page');
+            var $imageBlock = rem.$('.o_web_studio_sidebar .o_web_studio_component:contains(Image)');
+
+            // Mock the MediaDialogWrapper
+            const defMediaDialog = testUtils.makeTestPromise();
+            patchWithCleanup(MediaDialogWrapper.prototype, {
+                setup() {
+                    useEffect(() => {
+                        this.save();
+                    }, () => []);
+                },
+                save() {
+                    const imageEl = document.createElement('img');
+                    imageEl.src = '/web/static/joes_garage.png?access_token=token';
+                    this.props.save(imageEl);
+                    defMediaDialog.resolve();
                 },
             });
 
-            // Wait for the image modal to be fully loaded in two steps:
-            // First, the Bootstrap modal itself
-            $('body').one('shown.bs.modal', function () {
-                assert.containsOnce($('body'), '.modal-dialog.o_select_media_dialog',
-                    'The bootstrap modal for media selection is open');
-            });
-            // Second, when the modal element is there, bootstrap focuses on the "image" tab
-            // then only could we use the widget and select an image safely
-            defMediaDialogInit.then(async function () {
-                var $modal = $('.o_select_media_dialog');
-                await testUtilsDom.click($modal.find('.o_existing_attachment_cell').removeClass('d-none'));
-
-                testUtils.mock.unpatch(MediaDialog);
+            defMediaDialog.then(async function () {
+                await testUtils.nextTick();
                 done();
                 rem.destroy();
             });
-
-            var $page = rem.$('iframe').contents().find('.page');
-            var $imageBlock = rem.$('.o_web_studio_sidebar .o_web_studio_component:contains(Image)');
             await testUtils.dom.dragAndDrop($imageBlock, $page, {position: 'inside'});
         });
     });

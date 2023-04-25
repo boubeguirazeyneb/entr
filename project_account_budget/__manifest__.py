@@ -5,13 +5,19 @@
     'name': "Project Budget",
     'version': '1.0',
     'summary': "Project account budget",
-    'description': "",
     'category': 'Services/Project',
-    'depends': ['account_budget', 'project'],
+    'depends': ['account_budget', 'project_enterprise'],
     'data': [
-        'views/project_views.xml',
+        'views/account_budget_views.xml',
     ],
-    'application': False,
+    'demo': [
+        'data/account_budget_demo.xml',
+    ],
+    'assets': {
+        'web.assets_backend': [
+            'project_account_budget/static/src/components/**/*',
+        ],
+    },
     'auto_install': True,
     'license': 'OEEL-1',
 }

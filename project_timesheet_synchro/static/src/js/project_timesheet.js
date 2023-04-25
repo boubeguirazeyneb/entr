@@ -1,7 +1,7 @@
 odoo.define('project_timeshee.ui', function (require ) {
     "use strict";
 
-    var ajax = require('web.ajax');
+    const { loadBundle } = require("@web/core/assets");
     var config = require('web.config');
     var Context = require('web.Context');
     var core = require('web.core');
@@ -46,7 +46,6 @@ odoo.define('project_timeshee.ui', function (require ) {
     //Main widget to instantiate the app
     var ProjectTimesheet = Widget.extend(ServiceProviderMixin, {
         template: "app",
-        xmlDependencies: ['/project_timesheet_synchro/static/src/xml/project_timesheet.xml'],
         jsLibs: [
             rootPath + '/web/static/lib/Chart/Chart.js'
         ],
@@ -84,7 +83,7 @@ odoo.define('project_timeshee.ui', function (require ) {
         willStart: function() {
             var self = this;
             var defs = [
-                ajax.loadLibs(this)
+                loadBundle(this)
             ];
             if(isDesktop) {
                 defs.push(session.session_reload().then(function() {
@@ -635,7 +634,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                                     } else {
                                         // Show a warning to the user, once a day
                                         if (!self.data.warning_date || (self.data.warning_date && moment(self.data.warning_date).diff(new Date(), 'days') !== 0)) {
-                                            alert('The code on your Odoo server is not up to date and an important update has been released. You or your system administrator should consider retrieving it as soon as possible.');
+                                            alert(_t('The code on your Odoo server is not up to date and an important update has been released. You or your system administrator should consider retrieving it as soon as possible.'));
                                             self.data.warning_date = new Date();
                                         }
                                         resolve();
@@ -1053,7 +1052,7 @@ odoo.define('project_timeshee.ui', function (require ) {
             var activity = _.findWhere(this.getParent().data.account_analytic_lines,  {id: event.currentTarget.dataset.activity_id});
             if (activity.unit_amount <= 0) {
                 self.modal_activity = activity;
-                self.$('.pt_deletion_from_list_modal').modal();
+                self.$('.pt_deletion_from_list_modal').modal('show');
             } else {
                 if (_.isUndefined(this.getParent().data.settings.time_unit)) {
                     activity.unit_amount = parseFloat(activity.unit_amount) - DEFAULT_TIME_UNIT;
@@ -1203,13 +1202,13 @@ odoo.define('project_timeshee.ui', function (require ) {
         initialize_project_selector: function() {
             var self = this;
             // Initialization of select2 for projects
-            function format(item) {return item.name;}
-            function formatRes(item) {
+            function format(item, container, fmt) {return fmt(item.name);}
+            function formatRes(item, container, query, fmt) {
                 if (item.isNew) {
-                    return "Create Project : " + item.name;
+                    return "Create Project : " + fmt(item.name);
                 }
                 else {
-                    return item.name;
+                    return fmt(item.name);
                 }
             }
             this.$('.pt_default_project_select2').select2({
@@ -1217,7 +1216,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                 formatSelection: format,
                 formatResult: formatRes,
                 createSearchChoicePosition : 'bottom',
-                placeholder: "No default project",
+                placeholder: _t("No default project"),
                 allowClear: true,
                 containerCss: {"display":"block"},
                 createSearchChoice: function(user_input, new_choice) {
@@ -1272,7 +1271,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                 });
             } else {
                 this.$('.pt_settings_alert').show(0).delay(5000).hide(0);
-                this.$("div.pt_duration_fg").addClass('o_has_error').find('.form-control, .custom-select').addClass('is-invalid');
+                this.$("div.pt_duration_fg").addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
                 this.$("input.pt_minimal_duration").val('').focus();
             }
         },
@@ -1286,7 +1285,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                 });
             } else {
                 this.$('.pt_settings_alert').show(0).delay(5000).hide(0);
-                this.$("div.pt_time_unit_fg").addClass('o_has_error').find('.form-control, .custom-select').addClass('is-invalid');
+                this.$("div.pt_time_unit_fg").addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
                 this.$("input.pt_time_unit").val('').focus();
             }
         },
@@ -1336,13 +1335,13 @@ odoo.define('project_timeshee.ui', function (require ) {
         initialize_project_selector: function() {
             var self = this;
             // Initialization of select2 for projects
-            function format(item) {return item.name;}
-            function formatRes(item) {
+            function format(item, container, fmt) {return fmt(item.name);}
+            function formatRes(item, container, query, fmt) {
                 if (item.isNew) {
-                    return "Create Project : " + item.name;
+                    return "Create Project : " + fmt(item.name);
                 }
                 else {
-                    return item.name;
+                    return fmt(item.name);
                 }
             }
             this.$('.pt_activity_project').select2({
@@ -1375,10 +1374,10 @@ odoo.define('project_timeshee.ui', function (require ) {
         // Initialization of select2 for tasks
         initialize_task_selector: function() {
             var self = this;
-            function format(item) { return item.name; }
-            function formatRes(item) {
+            function format(item,container,fmt) { return fmt(item.name); }
+            function formatRes(item, container, query, fmt) {
                 if (item.isNew) {
-                    return _t("Create Task : ") + item.name;
+                    return _t("Create Task : ") + fmt(item.name);
                 }
                 else {
                     var name = item.name;
@@ -1387,7 +1386,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                         var minutes = Math.abs(Math.floor((item.remaining_hours - hours) * 60));
                         name += " ‒ (" + hours.toString().padStart(2, 0) + ":" + minutes.toString().padStart(2, 0) + " " + _t("remaining)");
                     }
-                    return name;
+                    return fmt(name);
                 }
             }
             self.task_list = _.where(self.getParent().data.tasks, {project_id : self.activity.project_id});
@@ -1396,7 +1395,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                 formatSelection: format,
                 formatResult: formatRes,
                 allowClear : true,
-                placeholder: "No task selected",
+                placeholder: _t("No task selected"),
                 createSearchChoicePosition : 'bottom',
                 containerCss: {"display":"block"},
                 createSearchChoice: function(user_input, new_choice) {
@@ -1684,7 +1683,7 @@ odoo.define('project_timeshee.ui', function (require ) {
             function prepareData(week) {
                 var labels = [];
                 var dataset = {
-                    label: "Working time per week",
+                    label: _t("Working time per week"),
                     data: [],
                     backgroundColor: "#875A7B",
                 };
@@ -1840,10 +1839,10 @@ odoo.define('project_timeshee.ui', function (require ) {
                 self.getParent().get_user_data(session.username, session.server);
             }).guardedCatch(function(error) {
                 if (error && error.code == -32098) {
-                    alert("Could not reach the server. Please check that you have an internet connection, that the server address you entered is valid, and that the server is online.");
+                    alert(_t("Could not reach the server. Please check that you have an internet connection, that the server address you entered is valid, and that the server is online."));
                 }
                 else {
-                    alert("Could not login. Please check that the information you entered is correct.");
+                    alert(_t("Could not login. Please check that the information you entered is correct."));
                 }
             });
         },
@@ -1864,16 +1863,16 @@ odoo.define('project_timeshee.ui', function (require ) {
             session.rpc('/web/session/modules').then(function(response){
                 if (response.length > 0 && _.contains(response, 'project_timesheet_synchro')) {
                     self.getParent().syncable = true;
-                    self.$('.pt_keep_guest_data').modal();
+                    self.$('.pt_keep_guest_data').modal('show');
                 } else {
                     self.getParent().syncable = false;
                     session.rpc('/jsonrpc',  { method : 'server_version' , service : 'db', args : []}).then(function(result) {
                         if (result && result.endsWith('e')) {
-                            alert("The server does not support timesheet synchronization. You should contact your administrator in order to install the module \"Synchronization with the external timesheet application\"");
+                            alert(_t("The server does not support timesheet synchronization. You should contact your administrator in order to install the module \"Synchronization with the external timesheet application\""));
                         } else if (result) {
-                            alert("Timesheet Synchronization is available in Odoo Enterprise Edition. You should consider upgrading your Odoo version if you would like to use it.");
+                            alert(_t("Timesheet Synchronization is available in Odoo Enterprise Edition. You should consider upgrading your Odoo version if you would like to use it."));
                         } else {
-                            alert("The server does not support timesheet synchronization. It requires Odoo Enterprise Edition version 9 or newer.");
+                            alert(_t("The server does not support timesheet synchronization. It requires Odoo Enterprise Edition version 9 or newer."));
                         }
                     })
                     self.on_keep_data();
@@ -1903,7 +1902,6 @@ odoo.define('project_timeshee.ui', function (require ) {
             });
         },
         sync_now: function() {
-            var self = this;
             core.bus.trigger('change_screen', {
                 id : 'activities',
             });
@@ -1935,10 +1933,10 @@ odoo.define('project_timeshee.ui', function (require ) {
                 self.getParent().show_db_selector_screen();
             }).guardedCatch(function(error) {
                 if (error && error.code == -32098) {
-                    alert("Could not reach the server. Please check that you have an internet connection, that the server address you entered is valid, and that the server is online.");
+                    alert(_t("Could not reach the server. Please check that you have an internet connection, that the server address you entered is valid, and that the server is online."));
                 }
                 else {
-                    alert("Could not login. Please check that the information you entered is correct.");
+                    alert(_t("Could not login. Please check that the information you entered is correct."));
                 }
             });
         },
@@ -2003,7 +2001,7 @@ odoo.define('project_timeshee.ui', function (require ) {
                                 local_storage.setItem('pt_current_user', session.username);
                             }
                             else {
-                                alert('Odoo login failed');
+                                alert(_t('Odoo login failed'));
                             }
                         }
                         session.session_reload().then(always).guardedCatch(always);
@@ -2048,9 +2046,9 @@ odoo.define('project_timeshee.ui', function (require ) {
                 self.getParent().show_premise_login_form_screen();
             }).guardedCatch(function(error) {
                 if (error && error.code == -32098) {
-                    alert("Could not reach the server. Please check that you have an internet connection, that the server address you entered is valid, and that the server is online.");
+                    alert(_t("Could not reach the server. Please check that you have an internet connection, that the server address you entered is valid, and that the server is online."));
                 } else if (self.url) {
-                    alert("Could not find server. Please check that the url you entered is correct.");
+                    alert(_t("Could not find server. Please check that the url you entered is correct."));
                 } else {
                     // Re render the form with a field allowing to enter a database name. Useful for servers that don't allow listing databases.
                     self.use_https = (protocol === 'https://');
@@ -2073,16 +2071,14 @@ odoo.define('project_timeshee.ui', function (require ) {
             var login = this.$(".pt_premise_login").val();
             var password = this.$(".pt_premise_password").val();
             var db_name = this.$(".pt_premise_db").val();
-            var server_address = this.$(".pt_premise_url").val();
-            var protocol = this.$(".pt_premise_protocol").val();
             session._session_authenticate(db_name, login, password).then(function() {
                 local_storage.setItem('pt_current_server', session.origin);
                 self.getParent().on_successful_login();
             }).guardedCatch(function(error) {
                 if (error && error.code == -32098) {
-                    alert("Could not reach the server. Please check that you have an internet connection, that the server address and database name you entered is valid, and that the server is online.");
+                    alert(_t("Could not reach the server. Please check that you have an internet connection, that the server address and database name you entered is valid, and that the server is online."));
                 } else {
-                    alert("Could not login. Please check that the information you entered is correct.");
+                    alert(_t("Could not login. Please check that the information you entered is correct."));
                 }
             });
         },

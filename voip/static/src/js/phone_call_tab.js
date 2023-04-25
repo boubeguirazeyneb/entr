@@ -4,7 +4,6 @@ odoo.define('voip.PhoneCallTab', function (require) {
 const PhoneCall = require('voip.PhoneCall');
 const PhoneCallDetails = require('voip.PhoneCallDetails');
 
-const core = require('web.core');
 const fieldUtils = require('web.field_utils');
 const Widget = require('web.Widget');
 
@@ -35,6 +34,11 @@ const PhoneCallTab = Widget.extend({
         this._selectedPhoneCallId = null;
     },
 
+    async willStart() {
+        await this._super(...arguments);
+        this.messaging = await owl.Component.env.services.messaging.get();
+    },
+
     //--------------------------------------------------------------------------
     // Public
     //--------------------------------------------------------------------------
@@ -60,7 +64,7 @@ const PhoneCallTab = Widget.extend({
     async callFromTab() {
         if (this._phoneCalls.length > 0) {
             const phoneCall = this._phoneCalls[0]
-            const number = phoneCall.phoneNumber;
+            const number = phoneCall.phoneNumber || phoneCall.mobileNumber;
             this._currentPhoneCallId = phoneCall.id;
             this.trigger_up('callNumber', { number });
         } else {
@@ -415,7 +419,7 @@ const PhoneCallTab = Widget.extend({
             args: [ev.data.phoneCallId],
         });
         await this.refreshPhonecallsStatus();
-        core.bus.trigger('voip_widget_refresh', resId);
+        this.messaging.messagingBus.trigger('on-call-activity-removed', resId);
     },
     /**
      * @private

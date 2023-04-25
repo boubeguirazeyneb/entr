@@ -222,7 +222,7 @@ var AbstractEditComponent = Abstract.extend(WidgetAdapterMixin, StandaloneFieldM
         if (typeof value === "string") {
             try {
                 value = py.extract(value);
-            } catch (e) {
+            } catch (_e) {
                 return {
                     chain: [],
                     rest: value,
@@ -345,7 +345,7 @@ var AbstractEditComponent = Abstract.extend(WidgetAdapterMixin, StandaloneFieldM
             _.each(self.fieldSelector, function (fieldType, directiveKey) {
                 var directiveTarget = self.fieldSelector[directiveKey];
                 var target = e.target;
-                if (directiveTarget instanceof owl.Component) {
+                if (directiveTarget instanceof FieldWrapper) {
                     directiveTarget = directiveTarget.componentRef.comp;
                     target = e.data.__originalComponent
                 }
@@ -377,7 +377,6 @@ var AbstractEditComponent = Abstract.extend(WidgetAdapterMixin, StandaloneFieldM
     },
 });
 
-var loadColors;
 var LayoutEditable = AbstractEditComponent.extend({
     name: 'layout',
     template : 'web_studio.ReportLayoutEditable',
@@ -450,7 +449,7 @@ var LayoutEditable = AbstractEditComponent.extend({
         this.bold =_.contains(this.classesArray, 'o_bold');
         this.underline = _.contains(this.classesArray, 'o_underline');
 
-        this.alignment = _.intersection(this.classesArray, ['text-left', 'text-center', 'text-right'])[0];
+        this.alignment = _.intersection(this.classesArray, ['text-start', 'text-center', 'text-end'])[0];
         this.displayAlignment = !_.contains(['inline', 'float'], this.node.$nodes.css('display'));
 
         this.allClasses = params.node.attrs.class || "";
@@ -491,7 +490,6 @@ var LayoutEditable = AbstractEditComponent.extend({
      * @returns {JQuery Node}
      */
     _createPalette: function () {
-        var self = this;
         var $fontPlugin = $('<div/>');
         this._groupColors.forEach(function (color) {
             var $row;
@@ -1158,6 +1156,7 @@ var Text = AbstractEditComponent.extend({
             value: this.directiveFields.text.value,
             resizable: true,
             toolbarTemplate: 'web_studio.Sidebar.web_editor_toolbar',
+            allowInlineAtRoot: true,
         };
         this.wysiwyg = new Wysiwyg(this, options);
         this.$textarea = this.$('textarea:first').val(this.directiveFields.text.value);
@@ -1439,7 +1438,7 @@ var TOptions = AbstractEditComponent.extend( {
         var defs = _.map(this.widget.options, function (option) {
             var $option = $options.find('.o_web_studio_toption_option_' + self.widget.key + '_' + option.key);
             var field = self.fieldSelector[self.widget.key + ':' + option.key];
-            if (field instanceof owl.Component) {
+            if (field instanceof FieldWrapper) {
                 mountedComponents.push(field);
                 if (option.type === "boolean") {
                     return field.mount($option.find('label')[0], {position: 'first-child'});

@@ -16,17 +16,19 @@
 Accounting reports for Colombia
 ================================
     """,
-    'author': ['David Arnold (XOE Solutions)'],
+    'author': 'David Arnold (XOE Solutions)',
     'category': 'Accounting/Localizations/Reporting',
     'depends': ['l10n_co', 'account_reports'],
     'data': [
         'security/ir.model.access.csv',
         'data/l10n_co_reports.xml',
+        'data/l10n_co_reports_ica.xml',
+        'data/l10n_co_reports_iva.xml',
+        'data/l10n_co_reports_fuente.xml',
         'wizard/retention_report_views.xml',
         'report/certification_report_templates.xml',
     ],
-    'demo': [],
-    'auto_install': True,
+    'auto_install': ['l10n_co', 'account_reports'],
     'installable': True,
     'website': 'https://xoe.solutions',
     'license': 'OEEL-1',

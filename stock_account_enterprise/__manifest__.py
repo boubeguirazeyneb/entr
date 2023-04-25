@@ -9,14 +9,8 @@
     'description': """
 Contains the enterprise views for Stock account
     """,
-    'depends': ['stock_account', 'stock_enterprise', 'web_dashboard'],
-    'data': [
-        'report/stock_report_views.xml',
-    ],
-    'demo': [
-    ],
+    'depends': ['stock_account', 'stock_enterprise'],
     'installable': True,
-    'application': False,
     'auto_install': ['stock_account'],
     'license': 'OEEL-1',
 }

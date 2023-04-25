@@ -4,9 +4,7 @@ odoo.define('bank_stmt_import_csv.import', function (require) {
 var core = require('web.core');
 var BaseImport = require('base_import.import')
 
-var QWeb = core.qweb;
 var _t = core._t;
-var _lt = core._lt;
 
 var DataImportStmt = BaseImport.DataImport.extend({
     init: function (parent, action) {
@@ -58,14 +56,12 @@ var DataImportStmt = BaseImport.DataImport.extend({
         return superProm;
     },
     exit: function () {
-        if (!this.statement_id) return;
-        this.do_action({
-            type: 'ir.actions.act_window',
-            res_model: 'account.bank.statement',
-            res_id: this.statement_id,
-            views: [[false, 'form']],
-            target: 'current',
-        });
+        if (!this.statement_id) return this._super.apply(this, arguments);
+        this._rpc({
+            model: 'account.bank.statement',
+            method: 'action_open_bank_reconcile_widget',
+            args: [this.statement_id]
+        }).then(this.do_action);
     },
 
 });

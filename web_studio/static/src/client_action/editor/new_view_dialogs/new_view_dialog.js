@@ -4,6 +4,8 @@ import { useService } from "@web/core/utils/hooks";
 import { sprintf } from "@web/core/utils/strings";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 
+import { onWillStart } from "@odoo/owl";
+
 export class NewViewDialog extends ConfirmationDialog {
     setup() {
         super.setup();
@@ -19,31 +21,30 @@ export class NewViewDialog extends ConfirmationDialog {
             date_start: null,
             date_stop: null,
         };
+
+        onWillStart(async () => {
+            const fieldsGet = await this.orm.call(this.studio.editedAction.res_model, "fields_get");
+            const fields = Object.entries(fieldsGet).map(([fName, field]) => {
+                field.name = fName;
+                return field;
+            });
+            fields.sort((first, second) => {
+                if (first.string === second.string) {
+                    return 0;
+                }
+                if (first.string < second.string) {
+                    return -1;
+                }
+                if (first.string > second.string) {
+                    return 1;
+                }
+            });
+            this.computeSpecificFields(fields);
+        });
     }
 
     get viewType() {
         return this.props.viewType;
-    }
-
-    async willStart() {
-        const fieldsGet = await this.orm.call(this.studio.editedAction.res_model, "fields_get");
-        const fields = Object.entries(fieldsGet).map(([fName, field]) => {
-            field.name = fName;
-            return field;
-        });
-        fields.sort((first, second) => {
-            if (first.string === second.string) {
-                return 0;
-            }
-            if (first.string < second.string) {
-                return -1;
-            }
-            if (first.string > second.string) {
-                return 1;
-            }
-        });
-        this.computeSpecificFields(fields);
-        return super.willStart();
     }
 
     /**
@@ -88,13 +89,11 @@ export class NewViewDialog extends ConfirmationDialog {
         super._confirm();
     }
 }
-NewViewDialog.bodyTemplate = "web_studio.NewViewFieldsSelector";
-NewViewDialog.footerTemplate = "web_studio.OwlNewViewDialogFooter";
+NewViewDialog.template = "web_studio.NewViewDialog";
 NewViewDialog.GROUPABLE_TYPES = ["many2one", "char", "boolean", "selection", "date", "datetime"];
 NewViewDialog.MEASURABLE_TYPES = ["integer", "float"];
-NewViewDialog.size = "modal-md";
-NewViewDialog.props = Object.assign(Object.create(ConfirmationDialog.props), {
+NewViewDialog.props = {
+    ...ConfirmationDialog.props,
     viewType: String,
-    title: { type: String, optional: true },
-    body: { type: String, optional: true },
-});
+};
+delete NewViewDialog.props.body;

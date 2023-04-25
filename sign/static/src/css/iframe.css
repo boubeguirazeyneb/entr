@@ -81,7 +81,9 @@ textarea.o_sign_sign_item {
 .o_sign_sign_item img {
     width: 100%;
     height: 100%;
-
+    position: absolute;
+    top:0;
+    left:0;
     vertical-align: middle;
     display: inline-block;
 }
@@ -156,10 +158,12 @@ textarea.o_sign_sign_item {
 
 .o_sign_selected_option {
     text-decoration-line: none;
+    color: black;
 }
 
 .o_sign_not_selected_option  {
     text-decoration-line: line-through;
+    color: black;
 }
 
 .ui-selected, .ui-selecting { /* jQuery UI */
@@ -171,7 +175,7 @@ textarea.o_sign_sign_item {
 
 .ui-draggable .ui-draggable-handle, .o_sign_field_type_button.ui-draggable { /* jQuery UI */
     /* See o-grab-cursor mixin */
-    cursor: url(/web/static/src/img/openhand.cur), grab;
+    cursor: url(/web/static/img/openhand.cur), grab;
 }
 
 .ui-draggable-dragging .ui-draggable-handle,
@@ -307,6 +311,10 @@ textarea.o_sign_sign_item {
     width: auto;
 }
 
+.o_sign_sign_item_navigator.o_sign_field_type_toolbar_visible {
+    margin-left: 14rem;
+}
+
 .o_tooltip > .o_tooltip_content {
     font-size: 12px !important;
     box-sizing: border-box;
@@ -346,12 +354,31 @@ textarea.o_sign_sign_item {
     position: relative;
     background: inherit;
     border: 0px;
-    font-size: 0.5em;
+    font-size: 1em;
     text-align: center;
     vertical-align: middle;
     width: calc(100% - 54px);
 }
 
 .o_sign_editable_config_area{
-    font-size: 0.2em !important;
+    font-size: 0.4em !important;
+}
+
+.o_sign_drag_helper {
+    position: fixed;
+    z-index: 103;
+}
+
+.o_sign_drag_side_helper {
+    width: 0;
+    height: 100%;
+    border-left: 1px dashed orange;
+    top: 0;
+}
+
+.o_sign_drag_top_helper {
+    border-top: 1px dashed orange;
+    width: 100%;
+    height: 0;
+    left: 0;
 }

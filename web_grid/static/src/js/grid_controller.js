@@ -4,12 +4,16 @@ odoo.define('web_grid.GridController', function (require) {
 var AbstractController = require('web.AbstractController');
 var config = require('web.config');
 var core = require('web.core');
-var dialogs = require('web.view_dialogs');
 var utils = require('web.utils');
 var concurrency = require('web.concurrency');
 
+const { escape } = require("@web/core/utils/strings");
+const { FormViewDialog } = require("@web/views/view_dialogs/form_view_dialog");
+
 var qweb = core.qweb;
 var _t = core._t;
+
+const { Component, markup } = require("@odoo/owl");
 
 var GridController = AbstractController.extend({
     custom_events: Object.assign({}, AbstractController.prototype.custom_events, {
@@ -80,29 +84,62 @@ var GridController = AbstractController.extend({
         this.$buttons.find('.grid_arrow_range').removeClass('active');
         this.$buttons.find('.grid_arrow_range[data-name=' + this.currentRange + ']').addClass('active');
     },
+    /**
+     * Get the action to execute.
+     */
+    _getEventAction(label, cell, ctx) {
+        const noActivitiesFound = _t('No activities found');
+        return {
+            type: 'ir.actions.act_window',
+            name: label,
+            res_model: this.modelName,
+            views: [
+                [this.listViewID, 'list'],
+                [this.formViewID, 'form']
+            ],
+            domain: cell.domain,
+            context: ctx,
+            help: markup(`<p class='o_view_nocontent_smiling_face'>${escape(noActivitiesFound)}</p>`),
+        };
+    },
 
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
 
     /**
+     * Get the context for the form view.
+     * @private
+     */
+    _getFormContext() {
+        return Object.assign({}, this.model.getContext(), { view_grid_add_line: true });
+    },
+
+    /**
+     * @private
+     * @returns {object}
+     */
+    _getFormDialogOptions() {
+        const formContext = this._getFormContext();
+        // TODO: document quick_create_view (?) context key
+        var formViewID = formContext.quick_create_view || this.formViewID || false;
+        return {
+            resModel: this.modelName,
+            resId: false,
+            context: formContext,
+            viewId: formViewID,
+            title: _t("Add a Line"),
+            onRecordSaved: this.reload.bind(this, {}),
+        };
+    },
+
+    /**
      * Open a form View to create a new entry in the grid
      * @private
      */
-    _addLine: function () {
-        var context = this.model.getContext();
-        var formContext = _.extend({}, context, {view_grid_add_line: true});
-        // TODO: document quick_create_view (?) context key
-        var formViewID = context.quick_create_view || this.formViewID || false;
-        new dialogs.FormViewDialog(this, {
-            res_model: this.modelName,
-            res_id: false,
-            context: formContext,
-            view_id: formViewID,
-            title: _t("Add a Line"),
-            disable_multiple_selection: true,
-            on_saved: this.reload.bind(this, {}),
-        }).open();
+    _addLine() {
+        const options = this._getFormDialogOptions()
+        Component.env.services.dialog.add(FormViewDialog, options);
     },
     /**
      * @private
@@ -263,7 +300,6 @@ var GridController = AbstractController.extend({
      * @param {OwlEvent} ev
      */
     _onOpenCellInformation: function (ev) {
-        var self = this;
         var cell_path = ev.data.path.split('.');
         var row_path = cell_path.slice(0, -3).concat(['rows'], cell_path.slice(-2, -1));
         var state = this.model.get();
@@ -286,9 +322,6 @@ var GridController = AbstractController.extend({
             column_value = column_value.split("/")[0];
         }
         var ctx = _.extend({}, this.context);
-        var sectionField = _.find(this.renderer.fields, function (res) {
-            return self.model.sectionField === res.name;
-        });
         if (this.model.sectionField && state.groupBy && state.groupBy[0] === this.model.sectionField) {
             var value = state.data[parseInt(cols_path[0])].__label;
             ctx['default_' + this.model.sectionField] = _.isArray(value) ? value[0] : value;
@@ -301,18 +334,7 @@ var GridController = AbstractController.extend({
 
         ctx['create'] = this.canCreate && !cell.readonly;
         ctx['edit'] = this.activeActions.edit && !cell.readonly;
-        this.do_action({
-            type: 'ir.actions.act_window',
-            name: label,
-            res_model: this.modelName,
-            views: [
-                [this.listViewID, 'list'],
-                [this.formViewID, 'form']
-            ],
-            domain: cell.domain,
-            context: ctx,
-            help: "<p class='o_view_nocontent_smiling_face'>No activities found</p>",
-        });
+        this.do_action(this._getEventAction(label, cell, ctx));
     },
     /**
      * @private
@@ -337,6 +359,7 @@ var GridController = AbstractController.extend({
         }
         this.currentRange = $target.attr('data-name');
 
+        this.context.grid_range = this.currentRange;
         this.update({range: this.currentRange});
     },
 });

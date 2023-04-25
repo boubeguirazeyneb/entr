@@ -12,23 +12,28 @@ tests independently to functional aspects of other models. Moreover most of
 modules build on mail (sms, snailmail, mail_enterprise) are set as dependencies
 in order to test the whole mail codebase. """,
     'depends': [
+        'documents',
         'mail',
         'mail_bot',
+        'mail_enterprise',
         'mass_mailing',
+        'mass_mailing_sms',
         'marketing_automation',
         'marketing_automation_sms',
         'mail_mobile',
+        'portal',
+        'rating',
         'snailmail',
         'sms',
         'test_mail',
         'test_mail_full',
         'test_mass_mailing',
+        'test_mail_sms',
+        'voip',
     ],
     'data': [
-    ],
-    'demo': [
+        'security/ir.model.access.csv',
     ],
     'installable': True,
-    'application': False,
     'license': 'OEEL-1',
 }

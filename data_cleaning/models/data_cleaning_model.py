@@ -13,6 +13,7 @@ from odoo.tools import split_every
 DR_CREATE_STEP_AUTO = 5000
 DR_CREATE_STEP_MANUAL = 50000
 
+
 class DataCleaningModel(models.Model):
     _name = 'data_cleaning.model'
     _description = 'Cleaning Model'
@@ -64,7 +65,7 @@ class DataCleaningModel(models.Model):
             self.rule_ids = [(5, 0, 0)]
 
     def _compute_records_to_clean(self):
-        count_data = self.env['data_cleaning.record'].read_group(
+        count_data = self.env['data_cleaning.record']._read_group(
             [('cleaning_model_id', 'in', self.ids)],
             ['cleaning_model_id'],
             ['cleaning_model_id'])
@@ -107,7 +108,7 @@ class DataCleaningModel(models.Model):
 
 
     def _clean_records(self, batch_commits=False):
-        self.flush()
+        self.env.flush_all()
 
         records_to_clean = []
         for cleaning_model in self:
@@ -181,7 +182,7 @@ class DataCleaningModel(models.Model):
                 continue
 
             if cleaning_model.notify_frequency_period == 'days':
-                delta = relativedelta(day=cleaning_model.notify_frequency)
+                delta = relativedelta(days=cleaning_model.notify_frequency)
             elif cleaning_model.notify_frequency_period == 'weeks':
                 delta = relativedelta(weeks=cleaning_model.notify_frequency)
             else:
@@ -202,13 +203,17 @@ class DataCleaningModel(models.Model):
 
         if records_count:
             partner_ids = self.notify_user_ids.partner_id.ids
-            template = self.env.ref('data_cleaning.notification')
-            menu_id = self.env.ref('data_cleaning.menu_data_cleaning_root').id
-            kwargs = {
-                'body': template._render(dict(records_count=records_count, res_model_label=self.res_model_id.name, cleaning_model_id=self.id, menu_id=menu_id)),
-                'partner_ids': partner_ids,
-            }
-            self.env['mail.thread'].with_context(mail_notify_author=True).message_notify(**kwargs)
+            menu_id = self.env.ref('data_recycle.menu_data_cleaning_root').id
+            self.env['mail.thread'].with_context(mail_notify_author=True).message_notify(
+                body=self.env['ir.qweb']._render(
+                    'data_cleaning.notification',
+                    dict(records_count=records_count,
+                         res_model_label=self.res_model_id.name,
+                         cleaning_model_id=self.id,
+                         menu_id=menu_id)
+                ),
+                partner_ids=partner_ids,
+            )
 
     ############
     # Overrides

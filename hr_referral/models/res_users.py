@@ -12,7 +12,7 @@ class ResUsers(models.Model):
     hr_referral_level_id = fields.Many2one('hr.referral.level', groups="hr.group_hr_user")
     hr_referral_onboarding_page = fields.Boolean(groups="hr.group_hr_user")
     referral_point_ids = fields.One2many('hr.referral.points', 'ref_user_id')
-    utm_source_id = fields.Many2one('utm.source', 'Source', ondelete='cascade', groups="hr.group_hr_user")
+    utm_source_id = fields.Many2one('utm.source', 'Source', ondelete="restrict", groups="hr.group_hr_user")
 
     @api.model
     def action_complete_onboarding(self, complete):
@@ -24,7 +24,7 @@ class ResUsers(models.Model):
         reward_responsible_group = self.env.ref('hr_referral.group_hr_referral_reward_responsible_user', raise_if_not_found=False)
         if not self or not reward_responsible_group:
             return
-        res = self.env['hr.referral.reward'].read_group(
+        res = self.env['hr.referral.reward']._read_group(
             [('gift_manager_id', 'in', self.ids)],
             ['gift_manager_id'],
             ['gift_manager_id'])

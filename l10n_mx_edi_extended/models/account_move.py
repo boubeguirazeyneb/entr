@@ -19,6 +19,18 @@ class AccountMove(models.Model):
         help="If this field is active, the CFDI that generates this invoice will include the complement "
              "'External Trade'.")
 
+    def _auto_init(self):
+        """
+        Create compute stored field l10n_mx_edi_external_trade
+        here to avoid MemoryError on large databases.
+        """
+        if not column_exists(self.env.cr, 'account_move', 'l10n_mx_edi_external_trade'):
+            create_column(self.env.cr, 'account_move', 'l10n_mx_edi_external_trade', 'boolean')
+            # _compute_l10n_mx_edi_external_trade uses res_partner.l10n_mx_edi_external_trade,
+            # which is a new field in this module hence all values set to False.
+            self.env.cr.execute("UPDATE account_move set l10n_mx_edi_external_trade=FALSE;")
+        return super()._auto_init()
+
     def _get_l10n_mx_edi_issued_address(self):
         # OVERRIDE
         self.ensure_one()
@@ -134,7 +146,7 @@ class AccountMoveLine(models.Model):
     # COMPUTE METHODS
     # -------------------------------------------------------------------------
 
-    @api.depends('l10n_mx_edi_umt_aduana_id', 'product_uom_id')
+    @api.depends('l10n_mx_edi_umt_aduana_id', 'product_uom_id', 'quantity')
     def _compute_l10n_mx_edi_qty_umt(self):
         for line in self:
             product_aduana_code = line.l10n_mx_edi_umt_aduana_id.l10n_mx_edi_code_aduana
@@ -152,7 +164,7 @@ class AccountMoveLine(models.Model):
             if line.l10n_mx_edi_qty_umt:
                 line.l10n_mx_edi_price_unit_umt = round(line.quantity * line.price_unit / line.l10n_mx_edi_qty_umt, 2)
             else:
-                line.l10n_mx_edi_price_unit_umt = line.l10n_mx_edi_price_unit_umt
+                line.l10n_mx_edi_price_unit_umt = line.price_unit
 
     # -------------------------------------------------------------------------
     # CONSTRAINT METHODS

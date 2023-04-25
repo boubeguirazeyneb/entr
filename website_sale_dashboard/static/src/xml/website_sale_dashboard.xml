@@ -5,24 +5,20 @@
     <t t-extend="website.dashboard_header">
         <t t-jquery="div.o_dashboard_common" t-operation="replace"/>
     </t>
-    <!-- Replace the 'community' Sales Dashboard/GAnalytics by only the GAnalytics dashboard -->
-    <t t-extend="website.dashboard_content">
-        <t t-jquery="div.o_website_dashboard_content" t-operation="replace">
-            <t t-call="website.google_analytics_content"/>
-        </t>
+    <!-- Remove the 'community' Sales Dashboard, keeping only Plausible -->
+    <!-- This template actually inherits website_sale.dashboard_content and not
+    the one from website, but apparently for some reason if a t-inherit is done
+    in extension mode, it needs to inherit the very base template of the inherit
+    hierarchy, not the one it actually wants to inherits.
+    -->
+    <t t-name="website_sale_dashboard.dashboard_content" t-inherit="website.dashboard_content" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o_dashboard_sales')]" position="replace"/>
     </t>
-
-    <t t-name="website_sale_dashboard.WebsiteSaleDashboardView"
-        t-inherit="web_dashboard.DashboardView"
-        t-inherit-mode="primary"
-        owl="1">
-        <xpath expr="//Layout" position="inside">
-            <t t-set-slot="control-panel-bottom-left">
-                <a role="button" href="/" class="btn btn-primary" title="Go to Website">
-                    Go to Website
-                </a>
-            </t>
-        </xpath>
+    <!-- Remove the date range buttons related to the 'community' Sales Dashboard -->
+    <t t-extend="website.DateRangeButtons">
+        <t t-jquery="t[t-set='show_range_buttons']" t-operation="attributes">
+            <attribute name="t-value" value="0" />
+        </t>
     </t>
 
 </templates>

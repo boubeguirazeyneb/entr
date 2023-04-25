@@ -3,20 +3,17 @@
 # 	* account_sepa_direct_debit
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Ahmed Aly <ahmed.aly@datenpol.at>, 2021
-# Raymond Vetter, 2021
-# Robert Förster <hello@suppliot.eu>, 2021
-# Friederike Fasterling-Nesselbosch, 2022
+# Martin Trigaux, 2022
+# Larissa Manderfeld, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:57+0000\n"
-"PO-Revision-Date: 2021-09-14 12:37+0000\n"
-"Last-Translator: Friederike Fasterling-Nesselbosch, 2022\n"
-"Language-Team: German (https://www.transifex.com/odoo/teams/41243/de/)\n"
+"POT-Creation-Date: 2023-04-14 06:17+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Larissa Manderfeld, 2023\n"
+"Language-Team: German (https://app.transifex.com/odoo/teams/41243/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -127,6 +124,7 @@ msgid "<strong>Zip: </strong>"
 msgstr "<strong>PLZ: </strong>"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "A debtor account is required to validate a SEPA Direct Debit mandate."
@@ -180,6 +178,7 @@ msgid "Activity Type Icon"
 msgstr "Aktivitäts-Typ-Icon"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
@@ -238,6 +237,11 @@ msgstr "Schließen"
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sdd_mandate_search_view
 msgid "Closed"
 msgstr "Abgeschlossen"
+
+#. module: account_sepa_direct_debit
+#: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sepa_direct_debit_mandate_form
+msgid "Collections"
+msgstr ""
 
 #. module: account_sepa_direct_debit
 #: model:ir.model,name:account_sepa_direct_debit.model_res_company
@@ -463,7 +467,6 @@ msgstr "ID"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__message_needaction
-#: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Falls markiert, benötigen neue Nachrichten Ihre Kenntnisnahme."
 
@@ -476,12 +479,14 @@ msgstr ""
 "angekreuzt ist."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_company.py:0
 #, python-format
 msgid "Invalid creditor identifier. Make sure you made no typo."
 msgstr "Ungültige Kreditoren-ID. Prüfen Sie diese auf Tippfehler."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_company.py:0
 #, python-format
 msgid "Invalid creditor identifier. Wrong format."
@@ -574,7 +579,6 @@ msgstr "Mandats-ID muss eindeutig sein! Bitte wählen Sie eine andere."
 #. module: account_sepa_direct_debit
 #: model:ir.actions.server,name:account_sepa_direct_debit.sdd_mandate_state_cron_ir_actions_server
 #: model:ir.cron,cron_name:account_sepa_direct_debit.sdd_mandate_state_cron
-#: model:ir.cron,name:account_sepa_direct_debit.sdd_mandate_state_cron
 msgid "Mandate state updater"
 msgstr "Mandatsstatus-Aktualisierer"
 
@@ -643,7 +647,7 @@ msgstr "# Fehler"
 
 #. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__paid_invoices_nber
-msgid "Number of invoices paid with thid mandate."
+msgid "Number of invoices paid with this mandate."
 msgstr "Anzahl der mit diesem Mandat bezahlten Rechnungen."
 
 #. module: account_sepa_direct_debit
@@ -657,15 +661,10 @@ msgid "Number of messages with delivery error"
 msgstr "Anzahl der Nachrichten mit einem Fehler beim Senden."
 
 #. module: account_sepa_direct_debit
-#: model:ir.model.fields,help:account_sepa_direct_debit.field_sdd_mandate__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Anzahl ungelesener Nachrichten"
-
-#. module: account_sepa_direct_debit
 #: model_terms:ir.actions.act_window,help:account_sepa_direct_debit.account_sepa_direct_debit_mandate_tree_act
 msgid ""
 "Once an invoice is made\n"
-"                    in Odoo for a customer having an mandate active on the invoice date,\n"
+"                    in Odoo for a customer having a mandate active on the invoice date,\n"
 "                    its validation will trigger its automatic payment, and you will\n"
 "                    then only have to generate a SEPA Direct Debit (SDD) XML file containing this operation\n"
 "                    and send it to your bank to effectively get paid."
@@ -673,7 +672,7 @@ msgstr ""
 "Nachdem in Odoo eine Rechnung\n"
 "                    für einen Kunden mit am Rechnungsdatum aktivem Mandat erstellt wurde,\n"
 "                    löst deren Validierung die automatische Zahlung aus und Sie brauchen dann\n"
-"                    nur noch eine SEPA Direct Debit (SDD)-XML-Datei mit diesem Vorgang zu erstellen\n"
+"                    nur noch eine XML-Datei für das SEPA-Lastschriftverfahren (SDD) mit diesem Vorgang zu erstellen\n"
 "                    und diese an Ihre Bank zu senden, damit Sie Ihre Zahlung erhalten."
 
 #. module: account_sepa_direct_debit
@@ -693,6 +692,7 @@ msgid "One-off Mandate"
 msgstr "Einmaliges Mandat"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -703,6 +703,7 @@ msgstr ""
 "wählen Sie ein entsprechend verknüpftes Journal."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -728,6 +729,7 @@ msgid "Originating SEPA mandate"
 msgstr "Ursprüngliches SEPA-Mandat"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "Paid Invoices"
@@ -766,8 +768,8 @@ msgid "Payments generated thanks to this mandate."
 msgstr "Dank diesem Mandat generierte Zahlungen."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
-#: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sepa_direct_debit_mandate_form
 #, python-format
 msgid "Payments to Collect"
 msgstr "Ausstehende Zahlungen"
@@ -840,11 +842,6 @@ msgid "SDD Mandate"
 msgstr "SDD-Mandat"
 
 #. module: account_sepa_direct_debit
-#: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.sdd_view_account_payment_search
-msgid "SDD Payments to Collect"
-msgstr "SDD Zahlungen zum Einzug"
-
-#. module: account_sepa_direct_debit
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_account_bank_statement_line__sdd_mandate_scheme
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_account_batch_payment__sdd_scheme
 #: model:ir.model.fields,field_description:account_sepa_direct_debit.field_account_move__sdd_mandate_scheme
@@ -865,6 +862,7 @@ msgid "SDD creditor identifier"
 msgstr "SDD-Kreditoren-ID"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid "SDD scheme is set on the customer mandate."
@@ -889,6 +887,7 @@ msgstr ""
 "Bank."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -925,6 +924,7 @@ msgid "Signature"
 msgstr "Signatur"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""
@@ -963,15 +963,6 @@ msgid "Suitable Journal"
 msgstr "Geeignetes Journal"
 
 #. module: account_sepa_direct_debit
-#: model:ir.model.fields,help:account_sepa_direct_debit.field_account_payment__sdd_mandate_usable
-msgid ""
-"Technical field used to inform the end user there is a SDD mandate that "
-"could be used to register that payment"
-msgstr ""
-"Technisches Feld, das den Endbenutzer darüber informiert, dass zum "
-"Registrieren dieser Zahlung ein SDD-Mandat existiert."
-
-#. module: account_sepa_direct_debit
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_account_bank_statement_line__sdd_mandate_scheme
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_account_batch_payment__sdd_scheme
 #: model:ir.model.fields,help:account_sepa_direct_debit.field_account_move__sdd_mandate_scheme
@@ -987,6 +978,7 @@ msgstr ""
 "Einige Banken/Unternehmen akzeptieren B2B SDD möglicherweise nicht."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -997,12 +989,14 @@ msgstr ""
 "kann nicht mehr verwendet werden."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_company.py:0
 #, python-format
 msgid "The creditor identifier exceeds the maximum length of 35 characters."
 msgstr "Die Kreditoren-ID übersteigt die maximale Länge von 35 Zeichen."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -1013,6 +1007,7 @@ msgstr ""
 "SEPA-Richtlinie von 35 Zeichen."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid ""
@@ -1033,6 +1028,7 @@ msgstr ""
 "                müssen Sie uns kontaktieren, um die Nutzung einzustellen."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -1071,6 +1067,7 @@ msgstr ""
 "                        nur zu Informationszwecken gesendet."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""
@@ -1092,6 +1089,7 @@ msgstr ""
 " von „aktiv“ zu „geschlossen“ geändert, wenn diese Option aktiviert ist.\n"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -1102,6 +1100,7 @@ msgstr ""
 "eines vom Kreditor der Datei abweichenden Unternehmens enthält."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #, python-format
 msgid ""
@@ -1112,6 +1111,7 @@ msgstr ""
 "von einer anderen Zahlungsmethode als SEPA-Lastschrift kommen."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_payment.py:0
 #: code:addons/account_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
@@ -1127,6 +1127,7 @@ msgid "Type of the exception activity on record."
 msgstr "Typ der Ausnahmeaktivität im Datensatz."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_invoice.py:0
 #, python-format
 msgid ""
@@ -1137,16 +1138,6 @@ msgstr ""
 "Zahlung %(payment)r kann nicht gebucht werden, da kein verwendbares Mandat "
 "für Partner %(partner)r für Datum %(date)svorhanden ist. Bitte erstellen Sie"
 " ein solches, bevor Sie eine SEPA-Lastschriftzahlung kodieren."
-
-#. module: account_sepa_direct_debit
-#: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__message_unread
-msgid "Unread Messages"
-msgstr "Ungelesene Nachrichten"
-
-#. module: account_sepa_direct_debit
-#: model:ir.model.fields,field_description:account_sepa_direct_debit.field_sdd_mandate__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Zähler der ungelesenen Nachrichten"
 
 #. module: account_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:account_sepa_direct_debit.account_sepa_direct_debit_mandate_form
@@ -1169,6 +1160,7 @@ msgid "Website communication history"
 msgstr "Website-Kommunikationshistorie"
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/res_partner_bank.py:0
 #, python-format
 msgid ""
@@ -1179,6 +1171,7 @@ msgstr ""
 "Mandat verknüpft ist."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""
@@ -1189,6 +1182,7 @@ msgstr ""
 "erforderlichen Einzugsdatum erstellen."
 
 #. module: account_sepa_direct_debit
+#. odoo-python
 #: code:addons/account_sepa_direct_debit/models/account_batch_payment.py:0
 #, python-format
 msgid ""

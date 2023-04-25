@@ -3,19 +3,17 @@
 # 	* appointment
 # 
 # Translators:
-# Zoriana Zaiats, 2021
-# ТАрас <tratatuta@i.ua>, 2021
-# Martin Trigaux, 2021
-# Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-10-05 11:16+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: Alina Lisnenko <alinasemeniuk1@gmail.com>, 2022\n"
-"Language-Team: Ukrainian (https://www.transifex.com/odoo/teams/41243/uk/)\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2023\n"
+"Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -23,15 +21,27 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
 #, python-format
 msgid " (copy)"
 msgstr " (копія)"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__appointment_count
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__appointment_count
 msgid "# Appointments"
-msgstr "К-сть призначення"
+msgstr "К-сть зустрічей"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__appointment_count_report
+msgid "# Appointments in the last 30 days"
+msgstr "К-сть зустрічей за останні 30 днів"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__suggested_staff_user_count
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__staff_user_count
+msgid "# Staff Users"
+msgstr "К-сть штатних користувачів"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_calendar
@@ -39,13 +49,15 @@ msgid "#{day['today_cls'] and 'Today' or ''}"
 msgstr "#{day['today_cls'] and 'Today' or ''}"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
 #, python-format
 msgid "%s - Let's meet"
 msgstr "%s - Давайте зустрінемося"
 
 #. module: appointment
-#: code:addons/appointment/controllers/main.py:0
+#. odoo-python
+#: code:addons/appointment/controllers/appointment.py:0
 #, python-format
 msgid "%s with %s"
 msgstr "%s з %s"
@@ -56,10 +68,36 @@ msgid "(timezone:"
 msgstr "(часовий пояс:"
 
 #. module: appointment
-#: code:addons/appointment/controllers/main.py:0
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+msgid "+3212345678"
+msgstr "+3212345678"
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/controllers/calendar.py:0
 #, python-format
 msgid ", All Day"
 msgstr ", Весь день"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_svg.xml:0
+#, python-format
+msgid ""
+".stgrey0{fill:#E3E3E3}\n"
+"                .stgrey1{fill:#F2F2F2}"
+msgstr ""
+".stgrey0{fill:#E3E3E3}\n"
+"                .stgrey1{fill:#F2F2F2}"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid ""
+"<br/>\n"
+"                                    <span>Duration</span>"
+msgstr ""
+"<br/>\n"
+"                                    <span>Тривалість</span>"
 
 #. module: appointment
 #: model:mail.template,body_html:appointment.appointment_booked_mail_template
@@ -69,7 +107,7 @@ msgid ""
 "    <t t-set=\"recurrent\" t-value=\"object.recurrence_id and not ctx.get('calendar_template_ignore_recurrence')\"/>\n"
 "    <t t-set=\"mail_tz\" t-value=\"object._get_mail_tz() or ctx.get('mail_tz')\"/>\n"
 "    <p>\n"
-"    Appointment booked for <t t-out=\"object.appointment_type_id.name or ''\">Schedule a Demo</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> with <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t>.\n"
+"    Appointment booked for <t t-out=\"object.appointment_type_id.name or ''\">Technical Demo</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> with <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t>.\n"
 "    </p>\n"
 "    <div style=\"text-align: center; padding: 16px 0px 16px 0px;\">\n"
 "        <a t-attf-href=\"/calendar/meeting/join?token={{ object.access_token }}\" style=\"padding: 5px 10px; color: #FFFFFF; text-decoration: none; background-color: #875A7B; border: 1px solid #875A7B; border-radius: 3px\">\n"
@@ -78,8 +116,8 @@ msgid ""
 "            View</a>\n"
 "    </div>\n"
 "    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n"
-"            <td width=\"130px;\">\n"
-"                <div style=\"border-top-left-radius: 3px; border-top-right-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
+"            <td width=\"130px;\" style=\"min-width: 130px;\">\n"
+"                <div style=\"border-top-start-radius: 3px; border-top-end-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz if not object.allday else None, dt_format=&quot;EEEE&quot;, lang_code=object.env.lang) or ''\">Wednesday</t>\n"
 "                </div>\n"
 "                <div style=\"font-size: 48px; min-height: auto; font-weight: bold; text-align: center; color: #5F5F5F; background-color: #F8F8F8; border: 1px solid #875A7B;\">\n"
@@ -88,7 +126,7 @@ msgid ""
 "                <div style=\"font-size: 12px; text-align: center; font-weight: bold; color: #ffffff; background-color: #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz if not object.allday else None, dt_format=&quot;MMMM y&quot;, lang_code=object.env.lang) or ''\">January 2020</t>\n"
 "                </div>\n"
-"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-right-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-left-radius: 3px;\">\n"
+"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-end-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-start-radius: 3px;\">\n"
 "                    <t t-if=\"not object.allday\">\n"
 "                        <div>\n"
 "                            <t t-out=\"format_time(time=object.start, tz=mail_tz, time_format=&quot;short&quot;, lang_code=object.env.lang) or ''\">8:00</t>\n"
@@ -122,7 +160,12 @@ msgid ""
 "                            </t>\n"
 "                        </li>\n"
 "                    </ul></li>\n"
-"                    <li t-if=\"object.videocall_location\">Join Video Call: <a t-attf-href=\"{{ object.videocall_location }}\" target=\"_blank\" t-out=\"object.videocall_location or ''\">https://meet.jit.si/odoo-xyz</a></li>\n"
+"                    <li t-if=\"object.videocall_location\">\n"
+"                        How to Join:\n"
+"                        <t t-if=\"object.get_base_url() in object.videocall_location\"> Join with Odoo Discuss</t>\n"
+"                        <t t-else=\"\"> Join at</t><br/>\n"
+"                        <a t-attf-href=\"{{ object.videocall_location }}\" target=\"_blank\" t-out=\"object.videocall_location or ''\">www.mycompany.com/calendar/join_videocall/xyz</a>\n"
+"                    </li>\n"
 "                </ul>\n"
 "                <t t-if=\"not is_html_empty(object.description)\">\n"
 "                    <li>Description of the event:\n"
@@ -138,7 +181,7 @@ msgstr ""
 "    <t t-set=\"recurrent\" t-value=\"object.recurrence_id and not ctx.get('calendar_template_ignore_recurrence')\"/>\n"
 "    <t t-set=\"mail_tz\" t-value=\"object._get_mail_tz() or ctx.get('mail_tz')\"/>\n"
 "    <p>\n"
-"    Зустріч заброньована для <t t-out=\"object.appointment_type_id.name or ''\">Запланувати демо</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> з <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t>.\n"
+"    Зустріч заброньована для <t t-out=\"object.appointment_type_id.name or ''\">Технічне демо</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> з <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t>.\n"
 "    </p>\n"
 "    <div style=\"text-align: center; padding: 16px 0px 16px 0px;\">\n"
 "        <a t-attf-href=\"/calendar/meeting/join?token={{ object.access_token }}\" style=\"padding: 5px 10px; color: #FFFFFF; text-decoration: none; background-color: #875A7B; border: 1px solid #875A7B; border-radius: 3px\">\n"
@@ -147,8 +190,8 @@ msgstr ""
 "            Переглянути</a>\n"
 "    </div>\n"
 "    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n"
-"            <td width=\"130px;\">\n"
-"                <div style=\"border-top-left-radius: 3px; border-top-right-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
+"            <td width=\"130px;\" style=\"min-width: 130px;\">\n"
+"                <div style=\"border-top-start-radius: 3px; border-top-end-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz if not object.allday else None, dt_format=&quot;EEEE&quot;, lang_code=object.env.lang) or ''\">Середа</t>\n"
 "                </div>\n"
 "                <div style=\"font-size: 48px; min-height: auto; font-weight: bold; text-align: center; color: #5F5F5F; background-color: #F8F8F8; border: 1px solid #875A7B;\">\n"
@@ -157,7 +200,7 @@ msgstr ""
 "                <div style=\"font-size: 12px; text-align: center; font-weight: bold; color: #ffffff; background-color: #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz if not object.allday else None, dt_format=&quot;MMMM y&quot;, lang_code=object.env.lang) or ''\">Січень 2020</t>\n"
 "                </div>\n"
-"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-right-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-left-radius: 3px;\">\n"
+"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-end-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-start-radius: 3px;\">\n"
 "                    <t t-if=\"not object.allday\">\n"
 "                        <div>\n"
 "                            <t t-out=\"format_time(time=object.start, tz=mail_tz, time_format=&quot;short&quot;, lang_code=object.env.lang) or ''\">8:00</t>\n"
@@ -177,7 +220,7 @@ msgstr ""
 "                    <li t-if=\"object.location\">Розташування: <t t-out=\"object.location or ''\">Брюссель</t>\n"
 "                        (<a target=\"_blank\" t-attf-href=\"http://maps.google.com/maps?oi=map&amp;q={{ object.location }}\">Переглянути карту</a>)\n"
 "                    </li>\n"
-"                    <li t-if=\"recurrent\">Коли: <t t-out=\"object.recurrence_id.name or ''\">Кожен 1 тиждень, на 3 події</t></li>\n"
+"                    <li t-if=\"recurrent\">Коли: <t t-out=\"object.recurrence_id.name or ''\">Кожен 1 тиждень, по 3 події</t></li>\n"
 "                    <li t-if=\"not object.allday and object.duration\">Тривалість: <t t-out=\"('%dH%02d' % (object.duration,round(object.duration*60)%60)) or ''\">0H30</t></li>\n"
 "                    <li>Учасники\n"
 "                    <ul>\n"
@@ -191,7 +234,12 @@ msgstr ""
 "                            </t>\n"
 "                        </li>\n"
 "                    </ul></li>\n"
-"                    <li t-if=\"object.videocall_location\">Приєднатися до відео-дзвінка: <a t-attf-href=\"{{ object.videocall_location }}\" target=\"_blank\" t-out=\"object.videocall_location or ''\">https://meet.jit.si/odoo-xyz</a></li>\n"
+"                    <li t-if=\"object.videocall_location\">\n"
+"                        Як приєднатися:\n"
+"                        <t t-if=\"object.get_base_url() in object.videocall_location\"> Приєднатися через Обговорення Odoo</t>\n"
+"                        <t t-else=\"\"> Приєднатися через</t><br/>\n"
+"                        <a t-attf-href=\"{{ object.videocall_location }}\" target=\"_blank\" t-out=\"object.videocall_location or ''\">www.mycompany.com/calendar/join_videocall/xyz</a>\n"
+"                    </li>\n"
 "                </ul>\n"
 "                <t t-if=\"not is_html_empty(object.description)\">\n"
 "                    <li>Опис події:\n"
@@ -210,11 +258,11 @@ msgid ""
 "    <t t-set=\"recurrent\" t-value=\"object.recurrence_id and not ctx.get('calendar_template_ignore_recurrence')\"/>\n"
 "    <t t-set=\"mail_tz\" t-value=\"object._get_mail_tz() or ctx.get('mail_tz')\"/>\n"
 "    <p>\n"
-"    The appointment for <t t-out=\"object.appointment_type_id.name or ''\">Schedule a Demo</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> with <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t> has been canceled.\n"
+"    The appointment for <t t-out=\"object.appointment_type_id.name or ''\">Technical Demo</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> with <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t> has been canceled.\n"
 "    </p>\n"
 "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n"
-"            <td width=\"130px;\">\n"
-"                <div style=\"border-top-left-radius: 3px; border-top-right-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
+"            <td width=\"130px;\" style=\"min-width: 130px;\">\n"
+"                <div style=\"border-top-start-radius: 3px; border-top-end-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz, dt_format=&quot;EEEE&quot;, lang_code=object.env.lang) or ''\">Wednesday</t>\n"
 "                </div>\n"
 "                <div style=\"font-size: 48px; min-height: auto; font-weight: bold; text-align: center; color: #5F5F5F; background-color: #F8F8F8; border: 1px solid #875A7B;\">\n"
@@ -223,7 +271,7 @@ msgid ""
 "                <div style=\"font-size: 12px; text-align: center; font-weight: bold; color: #ffffff; background-color: #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz, dt_format=&quot;MMMM y&quot;, lang_code=object.env.lang) or ''\">January 2020</t>\n"
 "                </div>\n"
-"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-right-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-left-radius: 3px;\">\n"
+"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-end-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-start-radius: 3px;\">\n"
 "                    <t t-if=\"not object.allday\">\n"
 "                        <div><t t-out=\"format_time(time=object.start, tz=mail_tz, time_format=&quot;short&quot;, lang_code=object.env.lang) or ''\">8:00</t></div>\n"
 "                        <t t-if=\"mail_tz\">\n"
@@ -256,7 +304,12 @@ msgid ""
 "                                </t>\n"
 "                            </li>\n"
 "                        </ul></li>\n"
-"                        <li t-if=\"object.videocall_location\">Join Video Call: <a t-att-href=\"object.videocall_location\" target=\"_blank\" t-out=\"object.videocall_location or ''\">https://meet.jit.si/odoo-xyz</a></li>\n"
+"                        <li t-if=\"object.videocall_location\">\n"
+"                            How to Join:\n"
+"                            <t t-if=\"object.get_base_url() in object.videocall_location\"> Join with Odoo Discuss</t>\n"
+"                            <t t-else=\"\"> Join at</t><br/>\n"
+"                            <a t-attf-href=\"{{ object.videocall_location }}\" target=\"_blank\" t-out=\"object.videocall_location or ''\">www.mycompany.com/calendar/join_videocall/xyz</a>\n"
+"                        </li>\n"
 "                    </ul>\n"
 "                    <t t-if=\"not is_html_empty(object.description)\">\n"
 "                        <li>Description of the event:\n"
@@ -273,11 +326,11 @@ msgstr ""
 "    <t t-set=\"recurrent\" t-value=\"object.recurrence_id and not ctx.get('calendar_template_ignore_recurrence')\"/>\n"
 "    <t t-set=\"mail_tz\" t-value=\"object._get_mail_tz() or ctx.get('mail_tz')\"/>\n"
 "    <p>\n"
-"    Призначення для <t t-out=\"object.appointment_type_id.name or ''\">Запланувати демо</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> з <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t> скасовано.\n"
+"    Зустріч для <t t-out=\"object.appointment_type_id.name or ''\">Технічне демо</t> <t t-if=\"object.appointment_type_id.category != 'custom'\"> з <t t-out=\"object.partner_id.name or ''\">Brandon Freeman</t></t> скасована.\n"
 "    </p>\n"
 "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>\n"
-"            <td width=\"130px;\">\n"
-"                <div style=\"border-top-left-radius: 3px; border-top-right-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
+"            <td width=\"130px;\" style=\"min-width: 130px;\">\n"
+"                <div style=\"border-top-start-radius: 3px; border-top-end-radius: 3px; font-size: 12px; border-collapse: separate; text-align: center; font-weight: bold; color: #ffffff; min-height: 18px; background-color: #875A7B; border: 1px solid #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz, dt_format=&quot;EEEE&quot;, lang_code=object.env.lang) or ''\">Середа</t>\n"
 "                </div>\n"
 "                <div style=\"font-size: 48px; min-height: auto; font-weight: bold; text-align: center; color: #5F5F5F; background-color: #F8F8F8; border: 1px solid #875A7B;\">\n"
@@ -286,7 +339,7 @@ msgstr ""
 "                <div style=\"font-size: 12px; text-align: center; font-weight: bold; color: #ffffff; background-color: #875A7B;\">\n"
 "                    <t t-out=\"format_datetime(dt=object.start, tz=mail_tz, dt_format=&quot;MMMM y&quot;, lang_code=object.env.lang) or ''\">Січень 2020</t>\n"
 "                </div>\n"
-"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-right-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-left-radius: 3px;\">\n"
+"                <div style=\"border-collapse: separate; color: #5F5F5F; text-align: center; font-size: 12px; border-bottom-end-radius: 3px; font-weight: bold; border: 1px solid #875A7B; border-bottom-start-radius: 3px;\">\n"
 "                    <t t-if=\"not object.allday\">\n"
 "                        <div><t t-out=\"format_time(time=object.start, tz=mail_tz, time_format=&quot;short&quot;, lang_code=object.env.lang) or ''\">8:00</t></div>\n"
 "                        <t t-if=\"mail_tz\">\n"
@@ -305,7 +358,7 @@ msgstr ""
 "                            <li t-if=\"object.location\">Розташування: <t t-out=\"object.location or ''\">Брюссель</t>\n"
 "                                (<a target=\"_blank\" t-attf-href=\"http://maps.google.com/maps?oi=map&amp;q={{ object.location }}\">Переглянути карту</a>)\n"
 "                            </li>\n"
-"                            <li t-if=\"recurrent\">Коли: <t t-out=\"object.recurrence_id.name or ''\">Кожен 1 тиждень, на 3 події</t></li>\n"
+"                            <li t-if=\"recurrent\">Коли: <t t-out=\"object.recurrence_id.name or ''\">Кожен 1 тиждень, по 3 події</t></li>\n"
 "                            <li t-if=\"not object.allday and object.duration\">Тривалість: <t t-out=\"('%dH%02d' % (object.duration,round(object.duration*60)%60)) or ''\">0H30</t></li>\n"
 "                        <li>Учасники\n"
 "                        <ul t-foreach=\"object.attendee_ids\" t-as=\"attendee\">\n"
@@ -319,7 +372,12 @@ msgstr ""
 "                                </t>\n"
 "                            </li>\n"
 "                        </ul></li>\n"
-"                        <li t-if=\"object.videocall_location\">Приєднатися до відеодзвінка: <a t-att-href=\"object.videocall_location\" target=\"_blank\" t-out=\"object.videocall_location or ''\">https://meet.jit.si/odoo-xyz</a></li>\n"
+"                        <li t-if=\"object.videocall_location\">\n"
+"                            Як приєднатися:\n"
+"                            <t t-if=\"object.get_base_url() in object.videocall_location\"> Приєднатися через Обговорення Odoo</t>\n"
+"                            <t t-else=\"\"> Приєднатися через</t><br/>\n"
+"                            <a t-attf-href=\"{{ object.videocall_location }}\" target=\"_blank\" t-out=\"object.videocall_location or ''\">www.mycompany.com/calendar/join_videocall/xyz</a>\n"
+"                        </li>\n"
 "                    </ul>\n"
 "                    <t t-if=\"not is_html_empty(object.description)\">\n"
 "                        <li>Опис події:\n"
@@ -332,73 +390,74 @@ msgstr ""
 "            "
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "<i class=\"fa fa-fw fa-arrow-right\"/>Add to Google Calendar"
-msgstr "<i class=\"fa fa-fw fa-arrow-right\"/>Додати до Google Calendar"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+msgid "<i class=\"fa fa-info-circle\" title=\"Info\"/>"
+msgstr "<i class=\"fa fa-info-circle\" title=\"Info\"/>"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "<i class=\"fa fa-fw fa-arrow-right\"/>Add to iCal/Outlook"
-msgstr "<i class=\"fa fa-fw fa-arrow-right\"/>Додати до iCal/Outlook"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "<i class=\"fa fa-fw fa-times\"/>Cancel / Reschedule"
-msgstr "<i class=\"fa fa-fw fa-times\"/>Закрити / Перепланувати"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid "<i class=\"fa fa-map-marker me-2\" title=\"Location\"/>"
+msgstr "<i class=\"fa fa-map-marker me-2\" title=\"Location\"/>"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_form
 msgid ""
-"<i class=\"fa fa-pencil mr-2\" role=\"img\" aria-label=\"Edit\" "
+"<i class=\"fa fa-pencil me-2\" role=\"img\" aria-label=\"Edit\" "
 "title=\"Create custom questions in backend\"/><em>Add Custom Questions</em>"
 msgstr ""
-"<i class=\"fa fa-pencil mr-2\" role=\"img\" aria-label=\"Edit\" "
-"title=\"Create custom questions in backend\"/><em>Додайте кастомні "
+"<i class=\"fa fa-pencil me-2\" role=\"img\" aria-label=\"Edit\" "
+"title=\"Create custom questions in backend\"/><em>Додати кастомні "
 "запитання</em>"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "<span> days</span>"
-msgstr "<span> дні</span>"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+msgid ""
+"<i class=\"fa fa-warning\"/> Impossible to share a link for an appointment "
+"type that has no user assigned."
+msgstr ""
+"<i class=\"fa fa-warning\"/> Неможливо поділитися посиланням для типу "
+"зустрічі, для якого не призначено користувача."
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "<span> hours before</span>"
-msgstr "<span> годин до</span>"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+msgid ""
+"<i class=\"fa fa-warning\"/> You need to be part of an appointment type to "
+"be able to share a personal link."
+msgstr ""
+"<i class=\"fa fa-warning\"/> Ви повинні бути учасником певного типу "
+"зустрічі, щоб мати можливість поділитися особистим посиланням."
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid "<span class=\"bg-danger\">Archived</span>"
+msgstr "<span class=\"bg-danger\">Заархівовано</span>"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid "<span class=\"o_not_editable\">Online</span>"
+msgstr "<span class=\"o_not_editable\">Онлайн</span>"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid ""
+"<span class=\"text-nowrap\"><i class=\"fa fa-arrow-right mx-2\"/>Back to "
+"edit mode</span>"
+msgstr ""
+"<span class=\"text-nowrap\"><i class=\"fa fa-arrow-right mx-2\"/>Повернутися"
+" в режим редагування</span>"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "<span> hours</span>"
 msgstr "<span> години </span>"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "<span>and not after </span>"
-msgstr "<span>і не після </span>"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "<span>at least </span>"
-msgstr "<span>принаймні</span>"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "<span>until </span>"
-msgstr "<span>до </span>"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "<span>Online</span>"
+msgstr "<span>Онлайн</span>"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_info
-msgid "<strong class=\"mr-2\">Duration:</strong>"
-msgstr "<strong class=\"mr-2\">Тривалість:</strong>"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
-msgid "<strong class=\"mr-2\">Location:</strong>"
-msgstr "<strong class=\"mr-2\">Місцезнаходження:</strong>"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
-#: model_terms:ir.ui.view,arch_db:appointment.appointments_list_layout
 msgid ""
 "<strong>Appointment canceled!</strong>\n"
 "                            You can schedule another appointment from here."
@@ -431,17 +490,13 @@ msgstr ""
 "                             Здається, у вас вже є інша зустріч з нами на цю дату."
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_select_timezone
-msgid "<strong>Timezone</strong>"
-msgstr "<strong>Часовий пояс</strong>"
-
-#. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "<strong>Your appointment has been successfully booked!</strong><br/>"
-msgstr "<strong>Вашу зустріч заброньовано!</strong><br/>"
+msgid "<strong>Your appointment has been successfully booked!</strong>"
+msgstr "<strong>Ваше призначення успішно заброньовано!</strong>"
 
 #. module: appointment
-#: code:addons/appointment/controllers/calendar.py:0
+#. odoo-python
+#: code:addons/appointment/controllers/calendar_view.py:0
 #, python-format
 msgid ""
 "A list of slots information is needed to create a custom appointment type"
@@ -450,39 +505,55 @@ msgstr ""
 "слоти"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "A text message reminder is sent to you before your appointment"
-msgstr ""
-"Перед вашим призначенням надсилається текст нагадування про повідомлення"
-
-#. module: appointment
-#: code:addons/appointment/controllers/calendar.py:0
-#: code:addons/appointment/controllers/calendar.py:0
-#, python-format
-msgid "Access Denied"
-msgstr "У доступі відмовлено"
-
-#. module: appointment
 #: model:ir.model.fields,field_description:appointment.field_calendar_event__access_token
 msgid "Access Token"
 msgstr "Токен доступу"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_needaction
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_needaction
 msgid "Action Needed"
 msgstr "Необхідна дія"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__active
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__active
 msgid "Active"
 msgstr "Активно"
 
 #. module: appointment
-#: model:res.groups,name:appointment.group_calendar_manager
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Add a function here..."
+msgstr "Додайте опцію тут..."
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#, python-format
+msgid "Add a specific appointment."
+msgstr "Додайте спеціальну зустріч."
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid "Add an intro message here..."
+msgstr "Додайте сюди вступне повідомлення..."
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Add to Google Agenda"
+msgstr "Додати Google Agenda"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Add to iCal/Outlook"
+msgstr "Додати в iCal/Outlook"
+
+#. module: appointment
+#: model:res.groups,name:appointment.group_appointment_manager
 msgid "Administrator"
 msgstr "Адміністратор"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "All"
@@ -495,52 +566,104 @@ msgid "All Appointments"
 msgstr "Усі призначення"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__allday
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__allday
 #, python-format
 msgid "All day"
-msgstr "Цілий день"
+msgstr "Ввесь день"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Allow Cancelling"
 msgstr "Дозволити скасування"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
-#, python-format
-msgid ""
-"An employee should be set on the actual user to create the appointment type"
-msgstr ""
-"Співробітник повинен бути встановлений на актуального користувача, щоби "
-"створити тип зустрічі"
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__country_ids
+msgid "Allowed Countries"
+msgstr "Дозволені країни"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
-#, python-format
-msgid ""
-"An employee should be set on the current user to create the appointment type"
+#: model:ir.model.constraint,message:appointment.constraint_appointment_answer_input_value_check
+msgid "An answer input must either have a text value or a predefined answer."
 msgstr ""
-"Для створення типу зустрічі для поточного користувача має бути встановлений "
-"співробітник"
+"Введена відповідь повинна мати або текстове значення, або попередньо "
+"визначену відповідь."
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_slot.py:0
+#. odoo-python
+#: code:addons/appointment/controllers/calendar_view.py:0
+#, python-format
+msgid "An appointment type is needed to get the link."
+msgstr "Щоб отримати посилання, потрібен тип зустрічі."
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_slot.py:0
 #, python-format
 msgid "An unique type slot should have a start and end datetime"
 msgstr "Слот унікального типу повинен мати дату початку і закінчення"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__name
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_answer_view_form
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__name
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_view_form
 msgid "Answer"
 msgstr "Відповідь"
+
+#. module: appointment
+#: model:ir.actions.act_window,name:appointment.appointment_answer_input_action_from_question
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_graph
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_pivot
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_tree
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "Answer Breakdown"
+msgstr "Розбивка відповідей"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_form
+msgid "Answer Input"
+msgstr "Введення відповіді"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "Answers"
+msgstr "Відповіді"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__category__anytime
+#, python-format
+msgid "Any Time"
+msgstr "Будь-який час"
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_invite__staff_users_choice__all_assigned_users
+msgid "Any User"
+msgstr "Будь-який користувач"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+#, python-format
+msgid "Appointment"
+msgstr "Призначення"
+
+#. module: appointment
+#: model:ir.model,name:appointment.model_appointment_answer_input
+msgid "Appointment Answer Inputs"
+msgstr "Введення відповіді на зустріч"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_calendar_event__appointment_answer_input_ids
+msgid "Appointment Answers"
+msgstr "Відповіді на зустрічі"
 
 #. module: appointment
 #: model:mail.message.subtype,description:appointment.mt_calendar_event_booked
 #: model:mail.message.subtype,name:appointment.mt_appointment_type_booked
 #: model:mail.message.subtype,name:appointment.mt_calendar_event_booked
-#: model:mail.template,name:appointment.appointment_booked_mail_template
 msgid "Appointment Booked"
 msgstr "Зустріч заброньовано"
 
@@ -553,7 +676,6 @@ msgstr "Зустріч заброньовано: {{ object.appointment_type_id.n
 #: model:mail.message.subtype,description:appointment.mt_calendar_event_canceled
 #: model:mail.message.subtype,name:appointment.mt_appointment_type_canceled
 #: model:mail.message.subtype,name:appointment.mt_calendar_event_canceled
-#: model:mail.template,name:appointment.appointment_canceled_mail_template
 msgid "Appointment Canceled"
 msgstr "Зустріч скасовано"
 
@@ -563,26 +685,41 @@ msgid "Appointment Canceled: {{ object.appointment_type_id.name }}"
 msgstr "Зустріч скасована: {{ object.appointment_type_id.name }}"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "Appointment Confirmation"
-msgstr "Підтвердження зустрічі"
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__appointment_duration_formatted
+msgid "Appointment Duration Formatted "
+msgstr "Тривалість зустрічі відформатовано"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__appointment_duration
-msgid "Appointment Duration"
-msgstr "Тривалість зустрічі"
+#: model:ir.model.fields,help:appointment.field_appointment_type__appointment_duration_formatted
+msgid "Appointment Duration formatted in words"
+msgstr "Тривалість зустрічі відформатована прописом"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "Appointment Introduction"
-msgstr "Тема зустрічі"
+#: model:ir.model.fields,field_description:appointment.field_calendar_event__appointment_invite_id
+msgid "Appointment Invitation"
+msgstr "Запрошення на зустріч"
 
 #. module: appointment
-#: model:ir.actions.act_window,name:appointment.calendar_appointment_type_action_custom_and_work_hours
-#: model:ir.ui.menu,name:appointment.menu_calendar_appointment_type_custom_and_work_hours
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_tree_invitation
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_search
+msgid "Appointment Invitation Links"
+msgstr "Посилання запрошення на зустріч"
+
+#. module: appointment
+#: model:ir.actions.act_window,name:appointment.appointment_type_action_custom_and_anytime
+#: model:ir.ui.menu,name:appointment.menu_appointment_type_custom_and_anytime
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_tree_invitation
 msgid "Appointment Invitations"
 msgstr "Запрошення на зустріч"
+
+#. module: appointment
+#: model:ir.model,name:appointment.model_appointment_invite
+msgid "Appointment Invite"
+msgstr "Запрошення на зустріч"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__meeting_ids
+msgid "Appointment Meetings"
+msgstr "Заплановані зустрічі"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
@@ -590,36 +727,70 @@ msgid "Appointment Name"
 msgstr "Назва зустрічі"
 
 #. module: appointment
-#: model:ir.model,name:appointment.model_calendar_appointment_type
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__appointment_type_id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__appointment_type_id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__name
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_select
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_tree
+#: model:onboarding.onboarding,name:appointment.appointment_onboarding_panel
+msgid "Appointment Onboarding"
+msgstr "Зустріч залучення"
+
+#. module: appointment
+#: model:ir.model,name:appointment.model_appointment_answer
+msgid "Appointment Question Answers"
+msgstr "Відповіді на питання зустрічі"
+
+#. module: appointment
+#: model:ir.model,name:appointment.model_appointment_question
+msgid "Appointment Questions"
+msgstr "Запитання зустрічі"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__name
+msgid "Appointment Title"
+msgstr "Заголовок зустрічі"
+
+#. module: appointment
+#: model:ir.model,name:appointment.model_appointment_type
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__appointment_type_id
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__appointment_type_id
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__appointment_type_id
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__appointment_type_id
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_search
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_tree
+#: model_terms:ir.ui.view,arch_db:appointment.calendar_event_view_search_inherit_appointment
 msgid "Appointment Type"
 msgstr "Тип зустрічі"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_search
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__appointment_type_ids
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_search
 msgid "Appointment Types"
 msgstr "Типи зустрічі"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "Appointment:"
-msgstr "Зустріч:"
+#. odoo-python
+#: code:addons/appointment/models/calendar_event.py:0
+#, python-format
+msgid "Appointment canceled by: %(partners)s"
+msgstr "Зустріч скасовано: %(partners)s"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__appointment_type_ids
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model:mail.template,name:appointment.appointment_booked_mail_template
+msgid "Appointment: Appointment Booked"
+msgstr "Зустріч: Зустріч заброньовано"
+
+#. module: appointment
+#: model:mail.template,name:appointment.appointment_canceled_mail_template
+msgid "Appointment: Appointment Canceled"
+msgstr "Зустріч: Зустріч скасовано"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 #: model_terms:ir.ui.view,arch_db:appointment.calendar_event_view_graph
 #: model_terms:ir.ui.view,arch_db:appointment.calendar_event_view_pivot
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_home_appointment
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_home_menu_appointment
 msgid "Appointments"
-msgstr "Зустріч"
+msgstr "Зустрічі"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
@@ -627,40 +798,35 @@ msgid "Appointments by"
 msgstr "Зустрічі"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_search
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_search
 msgid "Archived"
 msgstr "Заархівовано"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__assign_method
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__staff_users_choice
+msgid "Assign to"
+msgstr "Призначити"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__assign_method
 msgid "Assignment Method"
 msgstr "Метод призначення"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_slot.py:0
+#. odoo-python
+#: code:addons/appointment/models/appointment_slot.py:0
 #, python-format
 msgid ""
-"Atleast one slot duration from start to end is invalid: a slot should end "
-"after start"
+"At least one slot duration is shorter than the meeting duration (%s hours)"
 msgstr ""
-"Принаймні одна тривалість слоту є недійсною: слот повинен закінчуватися "
-"після початку"
+"Тривалість принаймні одного інтервалу коротша за тривалість зустрічі (%s "
+"годин)"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_slot.py:0
-#, python-format
-msgid ""
-"Atleast one slot duration is not enough to create a slot with the duration "
-"set in the appointment type"
-msgstr ""
-"Принаймні однієї тривалості слоту недостатньо, щоби створити слот із "
-"тривалістю, заданою в типі зустрічі"
-
-#. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_attachment_count
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_attachment_count
 msgid "Attachment Count"
-msgstr "Кількість прикріплень"
+msgstr "Підрахунок прикріплення"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
@@ -668,34 +834,43 @@ msgid "Attendees:"
 msgstr "Учасники:"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__slot_ids
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__slot_ids
 msgid "Availabilities"
-msgstr "Наявність"
+msgstr "Доступність"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Availability"
 msgstr "Наявність"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__answer_ids
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__answer_ids
 msgid "Available Answers"
-msgstr "Наявні відповіді"
+msgstr "Доступні відповіді"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "Available Employees"
-msgstr "Наявні співробітники"
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__base_book_url
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__base_book_url
+msgid "Base Link URL"
+msgstr "Основна URL-адреса посилання"
 
 #. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__calendar_event_ids
+msgid "Booked Appointments"
+msgstr "Заброньовані зустрічі"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_partner_ids
+msgid "CC to"
+msgstr "CC до"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
 #: model:ir.ui.menu,name:appointment.calendar_appointment_type_menu_action
+#, python-format
 msgid "Calendar"
 msgstr "Календар"
-
-#. module: appointment
-#: model:ir.model,name:appointment.model_calendar_appointment_share
-msgid "Calendar Appointment Share Wizard"
-msgstr "Помічник поширення зустрічі в календарі"
 
 #. module: appointment
 #: model:ir.model,name:appointment.model_calendar_attendee
@@ -704,70 +879,63 @@ msgstr "Інформація календаря учасника"
 
 #. module: appointment
 #: model:ir.model,name:appointment.model_calendar_event
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__calendar_event_id
 msgid "Calendar Event"
 msgstr "Календар подій"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__min_cancellation_hours
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_onboarding_link_view_form
+msgid "Cancel"
+msgstr "Скасувати"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__min_cancellation_hours
 msgid "Cancel Before (hours)"
 msgstr "Закрити перед (години)"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__category
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Cancel/Reschedule"
+msgstr "Скасувати/Перепланувати"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__category
 msgid "Category"
 msgstr "Категорія"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_question__question_type__checkbox
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_question__question_type__checkbox
 msgid "Checkboxes (multiple answers)"
 msgstr "Позначення (декілька відповідей)"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_type__assign_method__chosen
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__assign_method__chosen
 msgid "Chosen by the Customer"
 msgstr "Обраний клієнтом"
 
 #. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
 #, python-format
 msgid "Click in your calendar to pick meeting time proposals."
 msgstr "Натисніть на ваш календар, щоб обрати запропонований час зустрічі."
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_share_view_form
-msgid "Close"
-msgstr "Закрити"
-
-#. module: appointment
-#: model_terms:ir.actions.act_window,help:appointment.calendar_appointment_type_action
-msgid ""
-"Configure your service opening hours and let attendees book time slots "
-"online."
-msgstr ""
-"Налаштуйте ваші години роботи та дозвольте учасникам бронювати часові слоти "
-"онлайн."
+#: model:onboarding.onboarding.step,button_text:appointment.appointment_onboarding_create_appointment_type_step
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid "Configure"
+msgstr "Налаштувати"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "Confirm Appointment <span class=\"fa fa-arrow-right\"/>"
-msgstr "Підтвердіть зустріч<span class=\"fa fa-arrow-right\"/>"
+msgid "Confirm Appointment"
+msgstr "Підтвердити зустріч"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "Confirm your details"
-msgstr "Підтвердіть свої дані"
-
-#. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_confirmation
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_confirmation
 msgid "Confirmation Message"
 msgstr "Підтвердження повідомлення"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
-msgid "Confirmation<span class=\"chevron\"/>"
-msgstr "Підтвердження<span class=\"chevron\"/>"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
@@ -775,51 +943,97 @@ msgid "Confirmed"
 msgstr "Підтверджено"
 
 #. module: appointment
+#: model:onboarding.onboarding.step,button_text:appointment.appointment_onboarding_configure_calendar_provider_step
+msgid "Connect"
+msgstr "З'єднати"
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/onboarding_onboarding_step.py:0
+#, python-format
+msgid "Connect your Calendar"
+msgstr "Підключіться до вашого календаря"
+
+#. module: appointment
+#: model:onboarding.onboarding.step,title:appointment.appointment_onboarding_configure_calendar_provider_step
+msgid "Connect your calendar"
+msgstr "Підключіться до вашого календаря"
+
+#. module: appointment
 #: model:ir.model,name:appointment.model_res_partner
 msgid "Contact"
 msgstr "Контакт"
 
 #. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_partner_ids
+msgid ""
+"Contacts that need to be notified whenever a new appointment is booked or "
+"canceled,                                                  regardless of "
+"whether they attend or not"
+msgstr ""
+"Контакти, яких потрібно сповіщати щоразу, коли записується або скасовується "
+"нова зустріч, незалежно від того, відвідують вони її чи ні"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.js:0
 #, python-format
 msgid "Copied !"
 msgstr "Скопійовано!"
 
 #. module: appointment
-#: model_terms:ir.actions.act_window,help:appointment.calendar_appointment_type_action
-msgid "Create an Appointment Type"
-msgstr "Створити тип зустрічі"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_onboarding_link_view_form
+msgid "Copy Link &amp; Close"
+msgstr "Скопіювати посилання та Закрити"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__create_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__create_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__create_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__create_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__create_uid
+#. odoo-python
+#: code:addons/appointment/models/onboarding_onboarding_step.py:0
+#, python-format
+msgid "Create your first Appointment"
+msgstr "Створіть вашу першу зустріч"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__create_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__create_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__create_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__create_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__create_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__create_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__create_uid
 msgid "Created by"
 msgstr "Створив"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__create_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__create_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__create_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__create_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__create_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__create_date
 msgid "Created on"
 msgstr "Створено"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_type__category__custom
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__category__custom
 msgid "Custom"
 msgstr "Кастомний"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__partner_id
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_search
+msgid "Customer"
+msgstr "Клієнт"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Customer Preview"
 msgstr "Попередній перегляд клієнта"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
 #, python-format
@@ -832,7 +1046,14 @@ msgid "Declined"
 msgstr "Відхилено"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_slot__slot_type
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
+#, python-format
+msgid "Default slots cannot be applied to the %s appointment type category."
+msgstr "Типові слоти не можна застосувати на тип категорії зустрічі %s."
+
+#. module: appointment
+#: model:ir.model.fields,help:appointment.field_appointment_slot__slot_type
 msgid ""
 "Defines the type of slot. The recurring slot is the default type which is used for\n"
 "        appointment type that are used recurringly in type like medical appointment.\n"
@@ -845,49 +1066,51 @@ msgstr ""
 " визначаючи неповторний часовий слот (наприклад, 10 квітня 2021 року з 10 до 11 ранку) зі свого календаря."
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "Description:"
-msgstr "Опис:"
+#: model:appointment.type,name:appointment.appointment_type_2
+msgid "Dental Care"
+msgstr "Догляд за зубами"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_slot__allday
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Details:"
+msgstr "Деталі:"
+
+#. module: appointment
+#: model:ir.model.fields,help:appointment.field_appointment_slot__allday
 msgid ""
 "Determine if the slot englobe the whole day, mainly used for unique slot "
 "type"
 msgstr ""
 "Визначте, чи охоплює слот цілий день, в основному використовується для "
-"унікального типу слоту"
+"унікального типу слота"
 
 #. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_insert_share_view_form
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form_insert_link
 #, python-format
 msgid "Discard"
 msgstr "Відмінити"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__display_name
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__display_name
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__display_name
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__display_name
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__display_name
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__display_name
 msgid "Display Name"
-msgstr "Відобразити назву"
+msgstr "Назва для відображення"
 
 #. module: appointment
-#: model:calendar.appointment.type,name:appointment.calendar_appointment_1
-msgid "Doctor Appointment"
-msgstr "Прийом у лікаря"
-
-#. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_question__question_type__select
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_question__question_type__select
 msgid "Dropdown (one answer)"
 msgstr "Випадаюче вікно (одна відповідь)"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__duration
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__duration
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__appointment_duration
 msgid "Duration"
 msgstr "Тривалість"
 
@@ -897,66 +1120,81 @@ msgid "Duration:"
 msgstr "Тривалість:"
 
 #. module: appointment
-#: code:addons/appointment/controllers/main.py:0
+#. odoo-python
+#: code:addons/appointment/controllers/appointment.py:0
 #, python-format
 msgid "Email: %s"
 msgstr "Email: %s"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__employee_ids
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__employee_ids
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "Employees"
-msgstr "Співробітники"
-
-#. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_slot__end_datetime
+#: model:ir.model.fields,help:appointment.field_appointment_slot__end_datetime
 msgid "End datetime for unique slot type management"
 msgstr "Управління кінцевою датою та часом для унікального типу слоту"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__end_hour
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__end_hour
 msgid "Ending Hour"
 msgstr "Кінцевий час"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model:ir.model,name:appointment.model_calendar_alarm
+msgid "Event Alarm"
+msgstr "Сповіщення про подію"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Every"
 msgstr "Кожен"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_follower_ids
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "Extra Message on Confirmation"
+msgstr "Додаткове повідомлення на підтвердження"
+
+#. module: appointment
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_confirmation
+msgid "Extra information provided once the appointment is booked."
+msgstr "Додаткова інформація надається після запису на зустріч."
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_follower_ids
 msgid "Followers"
 msgstr "Підписники"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_partner_ids
-msgid "Followers (Partners)"
-msgstr "Підписники (Партнери)"
-
-#. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__5
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__5
 msgid "Friday"
 msgstr "П’ятниця"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__start_datetime
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__start_datetime
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "From"
 msgstr "Від"
 
 #. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__avatars_display
+msgid "Front-End Display"
+msgstr "Відображення фронтенду"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
 #, python-format
 msgid "Get Share Link"
 msgstr "Отримати посилання для поширення"
 
 #. module: appointment
-#: model_terms:calendar.appointment.type,message_intro:appointment.calendar_appointment_0
+#. odoo-python
+#: code:addons/appointment/models/onboarding_onboarding_step.py:0
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_onboarding_link_view_form
+#, python-format
+msgid "Get Your Link"
+msgstr "Отримайте ваше посилання"
+
+#. module: appointment
+#: model_terms:appointment.type,message_intro:appointment.appointment_type_1
 msgid ""
 "Get a <strong>customized demo</strong> and an <strong>analysis of your "
 "needs</strong>."
@@ -965,62 +1203,116 @@ msgstr ""
 "потреб</strong>."
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_share__suggested_employee_ids
-msgid ""
-"Get the employees link to the appointment type selected to apply a domain on"
-" the employees that can be selected"
-msgstr ""
-"Отримайте посилання співробітників на вибраний тип зустрічі, щоб застосувати"
-" домен до співробітників, яких можна вибрати"
+#: model:ir.model,name:appointment.model_appointment_onboarding_link
+msgid "Get a link to an appointment type during the onboarding"
+msgstr "Отримайте посилання на тип зустрічі під час реєстрації"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__has_message
+#: model:ir.model.fields,help:appointment.field_appointment_invite__suggested_staff_user_ids
+msgid ""
+"Get the users linked to the appointment type selected to apply a domain on "
+"the users that can be selected"
+msgstr ""
+"Прив’яжіть користувачів до вибраного типу зустрічі, щоб застосувати домен до"
+" користувачів, яких можна вибрати"
+
+#. module: appointment
+#: model:onboarding.onboarding.step,title:appointment.appointment_onboarding_preview_invite_step
+msgid "Get your link"
+msgstr "Отримайте ваше посилання"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Google Agenda"
+msgstr "Google Agenda"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_search
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_search
+msgid "Group By"
+msgstr "Групувати за"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__has_message
 msgid "Has Message"
 msgstr "Є повідомлення"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__assign_method
-msgid ""
-"How employees will be assigned to meetings customers book on your website."
-msgstr ""
-"Як співробітники будуть призначені для книги зустрічей з клієнтами на вашому"
-" веб-сайті."
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "How to Join:"
+msgstr "Як приєднатися:"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__id
+#: model:ir.model.fields,help:appointment.field_appointment_type__assign_method
+msgid "How users will be assigned to meetings customers book on your website."
+msgstr ""
+"Як користувачі будуть призначені для зустрічей, які клієнти бронюють на "
+"вашому веб-сайті."
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__id
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__id
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__id
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__id
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__id
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__id
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__id
 msgid "ID"
 msgstr "ID"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_needaction
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_unread
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_needaction
 msgid "If checked, new messages require your attention."
 msgstr "Якщо позначено, то нові повідомлення будуть потребувати вашої уваги."
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_has_error
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_has_sms_error
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_has_error
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_has_sms_error
 msgid "If checked, some messages have a delivery error."
 msgstr "Якщо позначено, деякі повідомлення мають помилку доставки."
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_insert_share_view_form
+#: model:ir.model.fields,help:appointment.field_appointment_slot__restrict_to_user_ids
+msgid ""
+"If empty, all users are considered to be available.\n"
+"If set, only the selected users will be taken into account for this slot."
+msgstr ""
+"Якщо пусто, усі користувачі вважаються доступними.\n"
+"Якщо встановлено, для цього слота враховуватимуться лише вибрані користувачі."
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#, python-format
+msgid "Insert Appointment Link"
+msgstr "Вставити посилання зустрічі"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form_insert_link
 msgid "Insert link"
 msgstr "Вставити посилання"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_intro
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_intro
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Introduction Message"
 msgstr "Введення повідомлення"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_is_follower
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__appointment_invite_ids
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_tree
+msgid "Invitation Links"
+msgstr "Посилання запрошення"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_is_follower
 msgid "Is Follower"
 msgstr "Стежить"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__is_published
+msgid "Is Published"
+msgstr "Опубліковано"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
@@ -1032,7 +1324,22 @@ msgstr ""
 "способом, якщо ви дійсно не можете встигнути."
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__country_ids
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+msgid "John Smith"
+msgstr "John Smith"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Join at"
+msgstr "Приєднатися о"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Join with Odoo Discuss"
+msgstr "Приєднатися через Обговорення Odoo"
+
+#. module: appointment
+#: model:ir.model.fields,help:appointment.field_appointment_type__country_ids
 msgid ""
 "Keep empty to allow visitors from any country, otherwise you only allow "
 "visitors from selected countries"
@@ -1041,58 +1348,89 @@ msgstr ""
 "випадку дозвольте лише відвідувачам із вибраних країн"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer____last_update
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question____last_update
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share____last_update
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot____last_update
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type____last_update
-msgid "Last Modified on"
-msgstr "Останні зміни"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "Keep it empty if the meeting takes place online"
+msgstr "Залите пустим, якщо подія буде відбуватися онлайн"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__write_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__write_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__write_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__write_uid
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer____last_update
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input____last_update
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite____last_update
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link____last_update
+#: model:ir.model.fields,field_description:appointment.field_appointment_question____last_update
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot____last_update
+#: model:ir.model.fields,field_description:appointment.field_appointment_type____last_update
+msgid "Last Modified on"
+msgstr "Остання модифікація"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__write_uid
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__write_uid
 msgid "Last Updated by"
 msgstr "Востаннє оновив"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__write_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__write_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__write_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__write_date
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__write_date
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__write_date
 msgid "Last Updated on"
 msgstr "Останнє оновлення"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__share_link
-msgid "Link"
-msgstr "Посилання"
-
-#. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
 #, python-format
 msgid "Link Copied in your clipboard !"
 msgstr "Посилання cкопійовано в буфер обміну!"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_share_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
 msgid "Link Generator"
 msgstr "Генератор посилань"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__location
-msgid "Location"
-msgstr "Місцезнаходження"
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__book_url
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+msgid "Link URL"
+msgstr "URL посилання"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__location
-msgid "Location of the appointments"
-msgstr "Розташування зустрічей"
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/appointment_invite_form_renderer.js:0
+#, python-format
+msgid "Link copied to clipboard!"
+msgstr "Посилання скопійоване в буфер обміну!"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_onboarding_link_form_renderer.js:0
+#, python-format
+msgid "Link copied to clipboard."
+msgstr "Посилання скопійовано в буфер обміну."
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__location_id
+msgid "Location"
+msgstr "Розташування"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__location
+msgid "Location formatted"
+msgstr "Розташування відформатовано"
+
+#. module: appointment
+#: model:ir.model.fields,help:appointment.field_appointment_type__location
+msgid "Location formatted for one line uses"
+msgstr "Розташування відформатовано для використання одного рядка"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
@@ -1100,53 +1438,106 @@ msgid "Location:"
 msgstr "Розташування:"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_main_attachment_id
+#: model:onboarding.onboarding.step,done_text:appointment.appointment_onboarding_create_appointment_type_step
+msgid "Looks great! - Click to review"
+msgstr "Виглядає чудово! - Натисніть для перегляду"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_main_attachment_id
 msgid "Main Attachment"
 msgstr "Основне прикріплення"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
-#, python-format
-msgid "Meeting with %s"
-msgstr "Зустріч з %s"
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_invite__staff_users_choice__current_user
+msgid "Me"
+msgstr "Я"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_has_error
+#. odoo-python
+#: code:addons/appointment/models/onboarding_onboarding_step.py:0
+#: code:addons/appointment/models/onboarding_onboarding_step.py:0
+#, python-format
+msgid "Meet With Me"
+msgstr "Зустріньтеся зі мною"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid "Meetings<br/>scheduled"
+msgstr "Зустрічі<br/>заплановано"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_has_error
 msgid "Message Delivery error"
 msgstr "Помилка доставлення повідомлення"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_ids
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_ids
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Messages"
 msgstr "Повідомлення"
 
 #. module: appointment
-#: code:addons/appointment/controllers/main.py:0
+#. odoo-python
+#: code:addons/appointment/controllers/appointment.py:0
 #, python-format
 msgid "Mobile: %s"
 msgstr "Мобільний: %s"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__1
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__1
 msgid "Monday"
 msgstr "Понеділок"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_question__question_type__text
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_question__question_type__text
 msgid "Multi-line text"
 msgstr "Багаторядковий текст"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_search
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_search
 msgid "My Appointments"
 msgstr "Мої зустрічі"
 
 #. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_search
+msgid "My Links"
+msgstr "Мої посилання"
+
+#. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Name"
 msgstr "Назва"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#, python-format
+msgid "Navigation"
+msgstr "Навігація"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_calendar_alarm__default_for_new_appointment_type
+msgid "New Appointments Default"
+msgstr "Нові типові зустрічі"
+
+#. module: appointment
+#: model_terms:ir.actions.act_window,help:appointment.appointment_type_action
+msgid "No Appointment Configured"
+msgstr "Жодних зустрічей не налаштовано"
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__avatars_display__hide
+msgid "No Picture"
+msgstr "Немає зображення"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__appointment_type_info_msg
+msgid "No User Assigned Message"
+msgstr "Жодних повідомлень призначених користувачів"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointments_list_layout
@@ -1154,7 +1545,12 @@ msgid "No appointment found."
 msgstr "Не знайдено зустрічей."
 
 #. module: appointment
-#: model_terms:ir.actions.act_window,help:appointment.calendar_appointment_type_action_custom_and_work_hours
+#: model_terms:ir.actions.act_window,help:appointment.appointment_invite_action
+msgid "No appointment invitation link has been created !"
+msgstr "Не створено жодного посилання зустрічі на подію!"
+
+#. module: appointment
+#: model_terms:ir.actions.act_window,help:appointment.appointment_type_action_custom_and_anytime
 msgid "No custom appointment type has been created !"
 msgstr "Не створено жодного кастомного типу зустрічі!"
 
@@ -1165,40 +1561,57 @@ msgid "No data yet!"
 msgstr "Ще немає даних!"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "None"
 msgstr "Немає"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_needaction_counter
+#: model:ir.model.fields,help:appointment.field_calendar_event__alarm_ids
+msgid "Notifications sent to all attendees to remind of the meeting."
+msgstr "Сповіщення надіслане всім учасникам для нагадування про подію."
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_needaction_counter
 msgid "Number of Actions"
 msgstr "Кількість дій"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_has_error_counter
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_has_error_counter
 msgid "Number of errors"
 msgstr "Кількість помилок"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_needaction_counter
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_needaction_counter
 msgid "Number of messages which requires an action"
 msgstr "Кількість повідомлень, які потебують дії"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_has_error_counter
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "Кількість повідомлень з помилковою доставкою"
+msgstr "Кількість повідомлень з помилковою дставкою"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Кількість непрочитаних повідомлень"
+#: model:ir.model,name:appointment.model_onboarding_onboarding
+msgid "Onboarding"
+msgstr "Залучення"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__slot_type__unique
+#: model:ir.model,name:appointment.model_onboarding_onboarding_step
+msgid "Onboarding Step"
+msgstr "Крок залучення"
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__slot_type__unique
 msgid "One Shot"
 msgstr "Одноразово"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid "Online"
+msgstr "Онлайн"
 
 #. module: appointment
 #: model:ir.model.fields,field_description:appointment.field_calendar_event__appointment_type_id
@@ -1206,22 +1619,12 @@ msgid "Online Appointment"
 msgstr "Онлайн-зустріч"
 
 #. module: appointment
-#: model:ir.model,name:appointment.model_calendar_appointment_answer
-msgid "Online Appointment : Answers"
-msgstr "Онлайн-призначення : Відповіді"
-
-#. module: appointment
-#: model:ir.model,name:appointment.model_calendar_appointment_question
-msgid "Online Appointment : Questions"
-msgstr "Онлайн-призначення : Запитання"
-
-#. module: appointment
-#: model:ir.model,name:appointment.model_calendar_appointment_slot
+#: model:ir.model,name:appointment.model_appointment_slot
 msgid "Online Appointment : Time Slot"
 msgstr "Онлайн-призначення : Часовий інтервал"
 
 #. module: appointment
-#: model:ir.actions.act_window,name:appointment.calendar_appointment_type_action
+#: model:ir.actions.act_window,name:appointment.appointment_type_action
 #: model:ir.actions.act_window,name:appointment.calendar_event_action_reporting
 #: model:ir.module.category,name:appointment.module_category_calendar
 #: model:ir.ui.menu,name:appointment.appointment_type_menu
@@ -1231,28 +1634,67 @@ msgid "Online Appointments"
 msgstr "Онлайн-зустрічі"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
-#, python-format
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
 msgid ""
-"Only one work hours appointment type is allowed for a specific employee."
-msgstr "Для конкретного працівника дозволяється лише один вид робочих годин."
+"Only letters, numbers, underscores and dashes are allowed in your links."
+msgstr ""
+"У ваших посиланнях дозволено використовувати лише літери, цифри, "
+"підкреслення та тире."
 
 #. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_invite.py:0
+#, python-format
+msgid ""
+"Only letters, numbers, underscores and dashes are allowed in your links. You"
+" need to adapt %s."
+msgstr ""
+"У ваших посиланнях дозволено використовувати лише літери, цифри, "
+"підкреслення та тире. Треба адаптувати %s."
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
+#, python-format
+msgid "Only one anytime appointment type is allowed for a specific user."
+msgstr ""
+"Для певного користувача дозволено лише один тип зустрічі в будь-який час."
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "Options"
+msgstr "Опції"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#, python-format
+msgid "Our Appointment Types"
+msgstr "Наші типи зустрічей"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "Our first availability is"
+msgstr "Наша перша доступність це"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
+msgid "Outlook"
+msgstr "Outlook"
+
+#. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Past"
 msgstr "Минулі"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__placeholder
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__placeholder
 msgid "Placeholder"
 msgstr "Заповнювач"
-
-#. module: appointment
-#: code:addons/appointment/models/calendar_appointment_slot.py:0
-#, python-format
-msgid "Please enter a valid hour between 0:00 and 24:00 for your slots."
-msgstr "Введіть дійсні години між 0:00 та 24:00 для ваших слотів."
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_info
@@ -1260,44 +1702,66 @@ msgid "Please, select another date."
 msgstr "Будь ласка, виберіть іншу дату."
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__suggested_employee_ids
-msgid "Possible employees"
-msgstr "Можливі співробітники"
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__suggested_staff_user_ids
+msgid "Possible users"
+msgstr "Можливі користувачі"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__name
+#: model:onboarding.onboarding.step,button_text:appointment.appointment_onboarding_preview_invite_step
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_onboarding_link_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid "Preview"
+msgstr "Попередній перегляд"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointments_list_layout
+msgid "Preview <span class=\"fa fa-arrow-right\"/>"
+msgstr "Попередній перегляд <span class=\"fa fa-arrow-right\"/>"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__question_id
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__question_id
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__name
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_search
 msgid "Question"
 msgstr "Запитання"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__question_type
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__question_type
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__question_type
 msgid "Question Type"
 msgstr "Тип запитання"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_answer__question_id
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__question_ids
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__question_ids
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Questions"
 msgstr "Запитання"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_question__question_type__radio
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_question__question_type__radio
 msgid "Radio (one answer)"
 msgstr "Перемикач (одна відповідь)"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_type__assign_method__random
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__assign_method__random
 msgid "Random"
 msgstr "Випадково"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__slot_type__recurring
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__slot_type__recurring
 msgid "Recurring"
 msgstr "Повторення"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__reminder_ids
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__redirect_url
+msgid "Redirect URL"
+msgstr "URL перенаправлення"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__reminder_ids
+#: model:ir.model.fields,field_description:appointment.field_calendar_event__alarm_ids
 msgid "Reminders"
 msgstr "Нагадування"
 
@@ -1307,55 +1771,57 @@ msgid "Reporting"
 msgstr "Звітність"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__question_required
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__question_required
 msgid "Required Answer"
 msgstr "Необхідна відповідь"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Responsible"
 msgstr "Відповідальний"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__country_ids
-msgid "Restrict Countries"
-msgstr "Обмежити країни"
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__restrict_to_user_ids
+msgid "Restrict to Users"
+msgstr "Обмежити для користувачів"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_kanban
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
 msgid "SCHEDULED"
 msgstr "ЗАПЛАНОВАНО"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_has_sms_error
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__message_has_sms_error
 msgid "SMS Delivery error"
 msgstr "Помилка доставки SMS"
 
 #. module: appointment
-#: model:calendar.alarm,name:appointment.calendar_alarm_data_1h_sms
-msgid "SMS Text Message - 1 Hours"
-msgstr "Текстове  SMS-повідомлення - 1 година"
-
-#. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__6
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__6
 msgid "Saturday"
 msgstr "Субота"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "Schedule Appointment"
-msgstr "Запланувати зустріч"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid "Schedule"
+msgstr "Запланувати"
 
 #. module: appointment
-#: model:calendar.appointment.type,name:appointment.calendar_appointment_0
-msgid "Schedule a Demo"
-msgstr "Запланувати демо"
-
-#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
 #: model_terms:ir.ui.view,arch_db:appointment.appointments_list_layout
+#, python-format
 msgid "Schedule an Appointment"
 msgstr "Запланувати зустріч"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/js/wysiwyg.js:0
+#, python-format
+msgid "Schedule an appointment."
+msgstr "Заплануйте зустріч."
 
 #. module: appointment
 #: model_terms:ir.actions.act_window,help:appointment.calendar_event_action_report
@@ -1364,120 +1830,294 @@ msgid "Schedule appointments to get statistics"
 msgstr "Заплануйте зустріч, щоб отримати статистику"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__min_schedule_hours
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__min_schedule_hours
 msgid "Schedule before (hours)"
 msgstr "Запланувати перед (години)"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__max_schedule_days
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__max_schedule_days
 msgid "Schedule not after (days)"
 msgstr "Запланувати не після (днів)"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Scheduling"
 msgstr "Планування"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Search in All"
 msgstr "Пошук у всьому"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Search in Description"
 msgstr "Пошук в описі"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Search in Name"
 msgstr "Пошук у назві"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Search in Responsible"
 msgstr "Пошук у відповідальному"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_share__appointment_type_count
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
+#, python-format
+msgid "Select Dates"
+msgstr "Обрати дати"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__value_answer_id
+msgid "Selected Answer"
+msgstr "Обрана відповідь"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__appointment_type_count
 msgid "Selected Appointments Count"
 msgstr "Підрахунок обраних зустрічей"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_question__sequence
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__sequence
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_search
+msgid "Selection Questions"
+msgstr "Вибір запитань"
+
+#. module: appointment
+#: model:mail.template,description:appointment.appointment_canceled_mail_template
+msgid "Sent to all attendees when an appointment is cancelled"
+msgstr "Надсилається всім учасникам, коли зустріч скасовується"
+
+#. module: appointment
+#: model:mail.template,description:appointment.appointment_booked_mail_template
+msgid "Sent to people who book an appointment online"
+msgstr "Надсилається людям, які записуються онлайн"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer__sequence
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__sequence
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__sequence
 msgid "Sequence"
 msgstr "Послідовність"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_kanban
+#: model:onboarding.onboarding.step,title:appointment.appointment_onboarding_create_appointment_type_step
+msgid "Set your availabilities"
+msgstr "Оберіть вашу доступнітсь"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_tree
 msgid "Share"
 msgstr "Поділитися"
 
 #. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
+#. odoo-javascript
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
+#: code:addons/appointment/static/src/views/appointment_calendar/appointment_calendar_controller.xml:0
 #, python-format
 msgid "Share Availabilities"
-msgstr "Поділитися доступністю"
+msgstr "Поділитися доступними"
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
 #, python-format
 msgid "Share Link"
 msgstr "Посилання для поширення"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_question__question_type__char
+#: model:ir.actions.act_window,name:appointment.appointment_invite_action
+#: model:ir.ui.menu,name:appointment.menu_appointment_invite
+msgid "Share Links"
+msgstr "Поділитися посиланнями"
+
+#. module: appointment
+#: model_terms:ir.actions.act_window,help:appointment.appointment_type_action
+msgid ""
+"Share calendar link allowing people to book meetings with you or a team."
+msgstr ""
+"Поділіться посиланням на календар, щоб люди могли бронювати зустрічі з вами "
+"або командою."
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_onboarding_link_view_form
+msgid "Share this link to let people book meetings with you or your team."
+msgstr ""
+"Поділіться цим посиланням, щоб дозволити людям записуватися на зустрічі з "
+"вами чи вашою командою."
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__short_code
+#: model:ir.model.fields,field_description:appointment.field_appointment_onboarding_link__short_code
+msgid "Short Code"
+msgstr "Короткий код"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__short_code_format_warning
+msgid "Short Code Format Warning"
+msgstr "Попередження про формат короткого коду"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__short_code_unique_warning
+msgid "Short Code Unique Warning"
+msgstr "Унікальне попередження про короткий код"
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__avatars_display__show
+msgid "Show Users' Pictures"
+msgstr "Показати зображення користувачів"
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_question__question_type__char
 msgid "Single line text"
 msgstr "Однорядковий текст"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__slot_type
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__slot_type
 msgid "Slot type"
 msgstr "Тип слоту"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_slot__start_datetime
+#: model:ir.model.fields,help:appointment.field_appointment_type__message_intro
+msgid "Small description of the appointment type."
+msgstr "Короткий опис типу зустрічі."
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "Sorry,"
+msgstr "Вибачте,"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "Sorry, we have no availability for an appointment."
+msgstr "Вибачте, у нас немає доступності для зустрічі."
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "Sorry, we have no more slots available for this month."
+msgstr "Вибачте, у нас більше немає вільних слотів на цей місяць."
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_invite__staff_users_choice__specific_users
+msgid "Specific Users"
+msgstr "Конкретні користувачі"
+
+#. module: appointment
+#: model:ir.model.fields,help:appointment.field_appointment_slot__start_datetime
 msgid "Start datetime for unique slot type management"
 msgstr "Управління початковою датою та часом унікального типу слоту"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__start_hour
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__start_hour
 msgid "Starting Hour"
 msgstr "Година початку"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__7
+#: model:onboarding.onboarding.step,done_text:appointment.appointment_onboarding_configure_calendar_provider_step
+#: model:onboarding.onboarding.step,done_text:appointment.appointment_onboarding_preview_invite_step
+msgid "Step Completed! - Click to review"
+msgstr "Крок завершено! - Натисніть для перегляду"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_question__answer_input_ids
+msgid "Submitted Answers"
+msgstr "Підтверджені відповіді"
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__7
 msgid "Sunday"
 msgstr "Неділя"
 
 #. module: appointment
-#: model:calendar.appointment.question,name:appointment.calendar_appointment_1_question_1
+#: model:appointment.question,name:appointment.appointment_type_2_question_1
 msgid "Symptoms"
 msgstr "Симптоми"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_share__employee_ids
-msgid ""
-"The employees that will be display/filter for the user to make its "
-"appointment"
-msgstr ""
-"Співробітники, які будуть відображатися/фільтруватися, щоб користувач міг "
-"призначити зустріч"
+#: model:appointment.type,name:appointment.appointment_type_1
+msgid "Technical Demo"
+msgstr "Технічне демо"
 
 #. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_answer_input__value_text_box
+msgid "Text Answer"
+msgstr "Написати відповідь"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_answer_input_view_search
+msgid "Text Questions"
+msgstr "Написати запитання"
+
+#. module: appointment
+#: model:ir.model.constraint,message:appointment.constraint_appointment_invite_short_code_uniq
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_invite_view_form
+msgid "The URL is already taken, please pick another code."
+msgstr "URL-адреса вже зайнята, виберіть інший код."
+
+#. module: appointment
+#: model:ir.model.constraint,message:appointment.constraint_appointment_slot_check_start_and_end_hour
+msgid "The end time must be later than the start time."
+msgstr "Час закінчення має бути пізніше часу початку."
+
+#. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "The field '%s' does not exist in the targeted model"
 msgstr "Поле '%s' не існує у цільовій моделі"
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_invite.py:0
+#, python-format
+msgid "The following appointment type(s) have no staff assigned: %s."
+msgstr "Наступні типи зустрічей не мають призначеного персоналу: %s."
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_question.py:0
+#, python-format
+msgid "The following question(s) do not have any selectable answers : %s"
+msgstr "Наступні запитання не мають відповідей для вибору: %s"
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
+#, python-format
+msgid ""
+"The following users are in restricted slots but they are not part of the "
+"available staff: %s"
+msgstr ""
+"Наступні користувачі знаходяться в обмежених слотах, але вони не є частиною "
+"доступного персоналу: %s"
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "Their first availability is"
+msgstr "Їхня перша доступність це"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
@@ -1485,52 +2125,92 @@ msgid "There is no appointment linked to your account."
 msgstr "З вашим обліковим записом не пов’язано жодної зустрічі."
 
 #. module: appointment
-#: code:addons/appointment/models/calendar_appointment_type.py:0
-#, python-format
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
 msgid ""
-"This category of appointment type should only have one employee but got %s "
-"employees"
+"This appointment type has no availabilities because it does not have any "
+"opening hours configured"
 msgstr ""
-"Ця категорія типу зустрічі повинна мати лише одного співробітника, натомість"
-" має %s співробітників"
+"Цей тип записів не має доступності, оскільки для нього не налаштовано години"
+" роботи"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid ""
+"This appointment type has no availabilities because it has no staff assigned"
+msgstr ""
+"Цей тип призначення не має доступності, оскільки для нього немає "
+"призначеного персоналу"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid ""
+"This appointment type has no availabilities because it has no staff assigned"
+" and does not have any opening hours configured"
+msgstr ""
+"Цей тип зустрічі не має доступності, оскільки для нього не призначено "
+"персоналу і не налаштовано години роботи"
+
+#. module: appointment
+#. odoo-python
+#: code:addons/appointment/models/appointment_type.py:0
+#, python-format
+msgid ""
+"This category of appointment type should only have one user but got %s users"
+msgstr ""
+"Ця категорія типу зустрічі має мати лише одного користувача, але отримано %s"
+" користувачів"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_edit_in_backend
 msgid "This is a preview of the customer appointment form."
 msgstr "Це попередній перегляд форми зустрічі клієнта."
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__4
+#: model:ir.model.fields,help:appointment.field_appointment_type__avatars_display
+msgid ""
+"This option toggles the display of avatars of the staff members during the frontend appointment process.\n"
+"        When choosing amongst several users, a selection screen will also be used, if website is installed."
+msgstr ""
+"Ця опція вмикає відображення аватарів співробітників під час процесу призначень на інтерфейсі.\n"
+"        При виборі з кількох користувачів також буде використовуватися екран вибору, якщо встановлено веб-сайт."
+
+#. module: appointment
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__4
 msgid "Thursday"
 msgstr "Четвер"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_calendar
-msgid "Time displayed in"
-msgstr "Час відображений в"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
-msgid "Time<span class=\"chevron\"/>"
-msgstr "Час<span class=\"chevron\"/>"
-
-#. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__appointment_tz
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_kanban
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__appointment_tz
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_search
 msgid "Timezone"
 msgstr "Часовий пояс"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__appointment_tz
+#: model:ir.model.fields,help:appointment.field_appointment_type__appointment_tz
 msgid "Timezone where appointment take place"
 msgstr "Часовий пояс, де відбудеться зустріч"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__end_datetime
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+msgid "Timezone:"
+msgstr "Часовий пояс:"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__end_datetime
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "To"
 msgstr "До"
+
+#. module: appointment
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__access_token
+msgid "Token"
+msgstr "Токен"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_kanban
+msgid "Total Meetings<br/>(Last 30 Days)"
+msgstr "Всього зустрічей<br/>(Останні 30 днів)"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
@@ -1538,63 +2218,58 @@ msgid "Total:"
 msgstr "Разом:"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__2
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__2
 msgid "Tuesday"
 msgstr "Вівторок"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_unread
-msgid "Unread Messages"
-msgstr "Непрочитані повідомлення"
-
-#. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Кількість непрочитаних повідомлень"
-
-#. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
 msgid "Until (max)"
 msgstr "До (макс.)"
 
 #. module: appointment
+#. odoo-python
 #: code:addons/appointment/controllers/portal.py:0
 #, python-format
 msgid "Upcoming"
 msgstr "Майбутні"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointments_list_layout
-msgid "Use the top button '<b>+ New</b>' to create an appointment type."
-msgstr ""
-"Використовуйте верхню кнопку '<b>+ Новий</b>', щоб створити тип зустрічі."
+#: model:ir.model.fields,help:appointment.field_calendar_alarm__default_for_new_appointment_type
+msgid "Use as default for new Appointment Types"
+msgstr "Використовувати за замовчуванням для нових типів зустрічей"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__category
+#: model:ir.model.fields,help:appointment.field_appointment_type__category
 msgid ""
 "Used to define this appointment type's category.\n"
+"\n"
 "        Can be one of:\n"
-"            - Website: the default category, the people can access and shedule the appointment with employees from the website\n"
-"            - Custom: the employee will create and share to an user a custom appointment type with hand-picked time slots\n"
-"            - Work Hours: a special type of appointment type that is used by one employee and which takes the working hours of this\n"
-"                employee as availabilities. This one uses recurring slot that englobe the entire week to display all possible slots\n"
-"                based on its working hours and availabilities"
+"\n"
+"            - Website: the default category, the people can access and schedule the appointment with users from the website\n"
+"\n"
+"            - Custom: the user will create and share to another user a custom appointment type with hand-picked time slots\n"
+"\n"
+"            - Anytime: the user will create and share to another user an appointment type covering all their time slots"
 msgstr ""
 "Використовується для визначення категорії цього типу зустрічі.\n"
-"        Може бути однією з:\n"
-"            - Веб-сайт: категорія за замовчуванням, люди можуть мати дотсуп та планувати зустрічі зі співробітниками на веб-сайті\n"
-"            - Кастомна: співробітник створить і поділиться з користувачем спеціальним типом зустрічі з обраними вручну проміжками часу\n"
-"            - Робочі години: особливий тип зустрічі, який використовується одним працівником і який приймає робочий час \n"
-"цього працівника як доступність. У цьому використовується повторюваний слот, який охоплює весь тиждень, \n"
-"щоб відобразити всі можливі слоти на основі його робочого часу та доступності"
+"\n"
+"        Може бути одним з:\n"
+"\n"
+"            - Веб-сайт: категорія за замовчуванням, люди можуть отримати доступ і запланувати зустріч з користувачами з веб-сайту\n"
+"\n"
+"            - Кастомний: користувач створить і надасть іншому користувачеві спеціальний тип зустрічі з вибраними вручну інтервалами часу\n"
+"\n"
+"            - У будь-який час: користувач створить і надасть іншому користувачеві тип зустрічі, що охоплює всі його часові інтервали"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointments_list_layout
-msgid "View Availabilities <span class=\"fa fa-arrow-right\"/>"
-msgstr "Переглянути доступність <span class=\"fa fa-arrow-right\"/>"
+#: model:ir.model.fields,field_description:appointment.field_appointment_invite__staff_user_ids
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__staff_user_ids
+msgid "Users"
+msgstr "Користувачі"
 
 #. module: appointment
-#: model_terms:calendar.appointment.type,message_confirmation:appointment.calendar_appointment_0
+#: model_terms:appointment.type,message_confirmation:appointment.appointment_type_1
 msgid ""
 "We thank you for your interest in our products!<br>\n"
 "               Please make sure to arrive <strong>10 minutes</strong> before your appointment."
@@ -1603,27 +2278,27 @@ msgstr ""
 "               Будь ласка, обов'язково приїдьте за <strong>10 хвилин</strong> до вашої зустрічі."
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_type__category__website
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_type__category__website
 msgid "Website"
 msgstr "Веб-сайт"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_type__website_message_ids
+#: model:ir.model.fields,field_description:appointment.field_appointment_type__website_message_ids
 msgid "Website Messages"
 msgstr "Повідомлення з веб-сайту"
 
 #. module: appointment
-#: model:ir.model.fields,help:appointment.field_calendar_appointment_type__website_message_ids
+#: model:ir.model.fields,help:appointment.field_appointment_type__website_message_ids
 msgid "Website communication history"
 msgstr "Історія бесіди на сайті"
 
 #. module: appointment
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_slot__weekday__3
+#: model:ir.model.fields.selection,name:appointment.selection__appointment_slot__weekday__3
 msgid "Wednesday"
 msgstr "Середа"
 
 #. module: appointment
-#: model:ir.model.fields,field_description:appointment.field_calendar_appointment_slot__weekday
+#: model:ir.model.fields,field_description:appointment.field_appointment_slot__weekday
 msgid "Week Day"
 msgstr "День тижня"
 
@@ -1633,40 +2308,29 @@ msgid "When:"
 msgstr "Коли:"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.employee_select
+#: model_terms:ir.ui.view,arch_db:appointment.staff_user_select
 msgid "With"
 msgstr "З"
 
 #. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/xml/calendar_appointment_scheduling.xml:0
-#: model:ir.model.fields.selection,name:appointment.selection__calendar_appointment_type__category__work_hours
-#, python-format
-msgid "Work Hours"
-msgstr "Робочі години"
-
-#. module: appointment
-#. openerp-web
-#: code:addons/appointment/static/src/js/calendar_renderer.js:0
-#: code:addons/appointment/static/src/js/calendar_renderer.js:0
-#, python-format
-msgid "You can not create a slot in the past."
-msgstr "Ви не можете створити слот у минулому."
+#: model:onboarding.onboarding.step,description:appointment.appointment_onboarding_configure_calendar_provider_step
+msgid "With Outlook or Google"
+msgstr "Через Outlook або Google"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "Your Email *"
-msgstr "Ваш Email *"
+msgid "Your Email*"
+msgstr "Ваш Email*"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "Your Name *"
-msgstr "Ваше ім'я *"
+msgid "Your Name*"
+msgstr "Ваше ім'я*"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "Your Phone *"
-msgstr "Ваш телефон *"
+msgid "Your Phone Number*"
+msgstr "Ваш номер телефону*"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
@@ -1674,15 +2338,68 @@ msgid "Your appointment is in less than"
 msgstr "Ваше призначення менше, ніж"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.calendar_appointment_type_view_form
-msgid "e.g. Schedule a demo"
-msgstr "наприклад, Запланувати демо"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "and not after"
+msgstr "і не після"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
-msgid "hour"
-msgstr "година"
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+msgid "at"
+msgstr "за"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "at least"
+msgstr "хоча би"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "days"
+msgstr "дні"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "e.g. \"During this meeting, we will...\""
+msgstr "напр. \"Протягом цієї зустрічі ми будемо...\""
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "e.g. \"I feel nauseous...\""
+msgstr "напр. \"Я відчуваю нудоту...\""
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "e.g. \"Technical Demo\""
+msgstr "напр. \"Технічне демо\""
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "e.g. \"Thank you for your trust, we look forward to meeting you!\""
+msgstr "напр. \"Дякуємо за довіру, ми повернемося до вас, щоби зустрітися!\""
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "e.g. \"What are your symptoms ?\""
+msgstr "напр. \"Які ваші симптоми?\""
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "has no availability for an appointment."
+msgstr "немає доступності для зустрічі."
+
+#. module: appointment
+#. odoo-javascript
+#: code:addons/appointment/static/src/xml/appointment_no_slot.xml:0
+#, python-format
+msgid "has no more slots available for this month."
+msgstr "більше немає вільних слотів на цей місяць. "
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "hours before"
+msgstr "годин до"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
@@ -1691,15 +2408,28 @@ msgstr "годин від зараз!"
 
 #. module: appointment
 #: model_terms:ir.ui.view,arch_db:appointment.appointment_form
-msgid "on"
-msgstr "на"
+msgid "john.smith@example.com"
+msgstr "john.smith@example.com"
 
 #. module: appointment
-#: model_terms:ir.ui.view,arch_db:appointment.appointment_calendar
-msgid "timezone"
-msgstr "часовий пояс"
+#: model:onboarding.onboarding.step,description:appointment.appointment_onboarding_create_appointment_type_step
+msgid "to automate appointments"
+msgstr "для автоматичзації зустрічей"
 
 #. module: appointment
+#: model:onboarding.onboarding.step,description:appointment.appointment_onboarding_preview_invite_step
+msgid "to schedule appointments"
+msgstr "для поанування зустрічей"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_type_view_form
+msgid "until"
+msgstr "до"
+
+#. module: appointment
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_form
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_info
+#: model_terms:ir.ui.view,arch_db:appointment.appointment_validated
 #: model_terms:ir.ui.view,arch_db:appointment.portal_my_appointments
 msgid "with"
 msgstr "з"

@@ -1,14 +1,16 @@
 odoo.define('account_reports/static/tests/account_reports_tests', function (require) {
     "use strict";
 
-    const ControlPanel = require('web.ControlPanel');
+    const LegacyControlPanel = require('web.ControlPanel');
+    const { ControlPanel } = require("@web/search/control_panel/control_panel");
     const testUtils = require("web.test_utils");
-    const { patch, unpatch } = require("web.utils");
     const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
-    const { legacyExtraNextTick } = require("@web/../tests/helpers/utils");
+    const { legacyExtraNextTick, getFixture, patchWithCleanup, destroy } = require("@web/../tests/helpers/utils");
 
     const { dom } = testUtils;
+    const { onMounted, onWillUnmount } = owl;
 
+    let target = getFixture();
     QUnit.module('Account Reports', {
         beforeEach: function () {
             this.models = {
@@ -31,16 +33,24 @@ odoo.define('account_reports/static/tests/account_reports_tests', function (requ
                     name: "Account reports",
                     tag: 'account_report',
                     type: 'ir.actions.client',
+                    params: {
+                        options: {
+                            buttons: [],
+                            search_bar: false,
+                        }
+                    }
                 }
             };
             this.mockRPC = function (route) {
                 if (route === '/web/dataset/call_kw/account.report/get_report_informations') {
                     return Promise.resolve({
-                        options: {},
-                        buttons: [],
+                        options: {
+                            buttons: [],
+                            search_bar: false,
+                        },
                         main_html: '<a action="go_to_details">Go to detail view</a>',
                     });
-                } else if (route === '/web/dataset/call_kw/account.report/go_to_details') {
+                } else if (route === '/web/dataset/call_kw/account.report/dispatch_report_action') {
                     return Promise.resolve({
                         type: "ir.actions.act_window",
                         res_id: 1,
@@ -53,6 +63,7 @@ odoo.define('account_reports/static/tests/account_reports_tests', function (requ
                     return Promise.resolve("");
                 }
             }
+            target = getFixture();
         }
     }, () => {
         QUnit.test("mounted is called once when returning on 'Account Reports' from breadcrumb", async function(assert) {
@@ -60,18 +71,31 @@ odoo.define('account_reports/static/tests/account_reports_tests', function (requ
             assert.expect(7);
 
             let mountCount = 0;
-
-            patch(ControlPanel.prototype, 'test.ControlPanel', {
-                mounted() {
-                    mountCount = mountCount + 1;
-                    this.__uniqueId = mountCount;
-                    assert.step(`mounted ${this.__uniqueId}`);
-                    this.__superMounted = this._super.bind(this);
-                    this.__superMounted(...arguments);
+            patchWithCleanup(ControlPanel.prototype, {
+                setup() {
+                    this._super();
+                    onMounted(() => {
+                        mountCount = mountCount + 1;
+                        this.__uniqueId = mountCount;
+                        assert.step(`mounted ${this.__uniqueId}`);
+                    });
+                    onWillUnmount(() => {
+                        assert.step(`willUnmount ${this.__uniqueId}`);
+                    });
                 },
-                willUnmount() {
-                    assert.step(`willUnmount ${this.__uniqueId}`);
-                    this.__superMounted(...arguments);
+            });
+            patchWithCleanup(LegacyControlPanel.prototype, {
+                setup() {
+                    this._super();
+                    onMounted(() => {
+                        mountCount = mountCount + 1;
+                        this.__uniqueId = mountCount;
+                        assert.step(`mounted ${this.__uniqueId} (legacy)`);
+                    });
+
+                    onWillUnmount(() => {
+                        assert.step(`willUnmount ${this.__uniqueId} (legacy)`);
+                    });
                 }
             });
 
@@ -82,22 +106,20 @@ odoo.define('account_reports/static/tests/account_reports_tests', function (requ
             });
 
             await doAction(webClient, 42);
-            await dom.click($(webClient.el).find('a[action="go_to_details"]'));
+            await dom.click($(target).find('a[action="go_to_details"]'));
             await legacyExtraNextTick();
-            await dom.click($(webClient.el).find('.breadcrumb-item:first'));
+            await dom.click($(target).find('.breadcrumb-item:first'));
             await legacyExtraNextTick();
-            webClient.destroy();
+            destroy(webClient);
 
             assert.verifySteps([
-                'mounted 1',
-                'willUnmount 1',
+                'mounted 1 (legacy)',
+                'willUnmount 1 (legacy)',
                 'mounted 2',
                 'willUnmount 2',
-                'mounted 3',
-                'willUnmount 3',
+                'mounted 3 (legacy)',
+                'willUnmount 3 (legacy)',
             ]);
-
-            unpatch(ControlPanel.prototype, 'test.ControlPanel');
         });
 
         QUnit.test("recomputeHeader is unregistered when leaving the 'Account Reports' view", async function (assert) {
@@ -110,11 +132,10 @@ odoo.define('account_reports/static/tests/account_reports_tests', function (requ
             });
 
             await doAction(webClient, 42);
-            await dom.click($(webClient.el).find('a[action="go_to_details"]'));
+            await dom.click($(target).find('a[action="go_to_details"]'));
             await legacyExtraNextTick();
             $(window).trigger('resize');
             assert.ok(true);
-            webClient.destroy();
         });
     });
 

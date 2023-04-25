@@ -9,31 +9,42 @@ from odoo.osv import expression
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    attachment_ids = fields.One2many('ir.attachment', 'res_id', domain=[('res_model', '=', 'account.move')], string='Attachments')
-    payment_state_before_switch = fields.Char(string="Payment State Before Switch", copy=False,
-                                              help="Technical field to keep the value of payment_state when switching from invoicing to accounting "\
-                                                   "(using invoicing_switch_threshold setting field). It allows keeping the former payment state, so that "\
-                                                   "we can restore it if the user misconfigured the switch date and wants to change it.")
-
-    def action_open_matching_suspense_moves(self):
-        self.ensure_one()
-        domain = self._get_domain_matching_suspense_moves()
-        ids = self.env['account.move.line'].search(domain).mapped('statement_line_id').ids
-        action_context = {'show_mode_selector': False, 'company_ids': self.mapped('company_id').ids}
-        action_context.update({'suspense_moves_mode': True})
-        action_context.update({'statement_line_ids': ids})
-        action_context.update({'partner_id': self.partner_id.id})
-        action_context.update({'partner_name': self.partner_id.name})
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'bank_statement_reconciliation_view',
-            'context': action_context,
-        }
+    # Technical field to keep the value of payment_state when switching from invoicing to accounting
+    # (using invoicing_switch_threshold setting field). It allows keeping the former payment state, so that
+    # we can restore it if the user misconfigured the switch date and wants to change it.
+    payment_state_before_switch = fields.Char(string="Payment State Before Switch", copy=False)
 
     @api.model
     def _get_invoice_in_payment_state(self):
         # OVERRIDE to enable the 'in_payment' state on invoices.
         return 'in_payment'
+
+    def action_post(self):
+        # EXTENDS 'account' to trigger the CRON auto-reconciling the statement lines.
+        res = super().action_post()
+        if self.statement_line_id:
+            self.env.ref('account_accountant.auto_reconcile_bank_statement_line')._trigger()
+        return res
+
+    def action_open_bank_reconciliation_widget(self):
+        return self.statement_line_id._action_open_bank_reconciliation_widget(
+            default_context={
+                'search_default_journal_id': self.statement_line_id.journal_id.id,
+                'search_default_statement_line_id': self.statement_line_id.id,
+                'default_st_line_id': self.statement_line_id.id,
+            }
+        )
+
+    def action_open_business_doc(self):
+        if self.statement_line_id:
+            return self.action_open_bank_reconciliation_widget()
+        else:
+            return super().action_open_business_doc()
+
+    def _get_mail_thread_data_attachments(self):
+        res = super()._get_mail_thread_data_attachments()
+        res += self.statement_line_id.statement_id.attachment_ids
+        return res
 
 
 class AccountMoveLine(models.Model):
@@ -56,10 +67,10 @@ class AccountMoveLine(models.Model):
         accounts, using an intermediate account.move doing the transfer.
         """
         all_accounts = self.mapped('account_id')
-        account_types = all_accounts.mapped('user_type_id.type')
+        account_types = all_accounts.mapped('account_type')
         all_partners = self.mapped('partner_id')
 
-        if len(all_accounts) == 2 and 'payable' in account_types and 'receivable' in account_types:
+        if len(all_accounts) == 2 and 'liability_payable' in account_types and 'asset_receivable' in account_types:
 
             if len(all_partners) != 1:
                 raise UserError(_("You cannot reconcile the payable and receivable accounts of multiple partners together at the same time."))

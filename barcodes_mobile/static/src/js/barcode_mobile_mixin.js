@@ -1,7 +1,7 @@
 odoo.define('web_mobile.barcode_mobile_mixin', function (require) {
 "use strict";
 
-const BarcodeScanner = require('@web_enterprise/webclient/barcode/barcode_scanner');
+const BarcodeScanner = require('@web/webclient/barcode/barcode_scanner');
 const core = require('web.core');
 const _t = core._t;
 
@@ -16,11 +16,14 @@ return {
         }
         return res;
     },
+    getFacingMode() {
+        return 'environment';
+    },
     async open_mobile_scanner() {
         let error = null;
         let barcode = null;
         try {
-            barcode = await BarcodeScanner.scanBarcode();
+            barcode = await BarcodeScanner.scanBarcode(this.getFacingMode());
         } catch (err) {
             error = err.error.message;
         }

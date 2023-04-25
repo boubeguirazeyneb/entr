@@ -1,9 +1,10 @@
 from odoo import fields
 
-from odoo.exceptions import AccessError, UserError
+from odoo.exceptions import AccessError
 
 from odoo.tests.common import new_test_user
 from odoo.addons.hr_timesheet.tests.test_timesheet import TestCommonTimesheet
+from datetime import timedelta
 
 
 class TestAccessRightsTimesheetGrid(TestCommonTimesheet):
@@ -37,7 +38,7 @@ class TestAccessRightsTimesheetGrid(TestCommonTimesheet):
             'name': 'My timesheet 1',
             'project_id': self.project_customer.id,
             'task_id': self.task2.id,
-            'date': today,
+            'date': today - timedelta(days=1),
             'unit_amount': 2,
             'employee_id': self.empl_employee.id
         })
@@ -54,9 +55,27 @@ class TestAccessRightsTimesheetGrid(TestCommonTimesheet):
             'name': 'My timesheet 4',
             'project_id': self.project_customer.id,
             'task_id': self.task1.id,
-            'date': today,
+            'date': today - timedelta(days=1),
             'unit_amount': 2,
             'employee_id': self.empl_employee3.id
+        })
+
+        self.timesheet3 = self.env['account.analytic.line'].with_user(self.user_manager).create({
+            'name': 'My old timesheet',
+            'project_id': self.project_customer.id,
+            'task_id': self.task1.id,
+            'date': today - timedelta(days=10),
+            'unit_amount': 2,
+            'employee_id': self.empl_employee3.id,
+        })
+
+        self.timesheet4 = self.env['account.analytic.line'].with_user(self.user_manager).create({
+            'name': 'My old timesheet 2',
+            'project_id': self.project_customer.id,
+            'task_id': self.task1.id,
+            'date': today - timedelta(days=10),
+            'unit_amount': 2,
+            'employee_id': self.empl_employee2.id,
         })
 
         self.project_follower = self.env['project.project'].create({
@@ -73,7 +92,7 @@ class TestAccessRightsTimesheetGrid(TestCommonTimesheet):
             'name': 'Timesheet Approver2',
             'project_id': self.project_customer.id,
             'task_id': self.task1.id,
-            'date': today,
+            'date': today - timedelta(days=1),
             'unit_amount': 1,
             'employee_id': self.empl_approver2.id
         })
@@ -179,11 +198,13 @@ class TestAccessRightsTimesheetGrid(TestCommonTimesheet):
         # the manager can delete the timesheet of employee 1
         timesheet_user1.with_user(self.user_manager).unlink()
 
-    def test_timesheet_validation_approver(self):
+    def test_timesheet_validation_approver_and_invalidate(self):
         """ Check if the approver who has created the timesheet for an employee, can validate the timesheet."""
         timesheet_to_validate = self.timesheet
         timesheet_to_validate.with_user(self.user_approver).action_validate_timesheet()
-        self.assertEqual(timesheet_to_validate.validated, True)
+        self.assertTrue(timesheet_to_validate.validated)
+        timesheet_to_validate.with_user(self.user_approver).action_invalidate_timesheet()
+        self.assertFalse(timesheet_to_validate.validated)
 
     def test_timesheet_validation_approver_own_timesheet(self):
         """ Check that the approver cannot validate his/her own timesheet.
@@ -269,3 +290,147 @@ class TestAccessRightsTimesheetGrid(TestCommonTimesheet):
         # the employee 1 can read this timesheet because his own
         res = self.timesheet.with_user(self.user_employee).read(['name'])
         self.assertEqual(res[0]['name'], 'My timesheet 1')
+
+    def test_last_validated_timesheet_date(self):
+        """ Check if an employee cannot create, modify or
+            delete a timesheet with date <= last_validated_timesheet_date
+        """
+        self.assertFalse(self.empl_employee3.last_validated_timesheet_date)
+        self.assertFalse(self.empl_employee3.company_id.prevent_old_timesheets_encoding)
+        timesheet = self.env['account.analytic.line'].with_user(self.user_employee3).create({
+            'name': 'timesheet',
+            'project_id': self.project_customer.id,
+            'task_id': self.task1.id,
+            'date': fields.Datetime.today() - timedelta(days=40),
+            'unit_amount': 2,
+            'employee_id': self.empl_employee3.id,
+        })
+        timesheet.with_user(self.user_approver).action_validate_timesheet()
+        self.assertFalse(self.empl_employee3.last_validated_timesheet_date)
+
+        # Set the settings accordingly
+        timesheet_settings = self.env["res.config.settings"].create({
+            'prevent_old_timesheets_encoding': True,
+        })
+        timesheet_settings.execute()
+        self.assertEqual(self.empl_employee3.last_validated_timesheet_date, timesheet.date)
+        timesheet.with_user(self.user_approver).action_invalidate_timesheet()
+        self.assertFalse(self.empl_employee3.last_validated_timesheet_date)
+
+        # User can create timesheet with any date if timesheet.employee_id.last_validated_timesheet_date = False
+        yesterday = fields.Date.today() - timedelta(days=1)
+        timesheet1 = self.env['account.analytic.line'].with_user(self.user_employee3).create({
+            'name': 'timesheet 1',
+            'project_id': self.project_customer.id,
+            'task_id': self.task1.id,
+            'date': yesterday,
+            'unit_amount': 2,
+            'employee_id': self.empl_employee3.id,
+        })
+        self.timesheet4.write({'date': self.timesheet2.date})
+        (self.timesheet3 + self.timesheet2 + self.timesheet4).action_validate_timesheet()
+        self.assertEqual(self.empl_employee3.last_validated_timesheet_date, max(self.timesheet3.date, self.timesheet2.date))
+
+        # User cannot delete timesheet if date <= timesheet.employee_id.last_validated_timesheet_date
+        with self.assertRaises(AccessError):
+            timesheet1.unlink()
+
+        # User cannot create timesheet if date <= timesheet.employee_id.last_validated_timesheet_date
+        with self.assertRaises(AccessError):
+            self.env['account.analytic.line'].with_user(self.user_employee3).create({
+                'name': 'timesheet',
+                'project_id': self.project_customer.id,
+                'task_id': self.task1.id,
+                'date': fields.Datetime.today() - timedelta(days=10),
+                'unit_amount': 2,
+                'employee_id': self.empl_employee3.id,
+            })
+
+        # User can create timesheet if date > timesheet.employee_id.last_validated_timesheet_date
+        timesheet = self.env['account.analytic.line'].with_user(self.user_employee3).create({
+            'name': 'timesheet',
+            'project_id': self.project_customer.id,
+            'task_id': self.task1.id,
+            'date': fields.Datetime.today() + timedelta(days=10),
+            'unit_amount': 2,
+            'employee_id': self.empl_employee3.id,
+        })
+
+        # User cannot modify timesheet if date <= timesheet.employee_id.last_validated_timesheet_date
+        with self.assertRaises(AccessError):
+            timesheet.with_user(self.user_employee3).write({
+                'date': fields.Datetime.today() - timedelta(days=10),
+            })
+
+        timesheet.with_user(self.user_approver).action_validate_timesheet()
+        self.assertEqual(self.empl_employee3.last_validated_timesheet_date, yesterday)
+
+        (timesheet + self.timesheet2 + self.timesheet4).with_user(self.user_approver).action_invalidate_timesheet()
+        self.assertEqual(self.empl_employee3.last_validated_timesheet_date, self.timesheet3.date)
+
+        self.timesheet3.with_user(self.user_approver).action_invalidate_timesheet()
+        self.assertFalse(self.empl_employee3.last_validated_timesheet_date)
+
+    def test_old_timesheet(self):
+        """ Check that an employee cannot start a timesheet with date <= last_validated_timesheet_date
+            and that validating a timesheet interrupts the potential running older timesheet
+        """
+        self.empl_employee3.company_id.prevent_old_timesheets_encoding = True
+        today = fields.Date.today()
+        timesheet1, timesheet2, timesheet3, timesheet4 = self.env['account.analytic.line'].with_user(self.user_employee3).create([
+            {
+                'name': 'Timesheet1',
+                'project_id': self.project_customer.id,
+                'task_id': self.task1.id,
+                'date': today - timedelta(days=3),
+                'unit_amount': 2,
+                'employee_id': self.empl_employee3.id,
+            }, {
+                'name': 'Timesheet2',
+                'project_id': self.project_customer.id,
+                'task_id': self.task1.id,
+                'date': today - timedelta(days=2),
+                'unit_amount': 2,
+                'employee_id': self.empl_employee3.id,
+            }, {
+                'name': 'Timesheet3',
+                'project_id': self.project_customer.id,
+                'task_id': self.task1.id,
+                'date': today - timedelta(days=1),
+                'unit_amount': 2,
+                'employee_id': self.empl_employee3.id,
+            }, {
+                'name': 'Timesheet4',
+                'project_id': self.project_customer.id,
+                'task_id': self.task1.id,
+                'date': today,
+                'unit_amount': 2,
+                'employee_id': self.empl_employee3.id,
+            },
+        ])
+
+        # The validation of a timesheet interrupts the timer of the running older timesheet
+        timesheet1.with_user(self.user_employee3).action_timer_start()
+        self.assertTrue(timesheet1.is_timer_running)
+        timesheet2.with_user(self.user_approver).action_validate_timesheet()
+        self.assertFalse(timesheet1.is_timer_running)
+
+        # Starting the timer of a timesheet older than the last validated timesheet doesn't start
+        # the timesheet timer but creates a new timesheet for the same task at the current date
+        timesheet1.with_user(self.user_employee3).action_timer_start()
+        self.assertFalse(timesheet1.is_timer_running)
+        timesheet5 = self.env['account.analytic.line'].search([('employee_id', '=', self.empl_employee3.id), ('is_timer_running', '=', True)])
+        self.assertEqual(len(timesheet5), 1)
+        self.assertEqual(timesheet5.project_id, self.project_customer)
+        self.assertEqual(timesheet5.task_id, self.task1)
+        self.assertEqual(timesheet5.date, today)
+
+        # The employee can interrupt the new timesheet timer
+        timesheet5.with_user(self.user_employee3).action_timer_stop()
+        self.assertFalse(timesheet5.is_timer_running)
+
+        # The validation of a timesheet doesn't interrupt the timer of a more recent timesheet
+        timesheet4.with_user(self.user_employee3).action_timer_start()
+        self.assertTrue(timesheet4.is_timer_running)
+        timesheet3.with_user(self.user_approver).action_validate_timesheet()
+        self.assertTrue(timesheet4.is_timer_running)

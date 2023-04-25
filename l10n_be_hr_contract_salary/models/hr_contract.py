@@ -5,7 +5,6 @@ import ast
 
 from odoo import api, fields, models
 
-EMPLOYER_ONSS = 0.2714
 
 class HrContract(models.Model):
     _inherit = 'hr.contract'
@@ -19,17 +18,22 @@ class HrContract(models.Model):
     contract_type_id = fields.Many2one('hr.contract.type', "Contract Type",
                                        default=lambda self: self.env.ref('l10n_be_hr_payroll.l10n_be_contract_type_cdi',
                                                                          raise_if_not_found=False))
-    final_yearly_costs_fte = fields.Monetary(
-        compute='_compute_final_yearly_costs_fte',
-        string="Yearly Cost (FTE)",
-        help="Total yearly cost of the employee for the employer for a full time equivalent.")
+    has_bicycle = fields.Boolean(related="employee_id.has_bicycle", readonly=False)
+    l10n_be_bicyle_cost = fields.Float(compute='_compute_l10n_be_bicyle_cost')
 
-    @api.depends(lambda self: (
-        'time_credit_full_time_wage',
-        *self._get_advantage_fields()))
-    def _compute_final_yearly_costs_fte(self):
+    @api.depends('employee_id.has_bicycle')
+    def _compute_l10n_be_bicyle_cost(self):
         for contract in self:
-            contract.final_yearly_costs_fte = contract._get_advantages_costs() + contract._get_salary_costs_factor() * contract.time_credit_full_time_wage
+            if not contract.employee_id.has_bicycle:
+                contract.l10n_be_bicyle_cost = 0
+            else:
+                contract.l10n_be_bicyle_cost = self._get_private_bicycle_cost(contract.employee_id.km_home_work)
+
+    @api.model
+    def _get_private_bicycle_cost(self, distance):
+        amount_per_km = self.env['hr.rule.parameter'].sudo()._get_parameter_from_code('cp200_cycle_reimbursement_per_km', raise_if_not_found=False) or 0.20
+        amount_max = self.env['hr.rule.parameter'].sudo()._get_parameter_from_code('cp200_cycle_reimbursement_max', raise_if_not_found=False) or 8
+        return 4 * min(amount_max, amount_per_km * distance * 2)
 
     @api.depends(
         'wage_with_holidays', 'wage_on_signature', 'state',
@@ -38,12 +42,7 @@ class HrContract(models.Model):
     def _compute_l10n_be_is_below_scale(self):
         super()._compute_l10n_be_is_below_scale()
 
-    def _get_salary_costs_factor(self):
-        res = super()._get_salary_costs_factor()
-        if self.structure_type_id == self.env.ref('hr_contract.structure_type_employee_cp200'):
-            return 13.92 + 13.0 * EMPLOYER_ONSS
-        return res
-
+    @api.depends('wage_with_holidays')
     def _compute_double_holiday_wage(self):
         for contract in self:
             contract.double_holiday_wage = contract.wage_with_holidays * 0.92
@@ -54,10 +53,6 @@ class HrContract(models.Model):
         vehicle_contracts = cars.with_context(active_test=False).mapped('log_contracts').filtered(
             lambda contract: not contract.active)
         return res + [cars, vehicle_contracts]
-
-    @api.model
-    def _advantage_black_list(self):
-        return super()._advantage_black_list() | set(['time_credit_full_time_wage'])
 
     @api.model
     def _advantage_white_list(self):
@@ -123,6 +118,9 @@ class HrContract(models.Model):
 
     def _get_advantage_values_insured_relative_spouse(self, contract, advantages):
         return {'insured_relative_spouse': advantages['fold_insured_relative_spouse']}
+
+    def _get_advantage_values_l10n_be_ambulatory_insured_spouse(self, contract, advantages):
+        return {'l10n_be_ambulatory_insured_spouse': advantages['fold_l10n_be_ambulatory_insured_spouse']}
 
     def _get_description_company_car_total_depreciated_cost(self, new_value=None):
         advantage = self.env.ref('l10n_be_hr_contract_salary.l10n_be_transport_company_car')

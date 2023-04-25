@@ -38,6 +38,7 @@ Note: Only the admin user is allowed to make those customizations.
         'views/ir_model_data.xml',
         'views/studio_approval_views.xml',
         'data/mail_templates.xml',
+        'data/mail_activity_type_data.xml',
         'wizard/base_module_uninstall_view.xml',
         'security/ir.model.access.csv',
         'security/studio_security.xml',
@@ -59,7 +60,14 @@ Note: Only the admin user is allowed to make those customizations.
             'web_studio/static/src/legacy/js/views/controllers/form_controller.js',
             'web_studio/static/src/legacy/studio_legacy_service.js',
             'web_studio/static/src/home_menu/**/*.js',
+            'web_studio/static/src/views/**/*.js',
+            'web_studio/static/src/approval/**/*',
+            'web_studio/static/src/**/*.xml',
+            ('remove', 'web_studio/static/src/legacy/xml/sidebar_web_editor.xml'),
         ],
+        'web_editor.assets_wysiwyg': {
+            'web_studio/static/src/legacy/xml/sidebar_web_editor.xml',
+        },
         'web.assets_backend_prod_only': [
             'web_studio/static/src/client_action/studio_action_loader.js',
             'web_studio/static/src/client_action/app_creator/app_creator_shortcut.js',
@@ -86,11 +94,14 @@ Note: Only the admin user is allowed to make those customizations.
             'web_studio/static/src/legacy/js/views/view_components.js',
             'web_studio/static/src/legacy/js/views/view_editor_manager.js',
             'web_studio/static/src/legacy/js/views/view_editor_sidebar.js',
+            'web_studio/static/src/legacy/js/views/sidebar_safe_fields.js',
             'web_studio/static/src/legacy/js/views/renderers/search_renderer.js',
             'web_studio/static/src/legacy/js/views/renderers/list_renderer_lazy.js',
             'web_studio/static/src/legacy/js/views/view_editors/**/*.js',
 
             ('include', 'web._assets_helpers'),
+            'web_studio/static/src/scss/bootstrap_overridden.scss',
+            'web/static/src/scss/pre_variables.scss',
             'web/static/lib/bootstrap/scss/_variables.scss',
             'web_studio/static/src/client_action/variables.scss',
             'web_studio/static/src/client_action/mixins.scss',
@@ -98,10 +109,7 @@ Note: Only the admin user is allowed to make those customizations.
 
             'web_studio/static/src/legacy/scss/icons.scss',
             'web_studio/static/src/legacy/scss/action_editor.scss',
-            'web_studio/static/src/legacy/scss/form_editor.scss',
             'web_studio/static/src/legacy/scss/kanban_view.scss',
-            'web_studio/static/src/legacy/scss/kanban_editor.scss',
-            'web_studio/static/src/legacy/scss/list_editor.scss',
             'web_studio/static/src/legacy/scss/new_field_dialog.scss',
             'web_studio/static/src/legacy/scss/report_editor.scss',
             'web_studio/static/src/legacy/scss/report_editor_manager.scss',
@@ -111,12 +119,15 @@ Note: Only the admin user is allowed to make those customizations.
             'web_studio/static/src/legacy/scss/sidebar.scss',
             'web_studio/static/src/legacy/scss/view_editor_manager.scss',
             'web_studio/static/src/legacy/scss/xml_editor.scss',
+
+            'web_studio/static/src/legacy/xml/new_model.xml',
         ],
         'web.assets_tests': [
             'web_studio/static/tests/legacy/tours/**/*',
         ],
         'web_studio.report_assets': [
             ('include', 'web._assets_helpers'),
+            'web/static/src/scss/pre_variables.scss',
             'web/static/lib/bootstrap/scss/_variables.scss',
             'web_studio/static/src/legacy/scss/report_iframe.scss',
         ],
@@ -128,6 +139,7 @@ Note: Only the admin user is allowed to make those customizations.
             'web_studio/static/tests/mock_server.js',
             'web_studio/static/tests/helpers.js',
             'web_studio/static/tests/*.js',
+            'web_studio/static/tests/views/**/*.js',
             'web_studio/static/tests/legacy/action_editor_action_tests.js',
             'web_studio/static/tests/legacy/edit_menu_tests.js',
             'web_studio/static/tests/legacy/new_model_tests.js',
@@ -136,9 +148,8 @@ Note: Only the admin user is allowed to make those customizations.
             'web_studio/static/tests/legacy/reports/**/*.js',
             'web_studio/static/tests/legacy/views/**/*.js',
         ],
-        'web.assets_qweb': [
-            'web_studio/static/src/home_menu/home_menu.xml',
-            'web_studio/static/src/**/*.xml',
+        'web.qunit_mobile_suite_tests': [
+            'web_studio/static/tests/views/disable_patch.js',
         ],
     }
 }

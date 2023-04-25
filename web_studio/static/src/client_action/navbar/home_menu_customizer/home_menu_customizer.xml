@@ -7,25 +7,26 @@
         <t t-set-slot="toggler">
           Customizations
         </t>
-        <DropdownItem class="o_web_studio_change_background" t-on-dropdown-item-selected.stop="">
-          <FileInput
-            action="'/web/binary/upload_attachment'"
-            t-on-uploaded="bgImageUploaded"
-            model="'res.company'" id="company.currentCompany.id"
-            accepted_file_extensions="'image/*'"
-          >
-            Change Background
-          </FileInput>
+        <DropdownItem class="'o_web_studio_change_background'" parentClosingMode="'none'">
+        <FileInput
+            acceptedFileExtensions="'image/*'"
+            onUpload.bind="onBackgroundUpload"
+            resId="company.currentCompany.id"
+            resModel="'res.company'"
+        >
+          Change Background
+        </FileInput>
         </DropdownItem>
         <DropdownItem t-if="menus.getMenu('root').backgroundImage"
-          class="o_web_studio_reset_default_background"
-          t-on-click="_resetBgImage">
+          class="'o_web_studio_reset_default_background'"
+          onSelected.bind="resetBackground"
+        >
           Reset Default Background
         </DropdownItem>
-        <DropdownItem class="o_web_studio_import" t-on-click="_import">
+        <DropdownItem class="'o_web_studio_import'" onSelected.bind="importCusto">
           Import
         </DropdownItem>
-        <DropdownItem class="o_web_studio_export" t-on-click="_export">
+        <DropdownItem class="'o_web_studio_export'" onSelected.bind="exportCusto">
           Export
         </DropdownItem>
       </Dropdown>

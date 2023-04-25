@@ -3,6 +3,8 @@
 from odoo import api, fields, models, tools, _
 from odoo.exceptions import ValidationError, UserError
 from odoo.tools.float_utils import float_repr
+from odoo.tools.sql import column_exists, create_column
+from .extra_timezones import TIEMPO_DEL_CENTRO_ZIPCODES, TIEMPO_DEL_NOROESTE_ZIPCODES, TIEMPO_DEL_CENTRO_EN_FRONTIERA_ZIPCODES
 
 import base64
 import requests
@@ -67,7 +69,7 @@ class AccountMove(models.Model):
             ('D08', 'Mandatory School Transportation Expenses'),
             ('D09', 'Deposits in savings accounts, premiums based on pension plans.'),
             ('D10', 'Payments for educational services (Colegiatura)'),
-            ('P01', 'To define'),
+            ('P01', 'To define (CFDI 3.3 only)'),
         ],
         string="Usage",
         default='P01',
@@ -88,10 +90,11 @@ class AccountMove(models.Model):
              "- 05: Traslados de mercancias facturados previamente\n"
              "- 06: Factura generada por los traslados previos\n"
              "- 07: CFDI por aplicación de anticipo")
-    l10n_mx_edi_cancel_invoice_id = fields.Many2one(comodel_name='account.move',
-                                                    string="Substituted By",
-                                                    compute='_compute_l10n_mx_edi_cancel',
-                                                    readonly=True)
+    l10n_mx_edi_cancel_move_id = fields.Many2one(
+        comodel_name='account.move',
+        string="Substituted By",
+        compute='_compute_l10n_mx_edi_cancel',
+        readonly=True)
     # ==== CFDI certificate fields ====
     l10n_mx_edi_certificate_id = fields.Many2one(
         comodel_name='l10n_mx_edi.certificate',
@@ -104,9 +107,9 @@ class AccountMove(models.Model):
              "'NumCertificadoOrigen'.")
 
     # ==== CFDI attachment fields ====
-    l10n_mx_edi_cfdi_uuid = fields.Char(string='Fiscal Folio', copy=False, readonly=True,
+    l10n_mx_edi_cfdi_uuid = fields.Char(string='Fiscal Folio', copy=False, readonly=True, store=True,
         help='Folio in electronic invoice, is returned by SAT when send to stamp.',
-        compute='_compute_cfdi_values')
+        compute='_compute_l10n_mx_edi_cfdi_uuid')
     l10n_mx_edi_cfdi_supplier_rfc = fields.Char(string='Supplier RFC', copy=False, readonly=True,
         help='The supplier tax identification number.',
         compute='_compute_cfdi_values')
@@ -130,19 +133,32 @@ class AccountMove(models.Model):
         selection=[('PPD', 'PPD'), ('PUE', 'PUE')],
         compute='_compute_l10n_mx_edi_payment_policy')
 
+    def _auto_init(self):
+        """
+        Create compute stored field l10n_mx_edi_cfdi_request
+        here to avoid MemoryError on large databases.
+        """
+        if not column_exists(self.env.cr, 'account_move', 'l10n_mx_edi_cfdi_request'):
+            create_column(self.env.cr, 'account_move', 'l10n_mx_edi_cfdi_request', 'varchar')
+        return super()._auto_init()
+
     # -------------------------------------------------------------------------
     # HELPERS
     # -------------------------------------------------------------------------
 
+    def _l10n_mx_edi_get_cadena_xslts(self):
+        return CFDI_XSLT_CADENA_TFD, CFDI_XSLT_CADENA
+
     def _get_l10n_mx_edi_signed_edi_document(self):
         self.ensure_one()
-
-        cfdi_3_3_edi = self.env.ref('l10n_mx_edi.edi_cfdi_3_3')
-        return self.edi_document_ids.filtered(lambda document: document.edi_format_id == cfdi_3_3_edi and document.attachment_id)
+        return self.edi_document_ids.filtered(lambda document: document.edi_format_id.code == 'cfdi_3_3' and document.sudo().attachment_id)
 
     def _get_l10n_mx_edi_issued_address(self):
         self.ensure_one()
         return self.company_id.partner_id.commercial_partner_id
+
+    def _l10n_mx_edi_get_tax_objected(self):
+        return '02'
 
     def _l10n_mx_edi_decode_cfdi(self, cfdi_data=None):
         ''' Helper to extract relevant data from the CFDI to be used, for example, when printing the invoice.
@@ -164,17 +180,38 @@ class AccountMove(models.Model):
             cadena_root = etree.parse(tools.file_open(template))
             return str(etree.XSLT(cadena_root)(cfdi_node))
 
+        def is_purchase_move(move):
+            return move.move_type in move.get_purchase_types() \
+                    or move.payment_id.reconciled_bill_ids
+
         # Find a signed cfdi.
         if not cfdi_data:
             signed_edi = self._get_l10n_mx_edi_signed_edi_document()
             if signed_edi:
-                cfdi_data = base64.decodebytes(signed_edi.attachment_id.with_context(bin_size=False).datas)
+                cfdi_data = base64.decodebytes(signed_edi.sudo().attachment_id.with_context(bin_size=False).datas)
+
+            # For vendor bills, the CFDI XML must be posted in the chatter as an attachment.
+            elif is_purchase_move(self) and self.country_code == 'MX' and not self.l10n_mx_edi_cfdi_request:
+                attachments = self.attachment_ids.filtered(lambda x: x.mimetype == 'application/xml')
+                if attachments:
+                    attachment = sorted(attachments, key=lambda x: x.create_date)[-1]
+                    cfdi_data = base64.decodebytes(attachment.with_context(bin_size=False).datas)
 
         # Nothing to decode.
         if not cfdi_data:
             return {}
 
-        cfdi_node = fromstring(cfdi_data)
+        try:
+            cfdi_node = fromstring(cfdi_data)
+            emisor_node = cfdi_node.Emisor
+            receptor_node = cfdi_node.Receptor
+        except etree.XMLSyntaxError:
+            # Not an xml
+            return {}
+        except AttributeError:
+            # Not a CFDI
+            return {}
+
         tfd_node = get_node(
             cfdi_node,
             'tfd:TimbreFiscalDigital[1]',
@@ -183,20 +220,20 @@ class AccountMove(models.Model):
 
         return {
             'uuid': ({} if tfd_node is None else tfd_node).get('UUID'),
-            'supplier_rfc': cfdi_node.Emisor.get('Rfc', cfdi_node.Emisor.get('rfc')),
-            'customer_rfc': cfdi_node.Receptor.get('Rfc', cfdi_node.Receptor.get('rfc')),
+            'supplier_rfc': emisor_node.get('Rfc', emisor_node.get('rfc')),
+            'customer_rfc': receptor_node.get('Rfc', receptor_node.get('rfc')),
             'amount_total': cfdi_node.get('Total', cfdi_node.get('total')),
             'cfdi_node': cfdi_node,
-            'usage': cfdi_node.Receptor.get('UsoCFDI'),
+            'usage': receptor_node.get('UsoCFDI'),
             'payment_method': cfdi_node.get('formaDePago', cfdi_node.get('MetodoPago')),
             'bank_account': cfdi_node.get('NumCtaPago'),
             'sello': cfdi_node.get('sello', cfdi_node.get('Sello', 'No identificado')),
             'sello_sat': tfd_node is not None and tfd_node.get('selloSAT', tfd_node.get('SelloSAT', 'No identificado')),
-            'cadena': tfd_node is not None and get_cadena(tfd_node, CFDI_XSLT_CADENA_TFD) or get_cadena(cfdi_node, CFDI_XSLT_CADENA),
+            'cadena': tfd_node is not None and get_cadena(tfd_node, self._l10n_mx_edi_get_cadena_xslts()[0]) or get_cadena(cfdi_node, self._l10n_mx_edi_get_cadena_xslts()[1]),
             'certificate_number': cfdi_node.get('noCertificado', cfdi_node.get('NoCertificado')),
             'certificate_sat_number': tfd_node is not None and tfd_node.get('NoCertificadoSAT'),
             'expedition': cfdi_node.get('LugarExpedicion'),
-            'fiscal_regime': cfdi_node.Emisor.get('RegimenFiscal', ''),
+            'fiscal_regime': emisor_node.get('RegimenFiscal', ''),
             'emission_date_str': cfdi_node.get('fecha', cfdi_node.get('Fecha', '')).replace('T', ' '),
             'stamp_date': tfd_node is not None and tfd_node.get('FechaTimbrado', '').replace('T', ' '),
         }
@@ -267,6 +304,7 @@ class AccountMove(models.Model):
     @api.model
     def _l10n_mx_edi_get_cfdi_partner_timezone(self, partner):
         code = partner.state_id.code
+        zipcode = partner.zip
 
         # northwest area
         if code == 'BCN':
@@ -274,12 +312,18 @@ class AccountMove(models.Model):
         # Southeast area
         elif code == 'ROO':
             return timezone('America/Cancun')
+        # Tiempo del noroeste areas
+        elif code == 'CHH' and zipcode in TIEMPO_DEL_NOROESTE_ZIPCODES:
+            return timezone('America/Ojinaga')
+        # Tiempo del centro areas
+        elif code == 'NAY' and zipcode in TIEMPO_DEL_CENTRO_ZIPCODES:
+            return timezone('America/Bahia_Banderas')
+        # Tiempo del centro en frontiera areas
+        elif code in ('TAM', 'NLE', 'COA') and zipcode in TIEMPO_DEL_CENTRO_EN_FRONTIERA_ZIPCODES:
+            return timezone('America/Matamoros')
         # Pacific area
-        elif code in ('BCS', 'CHH', 'SIN', 'NAY'):
-            return timezone('America/Chihuahua')
-        # Sonora
-        elif code == 'SON':
-            return timezone('America/Hermosillo')
+        elif code in ('SON', 'BCS', 'SIN', 'NAY'):
+            return timezone('America/Mazatlan')
         # By default, takes the central area timezone
         return timezone('America/Mexico_City')
 
@@ -315,14 +359,20 @@ class AccountMove(models.Model):
             else:
                 move.l10n_mx_edi_cfdi_request = False
 
+    @api.depends('edi_document_ids', 'edi_document_ids.state', 'attachment_ids')
+    def _compute_l10n_mx_edi_cfdi_uuid(self):
+        '''Fill the invoice fields from the cfdi values.
+        '''
+        for move in self:
+            cfdi_infos = move._l10n_mx_edi_decode_cfdi()
+            move.l10n_mx_edi_cfdi_uuid = cfdi_infos.get('uuid')
+
     @api.depends('edi_document_ids')
     def _compute_cfdi_values(self):
         '''Fill the invoice fields from the cfdi values.
         '''
         for move in self:
             cfdi_infos = move._l10n_mx_edi_decode_cfdi()
-
-            move.l10n_mx_edi_cfdi_uuid = cfdi_infos.get('uuid')
             move.l10n_mx_edi_cfdi_supplier_rfc = cfdi_infos.get('supplier_rfc')
             move.l10n_mx_edi_cfdi_customer_rfc = cfdi_infos.get('customer_rfc')
             move.l10n_mx_edi_cfdi_amount = cfdi_infos.get('amount_total')
@@ -360,14 +410,14 @@ class AccountMove(models.Model):
         for move in self:
             if move.l10n_mx_edi_cfdi_uuid:
                 replaced_move = move.search(
-                    [('l10n_mx_edi_origin', 'like', '04|%'),
-                     ('l10n_mx_edi_origin', 'like', '%' + move.l10n_mx_edi_cfdi_uuid + '%'),
+                    [('l10n_mx_edi_origin', '=like', '04|%' + move.l10n_mx_edi_cfdi_uuid + '%'),
                      ('company_id', '=', move.company_id.id)],
                     limit=1,
+                    order="id desc"
                 )
-                move.l10n_mx_edi_cancel_invoice_id = replaced_move
+                move.l10n_mx_edi_cancel_move_id = replaced_move
             else:
-                move.l10n_mx_edi_cancel_invoice_id = None
+                move.l10n_mx_edi_cancel_move_id = None
 
     # -------------------------------------------------------------------------
     # CONSTRAINTS
@@ -413,8 +463,8 @@ class AccountMove(models.Model):
             # the l10n_mx_edi_cfdi_uuid, ... fields will have been set to False.
             # However, the attachment might still be there, so try to retrieve it.
             cfdi_doc = move.edi_document_ids.filtered(lambda document: document.edi_format_id == self.env.ref('l10n_mx_edi.edi_cfdi_3_3'))
-            if cfdi_doc and not cfdi_doc.attachment_id:
-                attachment = self.env['ir.attachment'].search([('name', 'like', '%-MX-Invoice-3.3.xml'), ('res_model', '=', 'account.move'), ('res_id', '=', move.id)], limit=1, order='create_date desc')
+            if cfdi_doc and not cfdi_doc.sudo().attachment_id:
+                attachment = self.env['account.edi.format']._l10n_mx_edi_get_invoice_attachment(res_model='account.move', res_id=move.id)
                 if attachment:
                     cfdi_data = base64.decodebytes(attachment.with_context(bin_size=False).datas)
                     cfdi_infos = move._l10n_mx_edi_decode_cfdi(cfdi_data=cfdi_data)
@@ -452,13 +502,14 @@ class AccountMove(models.Model):
             ('state', 'in', ('sent', 'cancelled')),
             ('move_id.l10n_mx_edi_sat_status', 'in', ('undefined', 'not_found', 'none')),
         ])
-        to_process.move_id.l10n_mx_edi_update_sat_status()
 
-        # Handle the case when the invoice has been cancelled manually government-side.
-        to_process\
-            .filtered(lambda doc: doc.state == 'sent' and doc.move_id.l10n_mx_edi_sat_status == 'cancelled')\
-            .move_id\
-            .button_cancel()
+        for doc in to_process:
+            doc.move_id.l10n_mx_edi_update_sat_status()
+            # Handle the case when the invoice has been cancelled manually government-side.
+            if doc.state == 'sent' and doc.move_id.l10n_mx_edi_sat_status == 'cancelled':
+                doc.move_id.button_cancel()
+            # Commit to avoid complete rollback on TimeoutError
+            self._cr.commit()
 
     # -------------------------------------------------------------------------
     # BUSINESS METHODS
@@ -490,7 +541,6 @@ class AccountMove(models.Model):
                 # Assign time and date coming from a certificate.
                 if not move.invoice_date:
                     move.invoice_date = certificate_date.date()
-                    move.with_context(check_move_validity=False)._onchange_invoice_date()
 
         return super()._post(soft=soft)
 
@@ -516,3 +566,10 @@ class AccountMove(models.Model):
             if move.l10n_mx_edi_cfdi_uuid:
                 default_vals['l10n_mx_edi_origin'] = move._l10n_mx_edi_write_cfdi_origin('01', [move.l10n_mx_edi_cfdi_uuid])
         return super()._reverse_moves(default_values_list, cancel=cancel)
+
+    @api.model
+    def get_invoice_localisation_fields_required_to_invoice(self, country_id):
+        res = super().get_invoice_localisation_fields_required_to_invoice(country_id)
+        if country_id.code == 'MX':
+            res.extend([self.env['ir.model.fields']._get(self._name, 'l10n_mx_edi_usage')])
+        return res

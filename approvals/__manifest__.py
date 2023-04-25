@@ -23,7 +23,7 @@ creates next activities for the related approvers.
         'security/ir.model.access.csv',
 
         'data/approval_category_data.xml',
-        'data/mail_activity_data.xml',
+        'data/mail_activity_type_data.xml',
 
         'views/approval_category_views.xml',
         'views/approval_category_approver_views.xml',
@@ -36,17 +36,16 @@ creates next activities for the related approvers.
     ],
     'application': True,
     'installable': True,
-    'auto_install': False,
     'assets': {
+        'mail.assets_messaging': [
+            'approvals/static/src/models/*.js',
+        ],
         'mail.assets_discuss_public': [
             'approvals/static/src/components/*/*',
-            'approvals/static/src/models/*/*.js',
         ],
         'web.assets_backend': [
-            'approvals/static/src/components/*/*.js',
-            'approvals/static/src/components/*/*.scss',
-            'approvals/static/src/models/*/*.js',
-            'approvals/static/src/widgets/*/*.js',
+            'approvals/static/src/backend_components/*/*',
+            'approvals/static/src/components/*/*',
         ],
         'web.assets_tests': [
             'approvals/static/tests/tours/**/*',
@@ -55,11 +54,7 @@ creates next activities for the related approvers.
             'approvals/static/tests/helpers/**/*',
         ],
         'web.qunit_suite_tests': [
-            'approvals/static/src/components/*/tests/*.js',
-        ],
-        'web.assets_qweb': [
-            'approvals/static/src/components/*/*.xml',
-            'approvals/static/src/xml/*.xml',
+            'approvals/static/tests/qunit_suite_tests/**/*.js',
         ],
     },
     'license': 'OEEL-1',

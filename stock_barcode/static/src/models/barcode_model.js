@@ -1,21 +1,32 @@
 /** @odoo-module **/
 
 import BarcodeParser from 'barcodes.BarcodeParser';
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { Mutex } from "@web/core/utils/concurrency";
 import LazyBarcodeCache from '@stock_barcode/lazy_barcode_cache';
 import { _t } from 'web.core';
-import { useService } from "@web/core/utils/hooks";
 import { sprintf } from '@web/core/utils/strings';
+import { useService } from "@web/core/utils/hooks";
 
-export default class BarcodeModel extends owl.core.EventBus {
-    constructor(params) {
+const { EventBus } = owl;
+
+export default class BarcodeModel extends EventBus {
+    constructor(params, services) {
         super();
+        this.dialogService = useService('dialog');
+        this.orm = services.orm;
+        this.rpc = services.rpc;
+        this.notification = services.notification;
         this.params = params;
         this.unfoldLineKey = false;
+        this.currentSortIndex = 0;
+        // Keeps track of list scanned record(s) by type.
+        this.lastScanned = { packageId: false, product: false, sourceLocation: false };
+        this._currentLocation = false; // Reminds the current source when the scanned one is forgotten.
     }
 
     setData(data) {
-        this.cache = new LazyBarcodeCache(data.data.records);
+        this.cache = new LazyBarcodeCache(data.data.records, { rpc: this.rpc });
         const nomenclature = this.cache.getRecord('barcode.nomenclature', data.data.nomenclature_id);
         nomenclature.rules = [];
         for (const ruleId of nomenclature.rule_ids) {
@@ -24,9 +35,6 @@ export default class BarcodeModel extends owl.core.EventBus {
         this.parser = new BarcodeParser({nomenclature: nomenclature});
         this.scannedLinesVirtualId = [];
 
-        this.notification = useService('notification');
-        this.orm = useService('orm');
-        this.rpc = useService('rpc');
         this.actionMutex = new Mutex();
         this.groups = data.groups;
 
@@ -45,10 +53,6 @@ export default class BarcodeModel extends owl.core.EventBus {
         // UI stuff.
         this.name = this._getName();
         this.view = 'barcodeLines'; // Could be also 'printMenu' or 'editFormView'.
-        // Manage pages
-        this.pageIndex = 0;
-        this._groupLinesByPage(this.currentState);
-        this._defineLocationId();
         // Barcode's commands are returned by a method for override purpose.
         this.commands = this._getCommands();
     }
@@ -64,11 +68,22 @@ export default class BarcodeModel extends owl.core.EventBus {
     }
 
     getDisplayIncrementBtn(line) {
-        return line.product_id.tracking !== 'serial' &&
-            (!this.getQtyDemand(line) || this.getQtyDemand(line) > this.getQtyDone(line));
+        if (line.product_id.tracking === "serial") {
+            return this.getDisplayIncrementBtnForSerial(line);
+        } else {
+            return (!this.getQtyDemand(line) || this.getQtyDemand(line) > this.getQtyDone(line));
+        }
+    }
+
+    getDisplayIncrementBtnForSerial(line) {
+        return line.lot_id && this.getQtyDone(line) === 0;
     }
 
     getDisplayDecrementBtn(line) {
+        return false;
+    }
+
+    getDisplayIncrementPackagingBtn(line) {
         return false;
     }
 
@@ -83,73 +98,80 @@ export default class BarcodeModel extends owl.core.EventBus {
         return 1;
     }
 
+    getEditedLineParams(line) {
+        return { currentId: line.id };
+    }
+
     async apply() {
         throw new Error('Not Implemented');
     }
 
-    get barcodeInfo() {
-        let line = this.selectedLine;
-        if (!line && this.lastScannedPackage) {
-            const lines = this._moveEntirePackage() ? this.packageLines : this.pageLines;
-            line = lines.find(l => l.package_id && l.package_id.id === this.lastScannedPackage);
-        }
-
-        // First page and the user didn't scan nothing yet -> We assume the operation was just started.
-        if (this.pageIndex === 0 && !line) {
-            this.messageType = this._getDefaultMessageType();
-        } else if (line) { // Message depends of the selected line.
-            const tracking = line.product_id.tracking;
-            const trackingNumber = (line.lot_id && line.lot_id.name) || line.lot_name;
-            if (this._lineIsNotComplete(line)) {
-                if (tracking === 'lot') {
-                    this.messageType = 'scan_lot';
-                } else if (tracking === 'serial') {
-                    this.messageType = 'scan_serial';
-                } else {
-                    this.messageType = 'scan_product';
-                }
-            } else { // Line's quantity is fulfilled.
-                if (tracking !== 'none' && !trackingNumber) { // Line is waiting a tracking number.
-                    if (tracking === 'lot') {
-                        this.messageType = 'scan_lot';
-                    } else {
-                        this.messageType = 'scan_serial';
-                    }
-                } else {
-                    this.messageType = this._getLocationMessage();
-                }
-            }
-        } else { // Message depends of the operation.
-            if (this.groups.group_stock_multi_locations) {
-                this.messageType = this._getDefaultMessageType();
-            } else {
-                this.messageType = 'scan_product';
-            }
-        }
-
-        const barcodeInformations = {
-            class: this.messageType,
-            warning: false,
-        };
-        switch (this.messageType) {
-            case 'scan_product':
-                barcodeInformations.message = _t("Scan a product"); break;
-            case 'scan_src':
-                barcodeInformations.message = _t("Scan the source location, or scan a product"); break;
-            case 'scan_product_or_src':
-                barcodeInformations.message = _t("Scan more products, or scan a new source location"); break;
-            case 'scan_product_or_dest':
-                barcodeInformations.message = _t("Scan more products, or scan the destination location"); break;
-            case 'scan_lot':
-                barcodeInformations.message = _t("Scan the lot number of the product"); break;
-            case 'scan_serial':
-                barcodeInformations.message = _t("Scan the serial number of the product"); break;
-        }
-        return barcodeInformations;
+    askBeforeNewLinesCreation(product) {
+        return false;
     }
 
-    get canCreateNewLine() {
-        return true;
+    get barcodeInfo() {
+        // Takes the parent line if the current line is part of a group.
+        let line = this._getParentLine(this.selectedLine) || this.selectedLine;
+        if (!line && this.lastScanned.packageId) {
+            const lines = this._moveEntirePackage() ? this.packageLines : this.pageLines;
+            line = lines.find(l => l.package_id && l.package_id.id === this.lastScanned.packageId);
+        }
+
+        if (line) { // Message depends of the selected line's state.
+            const { tracking } = line.product_id;
+            const trackingNumber = (line.lot_id && line.lot_id.name) || line.lot_name;
+            if (this._lineIsNotComplete(line)) {
+                if (tracking === 'none') {
+                    this.messageType = 'scan_product';
+                } else {
+                    this.messageType = tracking === 'lot' ? 'scan_lot' : 'scan_serial';
+                }
+            } else if (tracking !== 'none' && !trackingNumber) {
+                // Line's quantity is fulfilled but still waiting a tracking number.
+                this.messageType = tracking === 'lot' ? 'scan_lot' : 'scan_serial';
+            } else { // Line's quantity is fulfilled.
+                this.messageType = this._getLocationMessage();
+            }
+        } else { // Message depends of the operation.
+            this.messageType = this.groups.group_stock_multi_locations ?
+                this._getDefaultMessageType() :
+                'scan_product';
+        }
+
+        const barcodeInformations = { class: this.messageType, warning: false };
+        switch (this.messageType) {
+            case 'scan_product':
+                barcodeInformations.message = _t("Scan a product");
+                barcodeInformations.icon = 'tags';
+                break;
+            case 'scan_src':
+                barcodeInformations.message = _t("Scan the source location, or scan a product");
+                barcodeInformations.icon = 'sign-out';
+                break;
+            case 'scan_product_or_src':
+                barcodeInformations.message = _t("Scan more products, or scan a new source location");
+                break;
+            case 'scan_product_or_dest':
+                barcodeInformations.message = _t("Scan more products, or scan the destination location");
+                barcodeInformations.icon = 'sign-in';
+                break;
+            case 'scan_lot':
+                barcodeInformations.message = sprintf(
+                    _t("Scan lot numbers for product %s to change their quantity"),
+                    line.product_id.display_name
+                );
+                barcodeInformations.icon = 'barcode';
+                break;
+            case 'scan_serial':
+                barcodeInformations.message = sprintf(
+                    _t("Scan serial numbers for product %s to change their quantity"),
+                    line.product_id.display_name
+                );
+                barcodeInformations.icon = 'barcode';
+                break;
+        }
+        return barcodeInformations;
     }
 
     get canCreateNewLot() {
@@ -160,8 +182,16 @@ export default class BarcodeModel extends owl.core.EventBus {
         return true;
     }
 
+    /**
+     * The operation can be validated if there is at least one line.
+     * @returns {boolean}
+     */
     get canBeValidate() {
-        return this.pages[this.pageIndex].lines.length;
+        return this.pageLines.length + this.packageLines.length;
+    }
+
+    get canSelectLocation() {
+        return true;
     }
 
     get displayApplyButton() {
@@ -184,12 +214,8 @@ export default class BarcodeModel extends owl.core.EventBus {
         return this.groups.group_stock_multi_locations;
     }
 
-    get displayValidateButton() {
-        return false;
-    }
-
     groupKey(line) {
-        return `${line.product_id.id}`;
+        return `${line.product_id.id}_${line.location_id.id}`;
     }
 
     /**
@@ -216,7 +242,7 @@ export default class BarcodeModel extends owl.core.EventBus {
             }
             groupedLinesByKey[key].push(...lines.splice(index, 1));
         }
-        for (const [key, sublines] of Object.entries(groupedLinesByKey)) {
+        for (const sublines of Object.values(groupedLinesByKey)) {
             if (sublines.length === 1) {
                 lines.push(...sublines);
                 continue;
@@ -238,15 +264,7 @@ export default class BarcodeModel extends owl.core.EventBus {
         return this._sortLine(lines);
     }
 
-    get highlightNextButton() {
-        return false;
-    }
-
     get highlightValidateButton() {
-        return false;
-    }
-
-    get informationParams() {
         return false;
     }
 
@@ -281,85 +299,49 @@ export default class BarcodeModel extends owl.core.EventBus {
     }
 
     get location() {
-        return this.cache.getRecord('stock.location', this.currentLocationId);
-    }
-
-    /**
-     * Retuns the current page if it exists, or a new empty page if it doesn't.
-     *
-     * @returns {Object}
-     */
-    get page() {
-        const page = this.pages[this.pageIndex];
-        if (!page) {
-            const emptyPage = {
-                index: this.pages.length,
-                lines: [],
-                sourceLocationId: this.currentLocationId,
-            };
-            this.pages.push(emptyPage);
-            return emptyPage;
+        if (this.lastScanned.sourceLocation) { // Get last scanned location.
+            return this.cache.getRecord('stock.location', this.lastScanned.sourceLocation.id);
         }
-        return page;
+        // Get last defined source location (if applicable) or the default location.
+        return this._currentLocation || this._defaultLocation();
+    }
+    set location(location) {
+        this._currentLocation = location;
+        this.lastScanned.sourceLocation = location;
     }
 
-    /**
-     * Returns only the lines from the current page.
-     *
-     * @returns {Array<Object>}
-     */
     get pageLines() {
-        let lines = this.page.lines;
-        // If we show entire package, we don't return lines with package (they
-        // will be treated as "package lines").
-        if (this.record.picking_type_entire_packs) {
-            lines = lines.filter(line => !(line.package_id && line.result_package_id));
-        }
-        return this._sortLine(lines);
+        return this.currentState.lines;
     }
 
     get packageLines() {
-        if (!this.record.picking_type_entire_packs) {
-            return [];
-        }
-        const lines = this.page.lines;
-        const linesWithPackage = lines.filter(line => line.package_id && line.result_package_id);
-        // Groups lines by package.
-        const groupedLines = {};
-        for (const line of linesWithPackage) {
-            const packageId = line.package_id.id;
-            if (!groupedLines[packageId]) {
-                groupedLines[packageId] = [];
-            }
-            groupedLines[packageId].push(line);
-        }
-        const packageLines = [];
-        for (const key in groupedLines) {
-            // Check if the package is reserved.
-            const reservedPackage = groupedLines[key].every(line => line.product_uom_qty);
-            groupedLines[key][0].reservedPackage = reservedPackage;
-            const packageLine = Object.assign({}, groupedLines[key][0], {
-                lines: groupedLines[key],
-            });
-            packageLines.push(packageLine);
-        }
-        return this._sortLine(packageLines);
+        return [];
     }
 
     get previousScannedLines() {
         const lines = [];
         const alreadyDone = [];
         for (const virtualId of this.scannedLinesVirtualId) {
-            if (alreadyDone.indexOf(virtualId) != -1) {
+            if (alreadyDone.includes(virtualId)) {
                 continue;
             }
             alreadyDone.push(virtualId);
-            lines.push(this.currentState.lines.find(l => l.virtual_id === virtualId));
+            const foundLine = this.currentState.lines.find(l => l.virtual_id === virtualId);
+            if (foundLine) {
+                lines.push(foundLine);
+            }
         }
-        if (this.lastScannedPackage) {
-            lines.push(...this.currentState.lines.filter(l => l.package_id.id === this.lastScannedPackage));
+        if (this.groups.group_stock_packaging) {
+            lines.push(...this.previousScannedLinesByPackage);
         }
         return lines;
+    }
+
+    get previousScannedLinesByPackage() {
+        if (this.lastScanned.packageId) {
+            return this.currentState.lines.filter(l => l.package_id && l.package_id.id === this.lastScanned.packageId);
+        }
+        return [];
     }
 
     get printButtons() {
@@ -371,91 +353,23 @@ export default class BarcodeModel extends owl.core.EventBus {
     }
 
     get selectedLine() {
-        const selectedLine = this.selectedLineVirtualId && this.currentState.lines.find(
+        return this.selectedLineVirtualId && this.currentState.lines.find(
             l => (l.dummy_id || l.virtual_id) === this.selectedLineVirtualId
         );
-        // Returns the selected line only if it is in the current location.
-        if (selectedLine && selectedLine.location_id === this.currentLocationId) {
-            return selectedLine;
-        }
-        return false;
     }
 
     get useExistingLots() {
         return true;
     }
 
-    get viewsWidgetData() { // shouldn't be override by the child model instead of set lineModel and viewReference
+    get viewsWidgetData() {
         return {
-            model: this.lineModel,
-            view: this.lineFormViewReference,
+            resModel: this.lineModel,
             additionalContext: this._getNewLineDefaultContext(),
         };
     }
 
     // ACTIONS
-
-    async changeSourceLocation(id, applyChangeToPageLines = false) {
-        this.scannedLinesVirtualId = [];
-        this.currentLocationId = id;
-        let pageFound = false;
-        let emptyPage = false;
-        const currentPage = this.pages[this.pageIndex];
-        // We take either the current dest. location (if we move barcode line),
-        // either the default dest. location (if we just want to create/change
-        // page without move lines) to use while searching for an existing page.
-        const refDestLocationId = applyChangeToPageLines ? this.currentDestLocationId : this._defaultDestLocationId();
-        // If the scanned location is the current want, keep it.
-        if (currentPage && this.currentLocationId === currentPage.sourceLocationId) {
-            pageFound = currentPage;
-        } else { // Otherwise, searches for a page with these src./dest. locations.
-            for (let i = 0; i < this.pages.length; i++) {
-                const page = this.pages[i];
-                if (page.sourceLocationId === this.currentLocationId &&
-                    page.destinationLocationId === refDestLocationId) {
-                    this.pageIndex = i;
-                    pageFound = page;
-                    break;
-                }
-                if (page.lines.length === 0) {
-                    emptyPage = page;
-                }
-            }
-        }
-        // Resets highlighting.
-        this.selectedLineVirtualId = false;
-        this.highlightDestinationLocation = false;
-        await this.save();
-        if (pageFound) {
-            await this._changePage(pageFound.index);
-        } else {
-            if (emptyPage) {
-                // If no matching page was found but an empty page was, reuses it.
-                emptyPage.sourceLocationId = this.currentLocationId;
-                emptyPage.destinationLocationId = this._defaultDestLocationId();
-                pageFound = emptyPage;
-            } else {
-                // Otherwise, creates a new one.
-                pageFound = {
-                    index: this.pages.length,
-                    lines: [],
-                    sourceLocationId: this.currentLocationId,
-                    destinationLocationId: this._defaultDestLocationId(),
-                };
-                this.pages.push(pageFound);
-            }
-            await this._changePage(pageFound.index);
-        }
-    }
-
-    /**
-     * Must be overridden to make something when the user selects a specific destination location.
-     *
-     * @param {int} id location's id
-     */
-    changeDestinationLocation(id) {
-        throw new Error('Not Implemented');
-    }
 
     displayBarcodeActions() {
         this.view = 'actionsView';
@@ -463,33 +377,20 @@ export default class BarcodeModel extends owl.core.EventBus {
     }
 
     /**
-     * @param {integer} [recordId] if provided, it will define the record's page as current page
+     * @param {integer} [lineId] if provided it checks if the line still exist (selects it or removes it from the lines' list)
      */
-    displayBarcodeLines(recordId) {
+    async displayBarcodeLines(lineId) {
         this.view = 'barcodeLines';
-        if (recordId) { // If we pass a record id...
-            if (this.pages.length > 1) { // ... looks to go to this record's page...
-                for (let i = 0; i < this.pages.length; i++) {
-                    const lineIds = this.pages[i].lines.map(line => line.id);
-                    if (lineIds.includes(recordId)) {
-                        this.pageIndex = i;
-                        break;
-                    }
-                }
-            }
-            // ... and add this record on the scanned lines list.
-            const line = this.currentState.lines.find(line => line.id === recordId);
-            if (line) {
+        if (lineId) { // If we pass a record id checks if the record still exist.
+            const res = await this.orm.search(this.lineModel, [['id', '=', lineId]]);
+            if (!res.length) { // The record was deleted, we remove the corresponding line.
+                const lineIndex = this.currentState.lines.findIndex(l => l.id == lineId);
+                this.currentState.lines.splice(lineIndex, 1);
+            } else { // If it still exist, selects the record's line.
+                const line = this.currentState.lines.find(line => line.id === lineId);
                 this.selectLine(line);
-                if (this.record.picking_type_code === 'incoming') {
-                    // TODO ? SVS: highlight the destination if coming from the edit form view (see
-                    // `test_reload_flow` tour) but I don't get the reason why ? I would like to remove that
-                    // and only highlight the src/dest location only when they are actually changed by something.
-                    this.highlightDestinationLocation = true;
-                }
             }
         }
-        this._defineLocationId();
         this.trigger('update');
     }
 
@@ -508,67 +409,66 @@ export default class BarcodeModel extends owl.core.EventBus {
         this.trigger('update');
     }
 
-    async nextPage() {
-        let pageIndex = this.pageIndex + 1;
-        if (pageIndex >= this.pages.length) {
-            pageIndex = 0;
+    /**
+     * Searches for a line in the current source location. Will favor a line with no quantity
+     * (or less than expected) as we assume this kind of line still need to be processed.
+     * @returns {Object | Boolean} Returns a matching line or false.
+     */
+    findLineForCurrentLocation() {
+        if (!this.lastScanned.sourceLocation) {
+            return false; // Can't find anything if no location was scanned.
         }
-        this.highlightSourceLocation = false;
-        await this._changePage(pageIndex);
-        this.trigger('update');
-    }
-
-    async previousPage() {
-        let pageIndex = this.pageIndex - 1;
-        if (pageIndex < 0) {
-            pageIndex = this.pages.length - 1;
+        let foundLine = false;
+        for (const line of this.pageLines) {
+            if (line.location_id.id != this.lastScanned.sourceLocation.id) {
+                continue; // Not the same location.
+            }
+            const [ qtyDone, qtyDemand ] = [this.getQtyDone(line), this.getQtyDemand(line)];
+            if (qtyDone == 0 || (qtyDemand && qtyDone < qtyDemand)) {
+                return line; // If the line still need to be processed, returns it immediately.
+            }
+            foundLine = !foundLine || qtyDone < this.getQtyDone(foundLine) ? line : foundLine;
         }
-        this.highlightSourceLocation = false;
-        await this._changePage(pageIndex);
-        this.trigger('update');
+        return foundLine;
     }
 
     async refreshCache(records) {
         this.cache.setCache(records);
         this._createState();
-        // Creates the pages as they are bound to the state.
-        await this._groupLinesByPage(this.currentState);
-        // Changes the current page index if a page was removed.
-        // if (this.pageIndex >= this.pages.length) {
-        //     this.pageIndex = this.pages.length - 1;
-        // }
     }
 
     async save() {
         const { route, params } = this._getSaveCommand();
+        this.linesToSave = [];
         if (route) {
             const res = await this.rpc(route, params);
-            this.linesToSave = [];
             await this.refreshCache(res.records);
         }
     }
 
     selectLine(line) {
-        const virtualId = line.virtual_id;
-        if (this.selectedLineVirtualId === virtualId) {
-            return;
+        if (this.lineCanBeSelected(line)) {
+            this._selectLine(line);
         }
-        this._selectLine(line);
     }
 
-    selectPackageLine(packageId) {
-        this.lastScannedPackage = packageId;
+    selectPackageLine(packageLine) {
+        if (this.lineCanBeSelected(packageLine)) {
+            this.lastScanned.packageId = packageLine.package_id.id;
+        }
     }
 
     toggleSublines(line) {
-        const productId = line.product_id.id;
         const lineKey = this.groupKey(line);
         this.unfoldLineKey = this.unfoldLineKey === lineKey ? false : lineKey;
+        if (this.unfoldLineKey === lineKey && (!this.selectedLine || this.unfoldLineKey != this.groupKey(this.selectedLine))) {
+            this.selectLine(line);
+        }
         this.trigger('update');
     }
 
     async updateLine(line, args) {
-        let {lot_id, owner_id, package_id} = args;
+        let { location_id, lot_id, owner_id, package_id } = args;
         if (!line) {
             throw new Error('No line found');
         }
@@ -576,9 +476,18 @@ export default class BarcodeModel extends owl.core.EventBus {
             line.product_id = args.product_id;
             line.product_uom_id = this.cache.getRecord('uom.uom', args.product_id.uom_id);
         }
+        if (location_id) {
+            if (typeof location_id === 'number') {
+                location_id = this.cache.getRecord('stock.location', args.location_id);
+            }
+            line.location_id = location_id;
+        }
+        if (!location_id && this.lastScanned.sourceLocation) {
+            line.location_id = this.lastScanned.sourceLocation;
+        }
         if (lot_id) {
             if (typeof lot_id === 'number') {
-                lot_id = this.cache.getRecord('stock.production.lot', args.lot_id);
+                lot_id = this.cache.getRecord('stock.lot', args.lot_id);
             }
             line.lot_id = lot_id;
         }
@@ -632,7 +541,8 @@ export default class BarcodeModel extends owl.core.EventBus {
         const action = await this.orm.call(
             this.params.model,
             this.validateMethod,
-            [this.recordIds]
+            [this.recordIds],
+            { context: { display_detailed_backorder: true } },
         );
         const options = {
             on_close: ev => this._closeValidate(ev)
@@ -655,16 +565,8 @@ export default class BarcodeModel extends owl.core.EventBus {
         return false;
     }
 
-    async _changePage(pageIndex) {
-        if (this.pageIndex === pageIndex) {
-            return;
-        }
-        this.pageIndex = pageIndex;
-        this.currentLocationId = this.page.sourceLocationId;
-        // Forgets which lines was scanned as the user isn't on the same page anymore.
-        this.scannedLinesVirtualId = [];
-        this.lastScannedPackage = false;
-        await this.save();
+    _checkBarcode(barcodeData) {
+        return true;
     }
 
     async _closeValidate(ev) {
@@ -677,6 +579,36 @@ export default class BarcodeModel extends owl.core.EventBus {
 
     _convertDataToFieldsParams(args) {
         throw new Error('Not Implemented');
+    }
+
+    createNewLine(params) {
+        const product = params.fieldsParams.product_id;
+        if (this.askBeforeNewLinesCreation(product)) {
+            const confirmationPromise = new Promise((resolve, reject) => {
+                const body = product.code ?
+                    sprintf(
+                        _t("Scanned product [%s] %s is not reserved for this transfer. Are you sure you want to add it?"),
+                        product.code, product.display_name
+                    ) :
+                    sprintf(
+                        _t("Scanned product %s is not reserved for this transfer. Are you sure you want to add it?"),
+                        product.display_name
+                    );
+
+                this.dialogService.add(ConfirmationDialog, {
+                    body, title: _t("Add extra product?"),
+                    cancel: reject,
+                    confirm: async () => {
+                        const newLine = await this._createNewLine(params);
+                        resolve(newLine);
+                    },
+                    close: reject,
+                });
+            });
+            return confirmationPromise;
+        } else {
+            return this._createNewLine(params);
+        }
     }
 
     /**
@@ -707,46 +639,40 @@ export default class BarcodeModel extends owl.core.EventBus {
             params.copyOf,
             this._getNewLineDefaultValues(params.fieldsParams)
         );
+        const previousIndex = (params.copyOf || this.selectedLine || {}).sortIndex;
+        newLine.sortIndex = (previousIndex && previousIndex + "1") || this._getLineIndex();
         await this.updateLine(newLine, params.fieldsParams);
         this.currentState.lines.push(newLine);
-        this._groupLinesByPage(this.currentState);
         return newLine;
     }
 
-    _defaultLocationId() {
-        throw new Error('Not Implemented');
+    _defaultLocation() {
+        return Object.values(this.cache.dbIdCache['stock.location'])[0];
     }
 
-    _defaultDestLocationId() {
-        throw new Error('Not Implemented');
-    }
-
-    /**
-     * Defines the page's location ID (get it from the lines or get the default one).
-     *
-     * @private
-     */
-    _defineLocationId() {
-        if (this.page.lines.length) {
-            this.currentLocationId = this.page.lines[0].location_id;
-        } else {
-            this.currentLocationId = this.page.sourceLocationId || this._defaultLocationId();
-        }
+    _defaultDestLocation() {
+        return undefined;
     }
 
     _getCommands() {
         return {
-            'O-CMD.PREV': this.previousPage.bind(this),
-            'O-CMD.NEXT': this.nextPage.bind(this),
-            'O-CMD.PAGER-FIRST': this._changePage.bind(this, 0),
-            'O-CMD.PAGER-LAST': this._changePage.bind(this, () => this.pages.length - 1),
             'O-CMD.MAIN-MENU': this._goToMainMenu.bind(this),
-            'O-BTN.validate': this.validate.bind(this),
+            'O-BTN.validate': () => {
+                if (this.canBeValidate) {
+                    this.validate();
+                }
+            },
         };
     }
 
     _getDefaultMessageType() {
         return this.groups.group_stock_multi_locations ? 'scan_src' : 'scan_product';
+    }
+
+    _getLineIndex() {
+        const sortIndex = String(this.currentSortIndex).padStart(4, '0');
+        this.currentSortIndex++;
+        return sortIndex;
     }
 
     /**
@@ -769,12 +695,16 @@ export default class BarcodeModel extends owl.core.EventBus {
         return {
             id: (fieldsParams && fieldsParams.id) || false,
             virtual_id: this._uniqueVirtualId,
-            location_id: this.location.id,
+            location_id: this._defaultLocation(),
         };
     }
 
     _getNewLineDefaultContext() {
         throw new Error('Not Implemented');
+    }
+
+    _getParentLine(line) {
+        return Boolean(line) && this.groupedLines.find(gl => (gl.virtual_ids || []).includes(line.virtual_id));
     }
 
     _getFieldToWrite() {
@@ -819,47 +749,11 @@ export default class BarcodeModel extends owl.core.EventBus {
         throw new Error('Not Implemented');
     }
 
-    /**
-     * Groups the lines by their locations and will create a page for each ones.
-     * If there is no lines, it will create at least one page for the default location.
-     *
-     * @param {Object} state record's data fetched from the server.
-     */
-    _groupLinesByPage(state) {
-        const groups = {};
-        for (const line of state.lines) { // Groups the barcode lines by src/dest locations.
-            const key = `${line.location_id}_${line.location_dest_id}`;
-            if (!groups[key]) {
-                groups[key] = [];
-            }
-            groups[key].push(line);
-        }
-        const pages = [];
-        for (const [key, lines] of Object.entries(groups)) {
-            const page = {
-                index: pages.length,
-                lines,
-                sourceLocationId: lines[0].location_id,
-                destinationLocationId: lines[0].location_dest_id,
-            };
-            pages.push(page);
-        }
-        if (pages.length === 0) { // If no pages, creates a default one.
-            const page = {
-                index: pages.length,
-                lines: [],
-                sourceLocationId: this.currentLocationId,
-                destinationLocationId: this.currentLocationId,
-            };
-            pages.push(page);
-        }
-        this.pages = pages;
-    }
-
     _groupSublines(sublines, ids, virtual_ids, qtyDemand, qtyDone) {
-        return Object.assign({}, sublines[0], {
+        const sortedSublines = this._sortLine(sublines);
+        return Object.assign({}, sortedSublines[0], {
             ids,
-            lines: this._sortLine(sublines),
+            lines: sortedSublines,
             opened: false,
             virtual_ids,
         });
@@ -939,62 +833,8 @@ export default class BarcodeModel extends owl.core.EventBus {
             const parsedBarcode = this.parser.parse_barcode(barcode);
             if (parsedBarcode.length) { // With the GS1 nomenclature, the parsed result is a list.
                 for (const data of parsedBarcode) {
-                    const { rule, value } = data;
-                    if (['location', 'location_dest'].includes(rule.type)) {
-                        const location = await this.cache.getRecordByBarcode(value, 'stock.location');
-                        if (!location) {
-                            continue;
-                        }
-                        // TODO: should be overrided, as location dest make sense only for pickings.
-                        if (rule.type === 'location_dest' || this.messageType === 'scan_product_or_dest') {
-                            result.destLocation = location;
-                        } else {
-                            result.location = location;
-                        }
-                        result.match = true;
-                    } else if (rule.type === 'lot') {
-                        if (this.useExistingLots) {
-                            result.lot = await this.cache.getRecordByBarcode(value, 'stock.production.lot');
-                        }
-                        if (!result.lot) { // No existing lot found, set a lot name.
-                            result.lotName = value;
-                        }
-                        if (result.lot || result.lotName) {
-                            result.match = true;
-                        }
-                    } else if (rule.type === 'package') {
-                        const stockPackage = await this.cache.getRecordByBarcode(value, 'stock.quant.package');
-                        if (stockPackage) {
-                            result.package = stockPackage;
-                        } else {
-                            // Will be used to force package's name when put in pack.
-                            result.packageName = value;
-                        }
-                        result.match = true;
-                    } else if (rule.type === 'package_type') {
-                        const packageType = await this.cache.getRecordByBarcode(value, 'stock.package.type');
-                        if (packageType) {
-                            result.packageType = packageType;
-                            result.match = true;
-                        } else {
-                            const message = _t("An unexisting package type was scanned. This part of the barcode can't be processed.");
-                            this.notification.add(message, { type: 'warning' });
-                        }
-                    } else if (rule.type === 'product') {
-                        const product = await this.cache.getRecordByBarcode(value, 'product.product');
-                        if (product) {
-                            result.product = product;
-                            result.match = true;
-                        }
-                    } else if (rule.type === 'quantity') {
-                        result.quantity = value;
-                        // The quantity is usually associated to an UoM, but we
-                        // ignore this info if the UoM setting is disabled.
-                        if (this.groups.group_uom) {
-                            result.uom = await this.cache.getRecord('uom.uom', rule.associated_uom_id);
-                        }
-                        result.match = result.quantity ? true : false;
-                    }
+                    const parsedData = await this._processGs1Data(data);
+                    Object.assign(result, parsedData);
                 }
                 if(result.match) {
                     return result;
@@ -1045,13 +885,15 @@ export default class BarcodeModel extends owl.core.EventBus {
             result.product = product;
             result.match = true;
         }
-        const packaging = recordByData.get('product.packaging');
-        if (packaging) {
-            result.match = true;
-            result.packaging = packaging;
+        if (this.groups.group_stock_packaging) {
+            const packaging = recordByData.get('product.packaging');
+            if (packaging) {
+                result.match = true;
+                result.packaging = packaging;
+            }
         }
         if (this.useExistingLots) {
-            const lot = recordByData.get('stock.production.lot');
+            const lot = recordByData.get('stock.lot');
             if (lot) {
                 result.lot = lot;
                 result.match = true;
@@ -1077,6 +919,85 @@ export default class BarcodeModel extends owl.core.EventBus {
         return result;
     }
 
+    async print(action, method) {
+        await this.save();
+        const options = this._getPrintOptions();
+        if (options.warning) {
+            return this.notification.add(options.warning, { type: 'warning' });
+        }
+        if (!action && method) {
+            action = await this.orm.call(
+                this.params.model,
+                method,
+                [[this.params.id]]
+            );
+        }
+        this.trigger('do-action', { action, options });
+    }
+
+    async _processGs1Data(data) {
+        const result = {};
+        const { rule, value } = data;
+        if (['location', 'location_dest'].includes(rule.type)) {
+            const location = await this.cache.getRecordByBarcode(value, 'stock.location');
+            if (!location) {
+                return;
+            } else {
+                result.location = location;
+                result.match = true;
+            }
+        } else if (rule.type === 'lot') {
+            if (this.useExistingLots) {
+                result.lot = await this.cache.getRecordByBarcode(value, 'stock.lot');
+            }
+            if (!result.lot) { // No existing lot found, set a lot name.
+                result.lotName = value;
+            }
+            if (result.lot || result.lotName) {
+                result.match = true;
+            }
+        } else if (rule.type === 'package') {
+            const stockPackage = await this.cache.getRecordByBarcode(value, 'stock.quant.package');
+            if (stockPackage) {
+                result.package = stockPackage;
+            } else {
+                // Will be used to force package's name when put in pack.
+                result.packageName = value;
+            }
+            result.match = true;
+        } else if (rule.type === 'package_type') {
+            const packageType = await this.cache.getRecordByBarcode(value, 'stock.package.type');
+            if (packageType) {
+                result.packageType = packageType;
+                result.match = true;
+            } else {
+                const message = _t("An unexisting package type was scanned. This part of the barcode can't be processed.");
+                this.notification.add(message, { type: 'warning' });
+            }
+        } else if (rule.type === 'product') {
+            const product = await this.cache.getRecordByBarcode(value, 'product.product');
+            if (product) {
+                result.product = product;
+                result.match = true;
+            } else if (this.groups.group_stock_packaging) {
+                const packaging = await this.cache.getRecordByBarcode(value, 'product.packaging');
+                if (packaging) {
+                    result.packaging = packaging;
+                    result.match = true;
+                }
+            }
+        } else if (rule.type === 'quantity') {
+            result.quantity = value;
+            // The quantity is usually associated to an UoM, but we
+            // ignore this info if the UoM setting is disabled.
+            if (this.groups.group_uom) {
+                result.uom = await this.cache.getRecord('uom.uom', rule.associated_uom_id);
+            }
+            result.match = result.quantity ? true : false;
+        }
+        return result;
+    }
+
     /**
      * Starts by parse the barcode and then process each type of barcode data.
      *
@@ -1090,17 +1011,17 @@ export default class BarcodeModel extends owl.core.EventBus {
         // when multiple records have the same model and barcode.
         const filters = {};
         if (this.selectedLine && this.selectedLine.product_id.tracking !== 'none') {
-            filters['stock.production.lot'] = {
+            filters['stock.lot'] = {
                 product_id: this.selectedLine.product_id.id,
             };
         }
         try {
             barcodeData = await this._parseBarcode(barcode, filters);
-            if (!barcodeData.match && filters['stock.production.lot'] &&
+            if (!barcodeData.match && filters['stock.lot'] &&
                 !this.canCreateNewLot && this.useExistingLots) {
                 // Retry to parse the barcode without filters in case it matches an existing
                 // record that can't be found because of the filters
-                const lot = await this.cache.getRecordByBarcode(barcode, 'stock.production.lot');
+                const lot = await this.cache.getRecordByBarcode(barcode, 'stock.lot');
                 if (lot) {
                     Object.assign(barcodeData, { lot, match: true });
                 }
@@ -1113,11 +1034,20 @@ export default class BarcodeModel extends owl.core.EventBus {
         if (barcodeData.action) { // As action is always a single data, call it and do nothing else.
             return await barcodeData.action();
         }
+        // Depending of the configuration, the user can be forced to scan a specific barcode type.
+        const check = this._checkBarcode(barcodeData);
+        if (check.error) {
+            return this.notification.add(check.message, { title: check.title, type: "danger" });
+        }
 
         if (barcodeData.packaging) {
             barcodeData.product = this.cache.getRecord('product.product', barcodeData.packaging.product_id);
-            barcodeData.quantity = barcodeData.packaging.qty;
+            barcodeData.quantity = ("quantity" in barcodeData ? barcodeData.quantity : 1) * barcodeData.packaging.qty;
             barcodeData.uom = this.cache.getRecord('uom.uom', barcodeData.product.uom_id);
+        }
+
+        if (barcodeData.product) { // Remembers the product if a (packaging) product was scanned.
+            this.lastScanned.product = barcodeData.product;
         }
 
         if (barcodeData.lot && !barcodeData.product) {
@@ -1170,15 +1100,25 @@ export default class BarcodeModel extends owl.core.EventBus {
                 }
             }
             return this.notification.add(barcodeData.error, { type: 'danger' });
+        } else if (barcodeData.lot && barcodeData.lot.product_id !== product.id) {
+            delete barcodeData.lot; // The product was scanned alongside another product's lot.
         }
         if (barcodeData.weight) { // the encoded weight is based on the product's UoM
             barcodeData.uom = this.cache.getRecord('uom.uom', product.uom_id);
         }
 
+        // Searches and selects a line if needed.
+        if (!currentLine || this._shouldSearchForAnotherLine(currentLine, barcodeData)) {
+            currentLine = this._findLine(barcodeData);
+        }
+
         // Default quantity set to 1 by default if the product is untracked or
         // if there is a scanned tracking number.
         if (product.tracking === 'none' || barcodeData.lot || barcodeData.lotName || this._incrementTrackedLine()) {
-            barcodeData.quantity = barcodeData.quantity || 1;
+            const hasUnassignedQty = currentLine && currentLine.qty_done && !currentLine.lot_id && !currentLine.lot_name;
+            const isTrackingNumber = barcodeData.lot || barcodeData.lotName;
+            const defaultQuantity = isTrackingNumber && hasUnassignedQty ? 0 : 1;
+            barcodeData.quantity = barcodeData.quantity || defaultQuantity;
             if (product.tracking === 'serial' && barcodeData.quantity > 1 && (barcodeData.lot || barcodeData.lotName)) {
                 barcodeData.quantity = 1;
                 this.notification.add(
@@ -1186,11 +1126,6 @@ export default class BarcodeModel extends owl.core.EventBus {
                     { type: 'danger' }
                 );
             }
-        }
-
-        // Searches and selects a line if needed.
-        if (!currentLine || this._shouldSearchForAnotherLine(currentLine, barcodeData)) {
-            currentLine = this._findLine(barcodeData);
         }
 
         if ((barcodeData.lotName || barcodeData.lot) && product) {
@@ -1236,40 +1171,26 @@ export default class BarcodeModel extends owl.core.EventBus {
                 barcodeData.quantity = (barcodeData.quantity / barcodeData.uom.factor) * currentLine.product_uom_id.factor;
                 barcodeData.uom = currentLine.product_uom_id;
             }
-            if (this.canCreateNewLine) {
-                // Checks the quantity doesn't exceed the line's remaining quantity.
-                if (currentLine.product_uom_qty && product.tracking === 'none') {
-                    const remainingQty = currentLine.product_uom_qty - currentLine.qty_done;
-                    if (barcodeData.quantity > remainingQty) {
-                        // In this case, lowers the increment quantity and keeps
-                        // the excess quantity to create a new line.
-                        exceedingQuantity = barcodeData.quantity - remainingQty;
-                        barcodeData.quantity = remainingQty;
-                    }
+            // Checks the quantity doesn't exceed the line's remaining quantity.
+            if (currentLine.reserved_uom_qty && product.tracking === 'none') {
+                const remainingQty = currentLine.reserved_uom_qty - currentLine.qty_done;
+                if (barcodeData.quantity > remainingQty) {
+                    // In this case, lowers the increment quantity and keeps
+                    // the excess quantity to create a new line.
+                    exceedingQuantity = barcodeData.quantity - remainingQty;
+                    barcodeData.quantity = remainingQty;
                 }
             }
-            if (barcodeData.quantity > 0) {
-                const fieldsParams = this._convertDataToFieldsParams({
-                    qty: barcodeData.quantity,
-                    lotName: barcodeData.lotName,
-                    lot: barcodeData.lot,
-                    package: barcodeData.package,
-                    owner: barcodeData.owner,
-                });
+            if (barcodeData.quantity > 0 || barcodeData.lot || barcodeData.lotName) {
+                const fieldsParams = this._convertDataToFieldsParams(barcodeData);
                 if (barcodeData.uom) {
                     fieldsParams.uom = barcodeData.uom;
                 }
                 await this.updateLine(currentLine, fieldsParams);
             }
             if (exceedingQuantity) { // Creates a new line for the excess quantity.
-                const fieldsParams = this._convertDataToFieldsParams({
-                    product,
-                    qty: exceedingQuantity,
-                    lotName: barcodeData.lotName,
-                    lot: barcodeData.lot,
-                    package: barcodeData.package,
-                    owner: barcodeData.owner,
-                });
+                barcodeData.quantity = exceedingQuantity;
+                const fieldsParams = this._convertDataToFieldsParams(barcodeData);
                 if (barcodeData.uom) {
                     fieldsParams.uom = barcodeData.uom;
                 }
@@ -1278,52 +1199,69 @@ export default class BarcodeModel extends owl.core.EventBus {
                     fieldsParams,
                 });
             }
-        } else if (this.canCreateNewLine) { // No line found. If it's possible, creates a new line.
-            const fieldsParams = this._convertDataToFieldsParams({
-                product,
-                qty: barcodeData.quantity,
-                lotName: barcodeData.lotName,
-                lot: barcodeData.lot,
-                package: barcodeData.package,
-                owner: barcodeData.owner,
-            });
+        } else { // No line found, so creates a new one.
+            const fieldsParams = this._convertDataToFieldsParams(barcodeData);
             if (barcodeData.uom) {
                 fieldsParams.uom = barcodeData.uom;
             }
-            currentLine = await this._createNewLine({fieldsParams});
+            currentLine = await this.createNewLine({fieldsParams});
         }
 
         // And finally, if the scanned barcode modified a line, selects this line.
         if (currentLine) {
-            this.selectLine(currentLine);
+            this._selectLine(currentLine);
         }
         this.trigger('update');
     }
 
-    async _processLocation(barcodeData) {
+    _processLocation(barcodeData) {
         if (barcodeData.location) {
-            await this._processLocationSource(barcodeData);
+            this._processLocationSource(barcodeData);
             this.trigger('update');
         }
     }
 
-    async _processLocationSource(barcodeData) {
-        this.highlightSourceLocation = true;
-        this.highlightDestinationLocation = false;
-        await this.changeSourceLocation(barcodeData.location.id);
+    _processLocationSource(barcodeData) {
+        this.location = barcodeData.location;
         barcodeData.stopped = true;
+        // Unselects the line.
+        this.selectedLineVirtualId = false;
     }
 
     async _processPackage(barcodeData) {
         throw new Error('Not Implemented');
     }
 
+    lineCanBeSelected() {
+        return true;
+    }
+
+    lineCanBeEdited() {
+        return true;
+    }
+
+    /**
+     * Check if a given line can be taken depending of the current location (if no current location,
+     * it will always be true).
+     * @param {Object} line
+     * @returns {Boolean}
+     */
+    lineCanBeTakenFromTheCurrentLocation(line) {
+        return Boolean(
+            !this.groups.group_stock_multi_locations ||
+            !this.lastScanned.sourceLocation || // No current location so we don't care.
+            this.lastScanned.sourceLocation.id == line.location_id.id // Line at the right location.
+        );
+    }
+
     _selectLine(line) {
         const virtualId = line.virtual_id;
+        if (this.selectedLineVirtualId === virtualId) {
+            return; // Don't select the line if it's already selected.
+        }
         this.selectedLineVirtualId = virtualId;
         this.scannedLinesVirtualId.push(virtualId);
-        // Unfolds the group where the line is, folds other lines' group.
-        this.unfoldLineKey = this.groupKey(line);
+        this.lastScanned.destLocation = false;
     }
 
     _setLocationFromBarcode(result, location) {
@@ -1332,39 +1270,56 @@ export default class BarcodeModel extends owl.core.EventBus {
     }
 
     _sortingMethod(l1, l2) {
-        // New lines always on top.
-        if (!l1.id && l2.id) {
+        // Sort by source location.
+        const sourceLocation1 = l1.location_id.display_name;
+        const sourceLocation2 = l2.location_id.display_name;
+        if (sourceLocation1 < sourceLocation2) {
             return -1;
-        } else if (l1.id && !l2.id) {
+        } else if (sourceLocation1 > sourceLocation2) {
             return 1;
-        } else if (l1.id && l2.id) {
-            // Sort by display name of product.
-            const product1 = l1.product_id.display_name;
-            const product2 = l2.product_id.display_name;
-            if (product1 < product2) {
+        }
+        // Sort by (source) package.
+        const package1 = l1.package_id.name;
+        const package2 = l2.package_id.name;
+        if (package1 < package2) {
+            return -1;
+        } else if (package1 > package2) {
+            return 1;
+        }
+        // Sort by destination location.
+        if (l1.location_dest_id && l2.location_dest_id) {
+            const destinationLocation1 = l1.location_dest_id.display_name;
+            const destinationLocation2 = l2.location_dest_id.display_name;
+            if (destinationLocation1 < destinationLocation2) {
                 return -1;
-            } else if (product1 > product2) {
-                return 1;
-            }
-            // Sort by picking name.
-            const picking1 = l1.picking_id && l1.picking_id.name || '';
-            const picking2 = l2.picking_id && l2.picking_id.name || '';
-            if (picking1 < picking2) {
-                return -1;
-            } else if (picking1 > picking2) {
-                return 1;
-            }
-
-            if (l1.id < l2.id) {
-                return -1;
-            } else if (l1.id > l2.id) {
+            } else if (destinationLocation1 > destinationLocation2) {
                 return 1;
             }
         }
-        // Sort by id and/or virtual_id (creation of the line).
-        if (l1.virtual_id > l2.virtual_id) {
+        // Sort by result package.
+        if (l1.result_package_id && l2.result_package_id) {
+            const resultPackage1 = l1.result_package_id.name;
+            const resultPackage2 = l2.result_package_id.name;
+            if (resultPackage1 < resultPackage2) {
+                return -1;
+            } else if (resultPackage1 > resultPackage2) {
+                return 1;
+            }
+        }
+        // Sort by product's category.
+        const categ1 = l1.categ_id;
+        const categ2 = l2.categ_id;
+        if (categ1 < categ2) {
             return -1;
-        } else if (l1.virtual_id < l2.virtual_id) {
+        } else if (categ1 > categ2) {
+            return 1;
+        }
+        // Sort by product's display name.
+        const product1 = l1.product_id.display_name;
+        const product2 = l2.product_id.display_name;
+        if (product1 < product2) {
+            return -1;
+        } else if (product1 > product2) {
             return 1;
         }
         return 0;
@@ -1377,7 +1332,9 @@ export default class BarcodeModel extends owl.core.EventBus {
      * @returns {Array<Object>}
      */
     _sortLine(lines) {
-        return lines.sort(this._sortingMethod.bind(this));
+        return lines.sort((l1, l2) => {
+            return l1.sortIndex > l2.sortIndex ? 1 : -1;
+        });
     }
 
     _findLine(barcodeData) {
@@ -1396,6 +1353,9 @@ export default class BarcodeModel extends owl.core.EventBus {
             if (dataLotName && lineLotName && dataLotName !== lineLotName && !this._canOverrideTrackingNumber(line)) {
                 continue; // Not the same lot.
             }
+            if (dataLotName && line.id && !line.lot_id && this.params.model === "stock.quant") {
+                continue; // Matches an existing quant without lot_id but this field can't be updated
+            }
             if (line.product_id.tracking === 'serial') {
                 if (this.getQtyDone(line) >= 1 && lineLotName) {
                     continue; // Line tracked by serial numbers with quantity & SN.
@@ -1406,19 +1366,31 @@ export default class BarcodeModel extends owl.core.EventBus {
             if ((
                     !dataLotName || !lineLotName || dataLotName !== lineLotName
                 ) && (
-                    line.qty_done && line.qty_done > line.product_uom_qty &&
-                    line.virtual_id != this.selectedLine.virtual_id
+                    line.qty_done && line.qty_done >= line.reserved_uom_qty &&
+                    line.id && line.virtual_id != this.selectedLine.virtual_id
             )) {
                 continue;
             }
-            if (this._lineIsNotComplete(line)) {
-                // Found a uncompleted compatible line, stop searching.
+            if (this._lineIsNotComplete(line) && this.lineCanBeTakenFromTheCurrentLocation(line)) {
+                // Found a uncompleted compatible line, stop searching if it has the same location
+                // than the scanned one (or if no location was scanned).
                 foundLine = line;
-                break;
+                if (this.tracking === 'none' || !dataLotName || dataLotName === lineLotName) {
+                    break;
+                }
             }
             // The line matches but there could be a better candidate, so keep searching.
-            // If multiple lines can match, prioritises the selected line if relevant.
-            foundLine = this.selectedLine && this.selectedLine.virtual_id === line.virtual_id ? line : foundLine || line;
+            // If multiple lines can match, prioritises the one at the right location (if a location
+            // source was previously selected) or the selected one if relevant.
+            const currentLocationId = this.lastScanned.sourceLocation && this.lastScanned.sourceLocation.id;
+            if (this.selectedLine && this.selectedLine.virtual_id === line.virtual_id && (
+                !currentLocationId || !foundLine || foundLine.location_id.id != currentLocationId)) {
+                foundLine = this.lineCanBeTakenFromTheCurrentLocation(line) ? line : foundLine;
+            } else if (!foundLine || (currentLocationId &&
+                       foundLine.location_id.id != currentLocationId &&
+                       line.location_id.id == currentLocationId)) {
+                foundLine = this.lineCanBeTakenFromTheCurrentLocation(line) ? line : foundLine;
+            }
         }
         return foundLine;
     }
@@ -1437,8 +1409,7 @@ export default class BarcodeModel extends owl.core.EventBus {
             return true;
         }
         // If the line is a part of a group, we check if the group is fulfilled.
-        const groupLines = this.groupedLines.filter(gl => gl.lines);
-        const parentLine = groupLines.find(gl => gl.virtual_ids.indexOf(line.virtual_id) !== -1);
+        const parentLine = this._getParentLine(line);
         if (parentLine) {
             return this.getQtyDone(parentLine) >= this.getQtyDemand(parentLine);
         }
@@ -1465,9 +1436,13 @@ export default class BarcodeModel extends owl.core.EventBus {
     // Response -> UI State
     _createState() {
         this.record = this._getModelRecord();
-        this.initialState = {
-            lines: this._createLinesState(), // object lines to show {product_id: {<product_record>}}
-        };
+        const lines = this._createLinesState();
+        // Sorts the lines following some criterea and then assign an index for the sort (so they keep the same place).
+        lines.sort(this._sortingMethod.bind(this));
+        for (const line of lines) {
+            line.sortIndex = this._getLineIndex();
+        }
+        this.initialState = { lines };
         this.currentState = JSON.parse(JSON.stringify(this.initialState)); // Deep copy
     }
 

@@ -2,12 +2,12 @@ odoo.define('pos_iot.LastTransactionStatus', function(require) {
     'use strict';
 
     const core = require('web.core');
-    const { useState } = owl;
     const AbstractAwaitablePopup = require('point_of_sale.AbstractAwaitablePopup');
     const PosComponent = require('point_of_sale.PosComponent');
     const Registries = require('point_of_sale.Registries');
     var { Gui } = require('point_of_sale.Gui');
 
+    const { useState } = owl;
     const _t = core._t;
 
     /**
@@ -17,8 +17,7 @@ odoo.define('pos_iot.LastTransactionStatus', function(require) {
      * Worldline payment terminal and opens a popup to display the result.
      */
     class LastTransactionStatusButton extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
             this.state = useState({ pending: false });
         }
 
@@ -64,6 +63,7 @@ odoo.define('pos_iot.LastTransactionStatus', function(require) {
      */
     class LastTransactionPopup extends AbstractAwaitablePopup { }
     LastTransactionPopup.template = 'LastTransactionPopup';
+    LastTransactionPopup.defaultProps = { cancelKey: false };
     Registries.Component.add(LastTransactionPopup);
 
     return {

@@ -9,7 +9,7 @@
                 <button name="action_create_new_post"
                         type="object"
                         class="oe_highlight order-2"
-                        string="Send Social Post"
+                        string="Add Post"
                         groups="social.group_social_user"/>
             </xpath>
             <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
@@ -55,7 +55,7 @@
             </xpath>
             <xpath expr="//ul[@id='o_utm_actions']">
                 <a name="action_redirect_to_social_media_posts" type="object"
-                    t-attf-class="#{record.social_posts_count.raw_value === 0 ? 'text-muted' : ''}" groups="social.group_social_user">
+                    t-attf-class="pe-4 #{record.social_posts_count.raw_value === 0 ? 'text-muted' : ''}" groups="social.group_social_user">
                     <t t-out="record.social_posts_count.raw_value"/> Posts
                 </a>
             </xpath>
@@ -82,6 +82,6 @@
         parent="menu_social_global"
         name="Campaigns"
         sequence="25"
-        groups="group_social_manager"
+        groups="group_social_user"
         action="action_view_utm_campaigns"/>
 </odoo>

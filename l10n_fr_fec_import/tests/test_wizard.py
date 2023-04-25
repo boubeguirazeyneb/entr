@@ -42,7 +42,7 @@ class AccountTestFecImport(AccountTestInvoicingCommon):
     def setUpClass(cls, chart_template_ref='l10n_fr.l10n_fr_pcg_chart_template'):
         """ Setup all the prerequisite entities for the CSV import tests to run """
 
-        super().setUpClass(chart_template_ref)
+        super().setUpClass(chart_template_ref=chart_template_ref)
 
         # Company -------------------------------------
         cls.company = cls.company_data['company']
@@ -55,12 +55,12 @@ class AccountTestFecImport(AccountTestInvoicingCommon):
         cls._attach_file_to_wizard(cls, cls.test_content, cls.wizard)
 
         # Export records for import test --------------
-        cls.moves = cls.env['account.move'].create([{
+        cls.moves = cls.env['account.move'].with_company(cls.company_export).create([{
             'company_id': cls.company_export.id,
             'name': 'INV/001/123456',
             'date': datetime.date(2010, 1, 1),
             'invoice_date': datetime.date(2010, 1, 1),
-            'move_type': 'out_invoice',
+            'move_type': 'entry',
             'partner_id': cls.partner_a.id,
             'journal_id': cls.company_data_2['default_journal_sale'].id,
             'line_ids': [(0, 0, {
@@ -81,7 +81,7 @@ class AccountTestFecImport(AccountTestInvoicingCommon):
         }, {
             'company_id': cls.company_export.id,
             'name': 'INV/001/123457',
-            'move_type': 'in_invoice',
+            'move_type': 'entry',
             'date': datetime.date(2010, 1, 1),
             'invoice_date': datetime.date(2010, 1, 1),
             'partner_id': cls.partner_b.id,
@@ -156,21 +156,17 @@ class AccountTestFecImport(AccountTestInvoicingCommon):
         domain = [('company_id', '=', self.company.id), ('code', 'in', account_codes)]
         accounts = self.env['account.account'].search(domain, order='code')
 
-        payable_type = self.env.ref('account.data_account_type_payable')
-        expenses_type = self.env.ref('account.data_account_type_expenses')
-        current_assets_type = self.env.ref('account.data_account_type_current_assets')
-
         expected_values = [{
             'name': 'FOURNISSEURS DIVERS',
-            'user_type_id': payable_type.id,
+            'account_type': 'liability_payable',
             'reconcile': True
         }, {
             'name': 'TVA déductible sur autres biens et services',
-            'user_type_id': current_assets_type.id,
+            'account_type': 'asset_current',
             'reconcile': False,
         }, {
             'name': 'Frais d\'actes et de contentieux',
-            'user_type_id': expenses_type.id,
+            'account_type': 'expense',
             'reconcile': False,
         }, ]
         self.assertRecordValues(accounts, expected_values)
@@ -270,8 +266,14 @@ class AccountTestFecImport(AccountTestInvoicingCommon):
         move_names = ('ACH000001', 'ACH000002', 'ACH000003')
         domain = [('company_id', '=', self.company.id), ('move_name', 'in', move_names)]
         move_lines = self.env['account.move.line'].search(domain, order='move_name, id')
+        self.assertEqual(9, len(move_lines))
 
         # Verify Reconciliation
+        domain = [('company_id', '=', self.company.id), ('reconciled', '=', True)]
+        move_lines = self.env['account.move.line'].search(domain)
+        self.assertEqual(256, len(move_lines))
+
+        # Verify Full Reconciliation
         domain = [('company_id', '=', self.company.id), ('full_reconcile_id', '!=', False)]
         move_lines = self.env['account.move.line'].search(domain)
         self.assertEqual(256, len(move_lines))
@@ -368,3 +370,19 @@ class AccountTestFecImport(AccountTestInvoicingCommon):
         self._attach_file_to_wizard(self.test_content_imbalanced_none, self.wizard)
         with self.assertRaises(UserError):
             self.wizard._import_files(['account.account', 'account.journal', 'res.partner', 'account.move'])
+
+    def test_positive_montant_devise(self):
+        """
+        Test that it doesn't fail even when the MontantDevise is not signed, i.e. MontantDevise is positive even
+        when the line is credited, or the opposite case: MontantDevise is negative while the line is
+        debited.
+        """
+        test_content = """
+            JournalCode\tJournalLib\tEcritureNum\tEcritureDate\tCompteNum\tCompteLib\tCompAuxNum\tCompAuxLib\tPieceRef\tPieceDate\tEcritureLib\tDebit\tCredit\tEcritureLet\tDateLet\tValidDate\tMontantdevise\tIdevise
+            ACH\tACHATS\tTEST_MONTANT_DEVISE\t20180808\t62270000\tFRAIS D'ACTES ET CONTENTIEUX\t\t\t1\t20180808\tACOMPTE FORMALITES ENTREPRISE\t100,00\t0,00\t\t\t20190725\t100,00\tEUR
+            ACH\tACHATS\tTEST_MONTANT_DEVISE\t20180808\t44566000\tTVA SUR AUTRES BIEN ET SERVICE\t\t\t1\t20180808\tACOMPTE FORMALITES ENTREPRISE\t0,00\t100,00\t\t\t20190725\t100,00\tEUR
+            ACH\tACHATS\tTEST_MONTANT_DEVISE2\t20180808\t62270000\tFRAIS D'ACTES ET CONTENTIEUX\t\t\t1\t20180808\tACOMPTE FORMALITES ENTREPRISE\t0,00\t100,00\t\t\t20190725\t-100,00\tEUR
+            ACH\tACHATS\tTEST_MONTANT_DEVISE2\t20180808\t44566000\tTVA SUR AUTRES BIEN ET SERVICE\t\t\t1\t20180808\tACOMPTE FORMALITES ENTREPRISE\t100,00\t0,00\t\t\t20190725\t-100,00\tEUR
+        """
+        self._attach_file_to_wizard(test_content, self.wizard)
+        self.wizard._import_files()

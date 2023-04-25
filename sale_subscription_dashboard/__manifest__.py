@@ -18,8 +18,6 @@ It adds dashboards to :
         'views/sale_subscription_dashboard_views.xml',
         'views/report_dashboard.xml',
     ],
-    'demo': [
-    ],
     'installable': True,
     'auto_install': True,
     'license': 'OEEL-1',
@@ -28,12 +26,10 @@ It adds dashboards to :
             'sale_subscription_dashboard/static/src/scss/sale_subscription_dashboard.scss',
             'sale_subscription_dashboard/static/src/js/sale_subscription_dashboard.js',
             'sale_subscription_dashboard/static/src/js/action_sale_subscription_dashboard_dl.js',
+            'sale_subscription_dashboard/static/src/xml/**/*',
         ],
         'web.qunit_suite_tests': [
             'sale_subscription_dashboard/static/tests/**/*',
-        ],
-        'web.assets_qweb': [
-            'sale_subscription_dashboard/static/src/xml/**/*',
         ],
     }
 }

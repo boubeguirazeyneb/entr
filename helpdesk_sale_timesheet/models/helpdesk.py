@@ -2,10 +2,8 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from collections import defaultdict
-from ast import literal_eval
 
-from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo import _, api, fields, models
 from odoo.osv import expression
 from odoo.addons.sale_timesheet_enterprise.models.sale import DEFAULT_INVOICED_TIMESHEET
 
@@ -31,12 +29,17 @@ class HelpdeskTicket(models.Model):
 
     use_helpdesk_sale_timesheet = fields.Boolean('Reinvoicing Timesheet activated on Team', related='team_id.use_helpdesk_sale_timesheet', readonly=True)
     sale_order_id = fields.Many2one('sale.order', compute="_compute_helpdesk_sale_order", compute_sudo=True, store=True, readonly=False)
-    sale_line_id = fields.Many2one('sale.order.line', string="Sales Order Item",
+    sale_line_id = fields.Many2one(
+        'sale.order.line', string="Sales Order Item", tracking=True,
         compute="_compute_sale_line_id", store=True, readonly=False,
-        domain="[('company_id', '=', company_id), ('is_service', '=', True), ('order_partner_id', 'child_of', commercial_partner_id), ('is_expense', '=', False), ('state', 'in', ['sale', 'done'])]")
+        domain="[('company_id', '=', company_id), ('is_service', '=', True), ('order_partner_id', 'child_of', commercial_partner_id), ('is_expense', '=', False), ('state', 'in', ['sale', 'done'])]",
+        help="Sales Order Item to which the time spent on this ticket will be added in order to be invoiced to your customer.\n"
+             "By default the last prepaid sales order item that has time remaining will be selected.\n"
+             "Remove the sales order item in order to make this ticket non-billable.\n"
+             "You can also change or remove the sales order item of each timesheet entry individually.")
     project_sale_order_id = fields.Many2one('sale.order', string="Project's sale order", related='project_id.sale_order_id')
     remaining_hours_available = fields.Boolean(related="sale_line_id.remaining_hours_available")
-    remaining_hours_so = fields.Float('Remaining Hours on SO', compute='_compute_remaining_hours_so')
+    remaining_hours_so = fields.Float('Remaining Hours on SO', compute='_compute_remaining_hours_so', search='_search_remaining_hours_so')
 
     @api.depends('sale_line_id', 'timesheet_ids', 'timesheet_ids.unit_amount')
     def _compute_remaining_hours_so(self):
@@ -53,10 +56,14 @@ class HelpdeskTicket(models.Model):
             if timesheet.so_line == timesheet.helpdesk_ticket_id.sale_line_id:
                 delta -= timesheet.unit_amount
             if delta:
-                mapped_remaining_hours[timesheet.helpdesk_ticket_id._origin.id] += timesheet.so_line.product_uom._compute_quantity(delta, uom_hour)
+                mapped_remaining_hours[timesheet.helpdesk_ticket_id._origin.id] += timesheet.product_uom_id._compute_quantity(delta, uom_hour)
 
         for ticket in self:
             ticket.remaining_hours_so = mapped_remaining_hours[ticket._origin.id]
+
+    @api.model
+    def _search_remaining_hours_so(self, operator, value):
+        return [('sale_line_id.remaining_hours', operator, value)]
 
     @api.depends('commercial_partner_id', 'use_helpdesk_sale_timesheet', 'project_id.pricing_type', 'project_id.sale_line_id')
     def _compute_sale_line_id(self):
@@ -135,7 +142,7 @@ class HelpdeskTicket(models.Model):
         action_window = {
             "type": "ir.actions.act_window",
             "res_model": "sale.order",
-            "name": "Sales Order",
+            "name": _("Sales Order"),
             "views": [[False, "form"]],
             "context": {"create": False, "show_sale": True},
             "res_id": self.sale_line_id.order_id.id or self.sale_order_id.id
@@ -145,6 +152,17 @@ class HelpdeskTicket(models.Model):
 
 class AccountAnalyticLine(models.Model):
     _inherit = 'account.analytic.line'
+
+    display_sol = fields.Boolean(compute="_compute_display_sol")
+
+    @api.depends('helpdesk_ticket_id', 'helpdesk_ticket_id.use_helpdesk_sale_timesheet')
+    def _compute_display_sol(self):
+        sale_project_ids = list(self.env['project.project']._search([('helpdesk_team.use_helpdesk_sale_timesheet', '=', True)]))
+        for line in self:
+            if line.project_id and not line.project_id.allow_billable and line.project_id.id not in sale_project_ids:
+                line.display_sol = False
+            else:
+                line.display_sol = not line.helpdesk_ticket_id or line.helpdesk_ticket_id.use_helpdesk_sale_timesheet
 
     @api.depends('task_id.sale_line_id', 'project_id.sale_line_id', 'employee_id', 'project_id.allow_billable', 'helpdesk_ticket_id.sale_line_id')
     def _compute_so_line(self):
@@ -185,5 +203,4 @@ class HelpdeskSLA(models.Model):
 
     sale_line_ids = fields.Many2many(
         'sale.order.line', string="Sales Order Items",
-        domain="[('is_service', '=', True)]",
-        help="This SLA Policy will apply to any tickets with the selected Sales Order Item as reference. Leave empty to apply this SLA Policy to any ticket without distinction.")
+        domain="[('is_service', '=', True)]")

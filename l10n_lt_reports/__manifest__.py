@@ -2,7 +2,7 @@
 # Co-Authors: Silvija Butko, Andrius Laukavičius. Copyright: JSC Focusate
 # See LICENSE file for full copyright and licensing details.
 {
-    'name': 'LT - Accounting Reports',
+    'name': 'Lithuania - Accounting Reports',
     'icon': '/l10n_lt/static/description/icon.png',
     'version': '1.0.0',
     'description': """
@@ -20,7 +20,8 @@
     ],
     'data': [
         'data/account_financial_html_report_data.xml',
+        'data/account_report_ec_sales_list_report.xml'
     ],
-    'auto_install': True,
+    'auto_install': ['l10n_lt', 'account_reports'],
     'installable': True,
 }

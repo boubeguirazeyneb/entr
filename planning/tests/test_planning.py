@@ -2,6 +2,11 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from freezegun import freeze_time
+
+from odoo import fields
+from odoo.exceptions import ValidationError
+from odoo.tests.common import Form
 
 from .common import TestCommonPlanning
 
@@ -10,7 +15,9 @@ class TestPlanning(TestCommonPlanning):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.setUpEmployees()
+        cls.classPatch(cls.env.cr, 'now', fields.datetime.now)
+        with freeze_time('2019-5-1'):
+            cls.setUpEmployees()
         calendar_joseph = cls.env['resource.calendar'].create({
             'name': 'Calendar 1',
             'tz': 'UTC',
@@ -48,30 +55,42 @@ class TestPlanning(TestCommonPlanning):
         cls.env.user.company_id.resource_calendar_id = calendar
         cls.employee_joseph.resource_calendar_id = calendar_joseph
         cls.employee_bert.resource_calendar_id = calendar_bert
-        cls.slot = cls.env['planning.slot'].create({
-            'start_datetime': datetime(2019, 6, 27, 8, 0, 0),
-            'end_datetime': datetime(2019, 6, 27, 18, 0, 0),
-        })
+        cls.slot, cls.slot2 = cls.env['planning.slot'].create([
+            {
+                'start_datetime': datetime(2019, 6, 27, 8, 0, 0),
+                'end_datetime': datetime(2019, 6, 27, 18, 0, 0),
+            },
+            {
+                'start_datetime': datetime(2019, 6, 27, 8, 0, 0),
+                'end_datetime': datetime(2019, 6, 28, 18, 0, 0),
+            }
+        ])
         cls.template = cls.env['planning.slot.template'].create({
             'start_time': 11,
             'duration': 4,
         })
 
     def test_allocated_hours_defaults(self):
-        self.assertEqual(self.slot.allocated_hours, 10, "It should have the default value")
+        self.assertEqual(self.slot.allocated_hours, 8, "It should follow the calendar of the resource to compute the allocated hours.")
         self.assertEqual(self.slot.allocated_percentage, 100, "It should have the default value")
 
     def test_change_percentage(self):
         self.slot.allocated_percentage = 60
-        self.assertEqual(self.slot.allocated_hours, 6, "It should 60%% of original hours")
+        self.assertEqual(self.slot.allocated_hours, 8 * 0.60, "It should 60%% of working hours")
+        self.slot2.allocated_percentage = 60
+        self.assertEqual(self.slot2.allocated_hours, 16 * 0.60)
 
     def test_change_hours_more(self):
-        self.slot.allocated_hours = 15
+        self.slot.allocated_hours = 12
         self.assertEqual(self.slot.allocated_percentage, 150)
+        self.slot2.allocated_hours = 24
+        self.assertEqual(self.slot2.allocated_percentage, 150)
 
     def test_change_hours_less(self):
-        self.slot.allocated_hours = 5
+        self.slot.allocated_hours = 4
         self.assertEqual(self.slot.allocated_percentage, 50)
+        self.slot2.allocated_hours = 8
+        self.assertEqual(self.slot2.allocated_percentage, 50)
 
     def test_change_start(self):
         self.slot.start_datetime += relativedelta(hours=2)
@@ -81,8 +100,8 @@ class TestPlanning(TestCommonPlanning):
     def test_change_start_partial(self):
         self.slot.allocated_percentage = 80
         self.slot.start_datetime += relativedelta(hours=2)
-        self.slot.flush()
-        self.slot.invalidate_cache()
+        self.slot.flush_recordset()
+        self.slot.invalidate_recordset()
         self.assertEqual(self.slot.allocated_hours, 8 * 0.8, "It should be decreased by 2 hours and percentage applied")
         self.assertEqual(self.slot.allocated_percentage, 80, "It should still be 80%")
 
@@ -98,7 +117,7 @@ class TestPlanning(TestCommonPlanning):
 
     def test_change_employee_with_template(self):
         self.slot.template_id = self.template
-        self.slot.flush()
+        self.env.flush_all()
 
         # simulate public user (no tz)
         self.env.user.tz = False
@@ -159,13 +178,13 @@ class TestPlanning(TestCommonPlanning):
         self.env.user.tz = 'America/New_York'
         self.env.user.company_id.resource_calendar_id.tz = 'America/New_York'
         self.slot.template_id = self.template
-        self.slot.flush()
+        self.env.flush_all()
         self.assertEqual(self.slot.start_datetime, datetime(2019, 6, 27, 15, 0), 'It should set time from template, in user timezone (11am EDT -> 3pm UTC)')
 
         # simulate public user (no tz)
         self.env.user.tz = False
         self.slot.resource_id = self.resource_janice.id
-        self.slot.flush()
+        self.env.flush_all()
         self.assertEqual(self.slot.start_datetime, datetime(2019, 6, 27, 15, 0), 'It should adjust to employee timezone')
 
         self.slot.resource_id = None
@@ -211,6 +230,7 @@ class TestPlanning(TestCommonPlanning):
             3) Check if the start and end dates are on two days and not one.
             4) Check if the allocating hours is equal to the duration in the template.
         """
+        self.resource_bert.flexible_hours = True
         template_slot = self.env['planning.slot.template'].create({
             'start_time': 23,
             'duration': 3,
@@ -236,3 +256,33 @@ class TestPlanning(TestCommonPlanning):
         self.assertEqual(self.slot.state, 'draft', 'Planning is draft mode.')
         self.slot.action_publish()
         self.assertEqual(self.slot.state, 'published', 'Planning is published.')
+
+    def test_create_working_calendar_period(self):
+        """ A default dates should be calculated based on the working calendar of the company whatever the period """
+        test = Form(self.env['planning.slot'].with_context(
+            default_start_datetime=datetime(2019, 5, 27, 0, 0),
+            default_end_datetime=datetime(2019, 5, 27, 23, 59, 59)
+        ))
+        slot = test.save()
+        self.assertEqual(slot.start_datetime, datetime(2019, 5, 27, 8, 0), 'It should adjust to employee calendar: 0am -> 9pm')
+        self.assertEqual(slot.end_datetime, datetime(2019, 5, 27, 17, 0), 'It should adjust to employee calendar: 0am -> 9pm')
+
+        # For weeks period
+        test_week = Form(self.env['planning.slot'].with_context(
+            default_start_datetime=datetime(2019, 6, 23, 0, 0),
+            default_end_datetime=datetime(2019, 6, 29, 23, 59, 59)
+        ))
+
+        test_week = test_week.save()
+        self.assertEqual(test_week.start_datetime, datetime(2019, 6, 24, 8, 0), 'It should adjust to employee calendar: 0am -> 9pm')
+        self.assertEqual(test_week.end_datetime, datetime(2019, 6, 28, 17, 0), 'It should adjust to employee calendar: 0am -> 9pm')
+
+    def test_name_long_duration(self):
+        """ Set an absurdly high duration to ensure we validate it and get an error """
+        template_slot = self.env['planning.slot.template'].create({
+            'start_time': 9,
+            'duration': 100000,
+        })
+        with self.assertRaises(ValidationError):
+            # only try to get the name, this triggers its compute
+            template_slot.name

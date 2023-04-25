@@ -1,11 +1,11 @@
 # -*- coding:utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from collections import defaultdict
 from functools import reduce
 
 from odoo import api, fields, models, _
-
-EMPLOYER_ONSS = 0.2714
+from odoo.exceptions import ValidationError, AccessError
 
 
 class HrEmployee(models.Model):
@@ -52,9 +52,73 @@ Source: Opinion on the indexation of the amounts set in Article 1, paragraph 4, 
     certificate = fields.Selection(selection_add=[('civil_engineer', 'Master: Civil Engineering')])
     l10n_be_scale_seniority = fields.Integer(string="Seniority at Hiring", groups="hr.group_hr_user", tracking=True)
 
+    l10n_be_holiday_pay_to_recover_n = fields.Float(
+        string="Simple Holiday Pay to Recover (N)", tracking=True, groups="hr_payroll.group_hr_payroll_user",
+        help="Amount of the holiday pay paid by the previous employer to recover.")
+    l10n_be_holiday_pay_number_of_days_n = fields.Float(
+        string="Number of days to recover (N)", tracking=True, groups="hr_payroll.group_hr_payroll_user",
+        help="Number of days on which you should recover the holiday pay.")
+    l10n_be_holiday_pay_recovered_n = fields.Float(
+        string="Recovered Simple Holiday Pay (N)", tracking=True,
+        compute='_compute_l10n_be_holiday_pay_recovered', groups="hr_payroll.group_hr_payroll_user",
+        help="Amount of the holiday pay paid by the previous employer already recovered.")
+
+    l10n_be_holiday_pay_to_recover_n1 = fields.Float(
+        string="Simple Holiday Pay to Recover (N-1)", tracking=True, groups="hr_payroll.group_hr_payroll_user",
+        help="Amount of the holiday pay paid by the previous employer to recover.")
+    l10n_be_holiday_pay_number_of_days_n1 = fields.Float(
+        string="Number of days to recover (N-1)", tracking=True, groups="hr_payroll.group_hr_payroll_user",
+        help="Number of days on which you should recover the holiday pay.")
+    l10n_be_holiday_pay_recovered_n1 = fields.Float(
+        string="Recovered Simple Holiday Pay (N-1)", tracking=True,
+        compute='_compute_l10n_be_holiday_pay_recovered', groups="hr_payroll.group_hr_payroll_user",
+        help="Amount of the holiday pay paid by the previous employer already recovered.")
     double_pay_line_ids = fields.One2many(
         'l10n.be.double.pay.recovery.line', 'employee_id',
         string='Previous Occupations', groups="hr_payroll.group_hr_payroll_user")
+    sdworx_code = fields.Char("SDWorx code", groups="hr.group_hr_user")
+
+    @api.constrains('children', 'disabled_children_number',
+                    'other_senior_dependent', 'other_disabled_senior_dependent',
+                    'other_juniors_dependent', 'other_disabled_juniors_dependent',
+                    'l10n_be_dependent_children_attachment')
+    def _check_dependent(self):
+        validation_error_message = []
+        for employee in self:
+            if (employee.children < 0 or employee.disabled_children_number < 0 or
+               employee.other_senior_dependent < 0 or employee.other_disabled_senior_dependent < 0 or
+               employee.other_juniors_dependent < 0 or employee.other_disabled_juniors_dependent < 0 or
+               employee.l10n_be_dependent_children_attachment < 0):
+                validation_error_message.append(_("Count of dependent people/children or disabled dependent people/children must be positive."))
+            if ((employee.disabled_children_number > 0 and employee.disabled_children_number > employee.children) or
+               (employee.other_disabled_senior_dependent > 0 and employee.other_disabled_senior_dependent > employee.other_senior_dependent) or
+               (employee.other_disabled_juniors_dependent > 0 and employee.other_disabled_juniors_dependent > employee.other_juniors_dependent) or
+               (employee.l10n_be_dependent_children_attachment > 0 and employee.l10n_be_dependent_children_attachment > employee.children)):
+                validation_error_message.append(_("Count of disabled dependent people/children must be less or equal to the number of dependent people/children."))
+            if validation_error_message:
+                raise ValidationError("\n".join(validation_error_message))
+
+    @api.constrains('sdworx_code')
+    def _check_sdworx_code(self):
+        if self.sdworx_code and len(self.sdworx_code) != 7:
+            raise ValidationError(_('The SDWorx code should have 7 characters or should be left empty!'))
+
+    def _compute_l10n_be_holiday_pay_recovered(self):
+        payslips = self.env['hr.payslip'].search([
+            ('employee_id', 'in', self.ids),
+            ('struct_id', '=', self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary').id),
+            ('company_id', '=', self.env.company.id),
+            ('state', 'in', ['done', 'paid']),
+        ])
+        line_values = payslips._get_line_values(['HolPayRecN', 'HolPayRecN1'])
+        payslips_by_employee = defaultdict(lambda: self.env['hr.payslip'])
+        for payslip in payslips:
+            payslips_by_employee[payslip.employee_id] |= payslip
+
+        for employee in self:
+            employee_payslips = payslips_by_employee[employee]
+            employee.l10n_be_holiday_pay_recovered_n = - sum(line_values['HolPayRecN'][p.id]['total'] for p in employee_payslips)
+            employee.l10n_be_holiday_pay_recovered_n1 = - sum(line_values['HolPayRecN1'][p.id]['total'] for p in employee_payslips)
 
     def _compute_spouse_fiscal_status_explanation(self):
         low_income_threshold = self.env['hr.rule.parameter'].sudo()._get_parameter_from_code('spouse_low_income_threshold')
@@ -70,8 +134,21 @@ Source: Opinion on the indexation of the amounts set in Article 1, paragraph 4, 
     def _compute_niss(self):
         characters = dict.fromkeys([',', '.', '-', ' '], '')
         for employee in self:
-            if employee.identification_id and not employee.niss:
+            if employee.identification_id and not employee.niss and employee.company_country_code == 'BE':
                 employee.niss = reduce(lambda a, kv: a.replace(*kv), characters.items(), employee.identification_id)
+
+    @api.model
+    def _validate_niss(self, niss):
+        try:
+            test = niss[:-2]
+            if test[0] in ['0', '1', '2', '3', '4', '5']:  # Should be good for several years
+                test = '2%s' % test
+            checksum = int(niss[-2:])
+            if checksum != (97 - int(test) % 97):
+                raise Exception()
+            return True
+        except Exception:
+            return False
 
     def _is_niss_valid(self):
         # The last 2 positions constitute the check digit. This check digit is
@@ -86,14 +163,7 @@ Source: Opinion on the indexation of the amounts set in Article 1, paragraph 4, 
         niss = self.niss
         if not niss or len(niss) != 11:
             return False
-        try:
-            test = niss[:-2]
-            if test[0] in ['0', '1', '2', '3', '4', '5']:  # Should be good for several years
-                test = '2%s' % test
-            checksum = int(niss[-2:])
-            return checksum == 97 - int(test) % 97
-        except Exception:
-            return False
+        return self._validate_niss(niss)
 
     @api.onchange('disabled_children_bool')
     def _onchange_disabled_children_bool(self):
@@ -120,3 +190,30 @@ Source: Opinion on the indexation of the amounts set in Article 1, paragraph 4, 
         for employee in self:
             employee.dependent_seniors = employee.other_senior_dependent + employee.other_disabled_senior_dependent
             employee.dependent_juniors = employee.other_juniors_dependent + employee.other_disabled_juniors_dependent
+
+    @api.model
+    def _get_invalid_niss_employee_ids(self):
+        # as we do not store if the niss is valid or not it's not possible to fetch all the employees directly
+        # use sql and manually filter the employees
+
+        # return nothing if user has no right to either employee or bank partner
+        try:
+            self.check_access_rights('read')
+            # niss field is for this group only
+            if not self.user_has_groups('hr.group_hr_user'):
+                raise AccessError()
+        except AccessError:
+            return []
+
+        self.env.cr.execute('''
+            SELECT emp.id,
+                   emp.niss
+              FROM hr_employee emp
+              JOIN hr_contract con
+              ON con.id = emp.contract_id
+              AND con.state in ('open', 'close')
+             WHERE emp.company_id IN %s
+               AND emp.employee_type IN ('employee', 'student')
+               AND emp.active=TRUE
+        ''', (tuple(c.id for c in self.env.companies if c.country_id.code == 'BE'),))
+        return [row['id'] for row in self.env.cr.dictfetchall() if not row['niss'] or not self._validate_niss(row['niss'])]

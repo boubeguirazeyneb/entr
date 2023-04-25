@@ -1,13 +1,3 @@
-$gantt-border-color: $gray-400;
-$gantt-pill-height: 31px;
-$gantt-highlight-today-border: #dca665;
-$gantt-highlight-today-bg: #fffaeb;
-$gantt-highlight-hover-row: rgba($primary, .1);
-$gantt-row-open-bg: $gray-100;
-$gantt-pill-consolidated-height: 24px;
-$gantt-unavailability-bg: $gray-200;
-
-
 // Define the necessary conditions to provide visual feedback on hover,
 // focus, drag, clone and resize.
 @mixin o-gantt-hover() {
@@ -22,13 +12,13 @@ $gantt-unavailability-bg: $gray-200;
 // Generate background and text for each color.
 @mixin o-gantt-hoverable-colors($color) {
     $color-subdle: mix($color, white, 60%);
-    color: color-yiq($color-subdle);
+    color: color-contrast($color-subdle);
     background-color: $color-subdle;
     cursor: pointer;
 
     @include o-gantt-hover() {
         background-color: $color;
-        color: color-yiq($color);
+        color: color-contrast($color);
     }
 }
 
@@ -44,7 +34,8 @@ $gantt-unavailability-bg: $gray-200;
 
 @mixin gantt-ribbon-decoration($color) {
     content: '';
-    @include size(20px, 16px);
+    width: 20px;
+    height: 16px;
     @include o-position-absolute(-11px, $left: -13px);
     box-shadow: 1px 1px 0 white;
     background: $color;
@@ -68,9 +59,14 @@ $gantt-unavailability-bg: $gray-200;
 }
 
 .o_gantt_view {
+     // Allows to use color variables in js
+    --Gant__Day-background-color: #{$o-view-background-color};
+    --Gant__DayOff-background-color: #e9ecef;
+    --Gant__DayOffToday-background-color: #fffaeb;
+
     box-shadow: 0 5px 20px -15px rgba(black, .3);
     user-select: none;
-    @include media-breakpoint-down(sm) {
+    @include media-breakpoint-down(md) {
         .o_gantt_view_container {
             width: max-content;
         }
@@ -144,8 +140,16 @@ $gantt-unavailability-bg: $gray-200;
             color: $headings-color;
 
 
-            @include media-breakpoint-down(sm) {
+            @include media-breakpoint-down(md) {
                 min-width: 0;
+            }
+        }
+    }
+
+    .o_gantt_row {
+        &:hover{
+            .o_gantt_group_hours {
+                display: initial;
             }
         }
     }
@@ -158,6 +162,24 @@ $gantt-unavailability-bg: $gray-200;
 
         .o_gantt_row_title {
             line-height: $gantt-pill-height + 4px;
+            position: relative;
+        }
+
+        .o_gantt_progressbar, .o_gantt_text_hoverable {
+            right: 0;
+            height: 100%
+        }
+        @include media-breakpoint-down(sm) {
+            .o_gantt_progressbar, .o_gantt_text_mobile {
+                top: 50%;
+                height: 50%;
+            }
+        }
+        .o_gantt_group_hours {
+            display: none;
+            @include media-breakpoint-down(sm) {
+                display: block;
+            }
         }
     }
 
@@ -226,13 +248,8 @@ $gantt-unavailability-bg: $gray-200;
                 z-index: 2;  // other pills show not hide these ones
             }
 
-            &.o_gantt_progress {
-                @include o-gantt-hoverable-colors(nth($o-colors-complete, 1));
-                background-repeat: no-repeat;
-
-                &.decoration-info {
-                    @include gantt-gradient-decorations(nth($o-colors-complete, 1));
-                }
+            &.decoration-info {
+                @include gantt-gradient-decorations(nth($o-colors-complete, 1));
             }
 
             .ui-resizable-e, .ui-resizable-w {
@@ -256,16 +273,11 @@ $gantt-unavailability-bg: $gray-200;
             }
 
             // used for `color` attribute on <gantt>
-            @for $index from 2 through length($o-colors-complete) - 1 {
-            // @for $index from 3 through length($o-colors) {
+            @for $index from 1 through length($o-colors-complete) {
                 &.o_gantt_color_#{$index - 1} {
                     $gantt-color: nth($o-colors-complete, $index);
 
                     @include o-gantt-hoverable-colors($gantt-color);
-
-                    &.o_gantt_progress {
-                        @include o-gantt-hoverable-colors($gantt-color);
-                    }
 
                     &.decoration-info {
                         @include gantt-gradient-decorations($gantt-color);
@@ -369,6 +381,11 @@ $gantt-unavailability-bg: $gray-200;
         // ====  "Regular" row - When it's an opened group's children
         &.open .o_gantt_row_sidebar {
             font-weight: normal;
+            background-color: inherit;
+            
+            .o_gantt_text_hoverable.o_gantt_group_none {
+                background-color: inherit;
+            }
         }
 
         // ====  "Regular" row - "Hover" State
@@ -406,6 +423,9 @@ $gantt-unavailability-bg: $gray-200;
                 }
             }
         }
+        .o_gantt_row_sidebar .o_gantt_group_hours {
+            line-height: $gantt-pill-height + 4px;
+        }
     }
 
     // ==== "Group Header" rows (closed) =====
@@ -414,13 +434,13 @@ $gantt-unavailability-bg: $gray-200;
         cursor: pointer;
 
         &, &.open:hover {
-            .o_gantt_row_sidebar, .o_gantt_slots_container {
+            .o_gantt_row_sidebar, .o_gantt_slots_container, .o_gantt_text_hoverable.o_gantt_group_none {
                 background-image: linear-gradient(darken($gantt-row-open-bg, 5%), $gantt-row-open-bg);
             }
         }
 
         &:hover, &.open {
-            .o_gantt_row_sidebar, .o_gantt_slots_container {
+            .o_gantt_row_sidebar, .o_gantt_slots_container, .o_gantt_text_hoverable.o_gantt_group_none {
                 background-image: linear-gradient($gantt-row-open-bg, darken($gantt-row-open-bg, 5%));
             }
         }
@@ -428,6 +448,15 @@ $gantt-unavailability-bg: $gray-200;
         .o_gantt_row_sidebar, .o_gantt_row_title, .o_gantt_cell {
             min-height: $gantt-pill-consolidated-height;
             line-height: $gantt-pill-consolidated-height;
+        }
+
+        .o_gantt_row_sidebar .o_gantt_text_hoverable {
+            &.o_gantt_group_success {
+                background-image: linear-gradient(#add4bd, #b8dec3);
+            }
+            &.o_gantt_group_danger {
+                background-image: linear-gradient(#e3b2bd, #eebcc3);
+            }
         }
 
         .o_gantt_row_thumbnail_wrapper .o_gantt_row_thumbnail {
@@ -506,7 +535,7 @@ $gantt-unavailability-bg: $gray-200;
     .o_gantt_row_group, .o_gantt_total {
         .o_gantt_consolidated_pill_title {
             z-index: 2;
-            background-color: white;
+            background-color: $o-view-background-color;
             color: $body-color;
         }
     }
@@ -544,24 +573,6 @@ $gantt-unavailability-bg: $gray-200;
             background-color: rgba($o-brand-odoo, .5);
         }
 
-        .o_gantt_pill_wrapper:hover {
-            overflow: visible;
-
-            .o_gantt_pill {
-                background-color: rgba($o-brand-odoo, .8);
-            }
-
-            &:before {
-                @include o-position-absolute(auto, -1px, 0, -1px);
-                border: 1px solid $o-brand-odoo;
-                border-width: 0 1px;
-                background: rgba($o-brand-odoo, .1);
-                height: 100vh;
-                content: '';
-                pointer-events: none;
-                z-index: 1;
-            }
-        }
         .o_gantt_cell:last-child .o_gantt_pill_wrapper:hover:before {
             border-right: 0px;
             right: 0;
@@ -576,4 +587,183 @@ $gantt-unavailability-bg: $gray-200;
     // need to go to their settings in order to print them)
     -webkit-print-color-adjust: exact;  /* Chrome, Safari */
     color-adjust: exact;                /*Firefox*/
+}
+
+.o_gantt_slots_container {
+    .o_gantt_cell {
+        .o_gantt_pill_wrapper {
+            // used for `color` attribute on <gantt>
+            @for $index from 1 through length($o-colors-complete) - 1 {
+                // @for $index from 3 through length($o-colors) {
+                .o_gantt_pill {
+                    &.highlight {
+                        z-index: 2;
+                    }
+                    &.o_gantt_color_#{$index - 1} {
+                        $color: nth($o-colors-complete, $index);
+                        &.highlight {
+                            background-color: $color;
+                            color: color-contrast($color);
+                        }
+                        .o_gantt_progress {
+                            opacity: 0.2;
+                            background-color: darken(nth($o-colors-complete, $index), 30%);
+                        }
+                    }
+                }
+                .o_connector_creator_wrapper {
+                    &.o_gantt_color_#{$index - 1} {
+                        $color: nth($o-colors-complete, $index);
+                        .o_connector_creator_bullet {
+                            background-color: $color;
+                            color: color-contrast($color);
+                            @include o-grab-cursor;
+                        }
+                        .o_connector_creator_top {
+                            border-top: solid 1px $color;
+                        }
+                        .o_connector_creator_right {
+                            border-left: solid 1px $color;
+                        }
+                        .o_connector_creator_bottom {
+                            border-bottom: solid 1px $color;
+                        }
+                        .o_connector_creator_left {
+                            border-right: solid 1px $color;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+.o_connector_container {
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+.o_connector {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    &.o_connector_hovered {
+        z-index: 2;
+    }
+    .o_connector_stroke_button {
+        > rect {
+            cursor: pointer;
+            stroke: #091124;
+            stroke-width: 24px;
+            fill: white;
+        }
+        &.o_connector_stroke_reschedule_button {
+            line {
+                stroke: #00a09d;
+            }
+            &:hover{
+                > rect {
+                    fill: #00a09d;
+                }
+                line {
+                    stroke: white;
+                }
+            }
+        }
+        &.o_connector_stroke_remove_button {
+            g {
+                rect {
+                    fill: #dd3c4f;
+                }
+            }
+            &:hover{
+                > rect {
+                    fill: #dd3c4f;
+                }
+                g {
+                    rect {
+                        fill: white;
+                    }
+                }
+            }
+        }
+    }
+}
+.o_connector_creator_wrapper {
+    z-index: 3;
+    position: absolute;
+    height: $o-connector-wrapper-height;
+    width: 100%
+}
+.o_connector_creator_wrapper_top {
+    top: -1 * $o-connector-wrapper-height;
+}
+.o_connector_creator_wrapper_bottom {
+    bottom: -1 * $o-connector-wrapper-height;
+}
+.o_connector_creator {
+    position: absolute;
+    height: $o-connector-creator-size;
+    width: $o-connector-creator-size;
+}
+.o_connector_creator_bullet {
+    height: $o-connector-creator-bullet-diameter;
+    width: $o-connector-creator-bullet-diameter;
+    position: absolute;
+    border-radius: $o-connector-creator-bullet-diameter / 2;
+}
+.o_connector_creator_top {
+    bottom: 0;
+    .o_connector_creator_bullet {
+        top: -0.5 * $o-connector-creator-bullet-diameter;
+    }
+}
+.o_connector_creator_right {
+    right: $o-connector-creator-size;
+    .o_connector_creator_bullet {
+        right: -0.5 * $o-connector-creator-bullet-diameter;
+    }
+}
+.o_connector_creator_bottom {
+    top: 0;
+    .o_connector_creator_bullet {
+        bottom: -0.5 * $o-connector-creator-bullet-diameter;
+    }
+}
+.o_connector_creator_left {
+    left: $o-connector-creator-size;
+    .o_connector_creator_bullet {
+        left: -0.5 * $o-connector-creator-bullet-diameter;
+    }
+}
+
+.o_view_controller:not(.o_view_sample_data) {
+    .o_gantt_view {
+        .o_gantt_total_row_container {
+            .o_gantt_row {
+                .o_gantt_pill_wrapper:hover {
+                    overflow: visible;
+
+                    .o_gantt_pill {
+                        background-color: rgba($o-brand-odoo, .8);
+                    }
+
+                    &:before {
+                        @include o-position-absolute(auto, -1px, 0, -1px);
+                        border: 1px solid $o-brand-odoo;
+                        border-width: 0 1px;
+                        background: rgba($o-brand-odoo, .1);
+                        height: 100vh;
+                        content: '';
+                        pointer-events: none;
+                        z-index: 1;
+                    }
+                }
+            }
+        }
+    }
 }

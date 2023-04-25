@@ -3,17 +3,17 @@
 # 	* account_disallowed_expenses
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Friederike Fasterling-Nesselbosch, 2022
+# Martin Trigaux, 2023
+# Larissa Manderfeld, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:57+0000\n"
-"PO-Revision-Date: 2021-09-14 12:37+0000\n"
-"Last-Translator: Friederike Fasterling-Nesselbosch, 2022\n"
-"Language-Team: German (https://www.transifex.com/odoo/teams/41243/de/)\n"
+"POT-Creation-Date: 2023-04-14 06:17+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Larissa Manderfeld, 2023\n"
+"Language-Team: German (https://app.transifex.com/odoo/teams/41243/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -21,7 +21,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: account_disallowed_expenses
-#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.main_template_de
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.disallowed_expenses_main_template
 msgid ""
 "<span>There are multiple disallowed expenses rates in this period</span>"
 msgstr ""
@@ -33,13 +33,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__account_ids
 msgid "Account"
 msgstr "Konto"
-
-#. module: account_disallowed_expenses
-#: code:addons/account_disallowed_expenses/models/account_disallowed_expenses.py:0
-#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
-#, python-format
-msgid "Accounts"
-msgstr "Konten"
 
 #. module: account_disallowed_expenses
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__active
@@ -57,7 +50,13 @@ msgid "Category"
 msgstr "Kategorie"
 
 #. module: account_disallowed_expenses
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
+msgid "Category Name"
+msgstr "Kategorienname"
+
+#. module: account_disallowed_expenses
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__code
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
 msgid "Code"
 msgstr "Code"
 
@@ -80,18 +79,25 @@ msgid "Created on"
 msgstr "Erstellt am"
 
 #. module: account_disallowed_expenses
-#: code:addons/account_disallowed_expenses/report/account_disallowed_expenses_report.py:0
-#, python-format
+#: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__current_rate
+msgid "Current Rate"
+msgstr "Tageskurs"
+
+#. module: account_disallowed_expenses
+#: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_rate__rate
+msgid "Disallowed %"
+msgstr "Unzulässiger %"
+
+#. module: account_disallowed_expenses
+#: model:account.report.column,name:account_disallowed_expenses.disallowed_expenses_report_disallowed_amount
 msgid "Disallowed Amount"
 msgstr "Nicht zugelassener Betrag"
 
 #. module: account_disallowed_expenses
-#: code:addons/account_disallowed_expenses/report/account_disallowed_expenses_report.py:0
 #: model:ir.ui.menu,name:account_disallowed_expenses.menu_action_account_report_de
 #: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_form
-#, python-format
 msgid "Disallowed Expenses"
-msgstr "Nicht zulässige Auslagen"
+msgstr "Nicht zulässige Ausgaben"
 
 #. module: account_disallowed_expenses
 #: model:ir.actions.act_window,name:account_disallowed_expenses.action_account_disallowed_expenses_category_list
@@ -106,13 +112,18 @@ msgid "Disallowed Expenses Category"
 msgstr "Nicht zulässige Auslagen Kategorie"
 
 #. module: account_disallowed_expenses
+#: model:ir.model,name:account_disallowed_expenses.model_account_disallowed_expenses_report_handler
+msgid "Disallowed Expenses Custom Handler"
+msgstr "Unzulässige Spesen Benutzerdefinierter Handler"
+
+#. module: account_disallowed_expenses
 #: model:ir.model,name:account_disallowed_expenses.model_account_disallowed_expenses_rate
 msgid "Disallowed Expenses Rate"
 msgstr "Satz für nicht zulässige Auslagen"
 
 #. module: account_disallowed_expenses
+#: model:account.report,name:account_disallowed_expenses.disallowed_expenses_report
 #: model:ir.actions.client,name:account_disallowed_expenses.action_account_report_de
-#: model:ir.model,name:account_disallowed_expenses.model_account_disallowed_expenses_report
 msgid "Disallowed Expenses Report"
 msgstr "Bericht über nicht zulässige Auslagen"
 
@@ -130,22 +141,36 @@ msgid "Display Name"
 msgstr "Anzeigename"
 
 #. module: account_disallowed_expenses
+#. odoo-python
+#: code:addons/account_disallowed_expenses/report/account_disallowed_expenses_report.py:0
+#, python-format
+msgid "General Ledger"
+msgstr "Hauptbuch"
+
+#. module: account_disallowed_expenses
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__id
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_rate__id
 msgid "ID"
 msgstr "ID"
 
 #. module: account_disallowed_expenses
+#. odoo-python
+#: code:addons/account_disallowed_expenses/report/account_disallowed_expenses_report.py:0
+#, python-format
+msgid "Journal Items"
+msgstr "Buchungszeilen"
+
+#. module: account_disallowed_expenses
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category____last_update
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_rate____last_update
 msgid "Last Modified on"
-msgstr "Zuletzt geändert am"
+msgstr "Letzte Änderung am"
 
 #. module: account_disallowed_expenses
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__write_uid
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_rate__write_uid
 msgid "Last Updated by"
-msgstr "Zuletzt aktualisiert durch"
+msgstr "Zuletzt aktualisiert von"
 
 #. module: account_disallowed_expenses
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__write_date
@@ -159,15 +184,15 @@ msgid "Name"
 msgstr "Name"
 
 #. module: account_disallowed_expenses
+#. odoo-python
 #: code:addons/account_disallowed_expenses/models/account_disallowed_expenses.py:0
 #, python-format
 msgid "No Rate"
-msgstr ""
+msgstr "Kein Kurs"
 
 #. module: account_disallowed_expenses
-#: code:addons/account_disallowed_expenses/report/account_disallowed_expenses_report.py:0
+#: model:account.report.column,name:account_disallowed_expenses.disallowed_expenses_report_rate
 #: model:ir.model.fields,field_description:account_disallowed_expenses.field_account_disallowed_expenses_category__rate_ids
-#, python-format
 msgid "Rate"
 msgstr "Wechselkurs"
 
@@ -175,6 +200,17 @@ msgstr "Wechselkurs"
 #: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
 msgid "Rates"
 msgstr "Kurse"
+
+#. module: account_disallowed_expenses
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_tree
+msgid "Related Account(s)"
+msgstr "Verbundene Konten"
+
+#. module: account_disallowed_expenses
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_tree
+msgid "Set Rates"
+msgstr ""
 
 #. module: account_disallowed_expenses
 #: model:ir.model.fields,help:account_disallowed_expenses.field_account_disallowed_expenses_category__active
@@ -189,7 +225,23 @@ msgid "Start Date"
 msgstr "Startdatum"
 
 #. module: account_disallowed_expenses
+#. odoo-python
 #: code:addons/account_disallowed_expenses/report/account_disallowed_expenses_report.py:0
 #, python-format
+msgid "Total"
+msgstr "Gesamt"
+
+#. module: account_disallowed_expenses
+#: model:account.report.column,name:account_disallowed_expenses.disallowed_expenses_report_total_amount
 msgid "Total Amount"
 msgstr "Gesamtbetrag"
+
+#. module: account_disallowed_expenses
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
+msgid "e.g. 1201"
+msgstr "z. B. 1201"
+
+#. module: account_disallowed_expenses
+#: model_terms:ir.ui.view,arch_db:account_disallowed_expenses.view_account_disallowed_expenses_category_form
+msgid "e.g. Non-Deductible Tax"
+msgstr "z. B. nichtabzugsfähige Steuer"

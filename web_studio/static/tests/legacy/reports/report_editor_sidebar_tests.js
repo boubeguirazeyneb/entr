@@ -1,7 +1,8 @@
 odoo.define('web_studio.ReportEditorSidebar_tests', function (require) {
 "use strict";
 
-var config = require('web.config');
+const { nextTick } = require("@web/../tests/helpers/utils");
+
 var testUtils = require('web.test_utils');
 
 var studioTestUtils = require('web_studio.testUtils');
@@ -178,8 +179,7 @@ QUnit.module('Studio', {}, function () {
             });
         });
 
-        QUnit.test("'Options' tab with multiple nodes", function (assert) {
-            var done = assert.async();
+        QUnit.test("'Options' tab with multiple nodes", async function (assert) {
             assert.expect(9);
 
             var node1 = {
@@ -203,12 +203,12 @@ QUnit.module('Studio', {}, function () {
                     $nodes: $(),
                 },
             };
-            studioTestUtils.createSidebar({
+            const sidebar = await studioTestUtils.createSidebar({
                 state: {
                     mode: 'properties',
                     nodes: [node1, node2],
                 },
-            }).then(function (sidebar) {
+            });
 
             assert.hasAttrValue(sidebar.$('.o_web_studio_sidebar_header > .active'), 'name', "options",
                 "the 'Options' tab should be active");
@@ -222,27 +222,34 @@ QUnit.module('Studio', {}, function () {
                 "the last node should be the span");
 
             // expand the first node
-            testUtils.dom.click(sidebar.$('.o_web_studio_sidebar_content .o_web_studio_accordion > .card:first [data-toggle="collapse"]:first'));
             // BS4 collapsing is asynchronous
-            setTimeout(function () {
-                assert.doesNotHaveClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(span)) .collapse:first'), 'show',
-                    "the 'span' node should have been closed");
-                assert.hasClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(div)) .collapse:first'),'show',
-                    "the 'div' node should be expanded");
+            await new Promise((resolve) => {
+                $(document.body).one("hidden.bs.collapse", () => {
+                    resolve();
+                });
+                testUtils.dom.click(sidebar.$('.o_web_studio_sidebar_content .o_web_studio_accordion > .card:first [data-bs-toggle="collapse"]:first'));
+            })
+            // await end of transitions: https://getbootstrap.com/docs/5.0/components/collapse/#example
+            await nextTick()
+            assert.doesNotHaveClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(span)) .collapse:first'), 'show',
+                "the 'span' node should have been closed");
+            assert.hasClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(div)) .collapse:first'),'show',
+                "the 'div' node should be expanded");
 
-                // reexpand the second node
-                testUtils.dom.click(sidebar.$('.o_web_studio_sidebar_content .o_web_studio_accordion > .card:last [data-toggle="collapse"]:first'));
-                setTimeout(function () {
-                    assert.hasClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(span)) .collapse:first'),'show',
-                        "the 'span' node should be expanded again");
-                    assert.doesNotHaveClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(div)) .collapse:first'), 'show',
-                        "the 'div' node shouldn't be expanded anymore");
+            // reexpand the second node
+            await new Promise((resolve) => {
+                $(document.body).one("shown.bs.collapse", () => {
+                    resolve();
+                });
+                testUtils.dom.click(sidebar.$('.o_web_studio_sidebar_content .o_web_studio_accordion > .card:last [data-bs-toggle="collapse"]:first'));
+            })
+            await nextTick();
+            assert.hasClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(span)) .collapse:first'),'show',
+                "the 'span' node should be expanded again");
+            assert.doesNotHaveClass(sidebar.$('.o_web_studio_sidebar_content .card:has(.o_text:contains(div)) .collapse:first'), 'show',
+                "the 'div' node shouldn't be expanded anymore");
 
-                    sidebar.destroy();
-                    done();
-                }, 0);
-            },0);
-            });
+            sidebar.destroy();
         });
 
         QUnit.test("'Options' tab with layout component can be expanded", function (assert) {
@@ -715,10 +722,10 @@ QUnit.module('Studio', {}, function () {
                     testName: "set the alignment",
                     nodeToUse: layoutChangeNode,
                     eventToTrigger: "click",
-                    sidebarOperationInputSelector: '.o_web_studio_text_alignment button[title="right"]',
+                    sidebarOperationInputSelector: '.o_web_studio_text_alignment button[title="end"]',
                     expectedRPC: {
                         inheritance: [{
-                            content: "<attribute name=\"class\" separator=\" \" add=\"text-right\"/>",
+                            content: "<attribute name=\"class\" separator=\" \" add=\"text-end\"/>",
                             position: "attributes",
                             view_id: 99,
                             xpath: "/t/t/div"
@@ -867,8 +874,6 @@ QUnit.module('Studio', {}, function () {
             var initialDebugMode = odoo.debug;
             // show 'class' in the sidebar
             odoo.debug = true;
-
-            var defs = [];
 
             function poll (changeOperation) {
                 var node = {

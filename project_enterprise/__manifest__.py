@@ -11,9 +11,14 @@ Bridge module for project and enterprise
     'version': '1.0',
     'depends': ['project', 'web_map', 'web_gantt', 'web_enterprise'],
     'data': [
+        'security/ir.model.access.csv',
         'views/res_config_settings_views.xml',
         'views/project_task_views.xml',
+        'views/project_views.xml',
         'views/project_sharing_templates.xml',
+        'views/project_sharing_views.xml',
+        'report/project_report_views.xml',
+        'wizard/task_confirm_schedule_wizard_views.xml',
     ],
     'demo': ['data/project_demo.xml'],
     'auto_install': True,
@@ -22,19 +27,46 @@ Bridge module for project and enterprise
         'web.assets_backend': [
             'project_enterprise/static/src/js/**/*',
             'project_enterprise/static/src/scss/**/*',
-            'project_enterprise/static/src/project_control_panel/**/*',
-        ],
-        'web.assets_qweb': [
+            'project_enterprise/static/src/components/**/*',
             'project_enterprise/static/src/**/*.xml',
+
+            # Don't include dark mode files in light mode
+            ('remove', 'project_enterprise/static/src/components/**/*.dark.scss'),
+        ],
+        "web.dark_mode_assets_backend": [
+            'project_enterprise/static/src/components/**/*.dark.scss',
         ],
         'web.qunit_suite_tests': [
             'project_enterprise/static/tests/**/*',
         ],
         'project.webclient': [
-            ('remove', 'web_enterprise/static/src/legacy/legacy_service_provider.js'),
-            ('remove', 'web_enterprise/static/src/webclient/home_menu/*'),
+            'web_enterprise/static/src/webclient/**/*.scss',
+            ('remove', 'web_enterprise/static/src/webclient/home_menu/home_menu_background.scss'), # already in _assets_common_styles
+            ('remove', 'web_enterprise/static/src/webclient/navbar/navbar.scss'), # already in _assets_common_styles
+
+            # Allows events to be added to the ListRenderer before it is extended.
+            # for more info, see: https://github.com/odoo/enterprise/pull/30169#pullrequestreview-1064657223
+            ('prepend', 'web_enterprise/static/src/legacy/js/views/list/list_renderer_mobile.js'),
+
+            'web_enterprise/static/src/core/**/*',
+            'web_enterprise/static/src/views/kanban/*',
+            'web_enterprise/static/src/views/list/*',
+            'web_enterprise/static/src/webclient/settings_form_view/*',
+            'web_enterprise/static/src/webclient/navbar/*',
+            'web_enterprise/static/src/webclient/promote_studio_dialog/*',
+            'web_enterprise/static/src/webclient/webclient.js',
+
+            'web_enterprise/static/src/legacy/js/core/*.js',
+            'web_enterprise/static/src/legacy/js/views/*.js',
+            'web_enterprise/static/src/legacy/js/widgets/*.js',
+
+            'web_enterprise/static/src/legacy/scss/fields.scss',
+
             ('remove', 'project/static/src/project_sharing/main.js'),
             'project_enterprise/static/src/project_sharing/**/*',
+        ],
+        'web.assets_tests': [
+            'project_enterprise/static/tests/tours/**/*',
         ],
     }
 }

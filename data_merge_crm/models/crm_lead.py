@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import models, api, fields
+from odoo import _, models
+from odoo.exceptions import UserError
 
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
-    # As this model has his own data merge, avoid to enable the generic data_merge on that model.
+    # As this model has its own data merge, avoid to enable the generic data_merge on that model.
     _disable_data_merge = True
 
     def _merge_method(self, destination, source):
         records = destination + source
         opp_ids = records.filtered(lambda opp: opp.probability < 100)
+        if len(opp_ids) <= 1 and records:
+            raise UserError(_('Won opportunities cannot be merged.'))
+
         merge_opp = opp_ids.merge_opportunity(auto_unlink=False)
 
         return {

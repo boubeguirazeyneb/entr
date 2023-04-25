@@ -1,24 +1,36 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from collections import Counter
+
 from odoo.addons.appointment.tests.common import AppointmentCommon
+from odoo.addons.website_appointment.controllers.appointment import WebsiteAppointment
 from odoo.addons.website.tests.test_website_visitor import MockVisitor
+from odoo.addons.website.tools import MockRequest
 from odoo.exceptions import ValidationError
-from odoo.tests.common import new_test_user
-from odoo.tests import users
+from odoo.tests import users, tagged
+from unittest.mock import patch
 
 
-class WebsiteAppointmentTest(AppointmentCommon, MockVisitor):
+@tagged('appointment')
+class WAppointmentTest(AppointmentCommon, MockVisitor):
 
-    def test_create_appointment_type_from_website(self):
+    def test_apt_type_create_from_website(self):
         """ Test that when creating an appointment type from the website, we use
         the visitor's timezone as fallback for the user's timezone """
-        user = new_test_user(self.env, "test_user_1", groups="appointment.group_calendar_manager", email="test_user_1@nowhere.com", password="P@ssw0rd!", tz="")
-        visitor = self.env['website.visitor'].create({"name": 'Test Visitor', "partner_id": user.partner_id.id})
-        AppointmentType = self.env['calendar.appointment.type']
+        test_user = self.apt_manager
+        test_user.write({'tz': False})
+
+        visitor = self.env['website.visitor'].create({
+            "name": 'Test Visitor',
+            'access_token': test_user.partner_id.id,
+            "timezone": False,
+        })
+
+        AppointmentType = self.env['appointment.type']
         with self.mock_visitor_from_request(force_visitor=visitor):
             # Test appointment timezone when user and visitor both don't have timezone
-            AppointmentType.with_user(user).create_and_get_website_url(**{'name': 'Appointment UTC Timezone'})
+            AppointmentType.with_user(test_user).create_and_get_website_url(**{'name': 'Appointment UTC Timezone'})
             self.assertEqual(
                 AppointmentType.search([
                     ('name', '=', 'Appointment UTC Timezone')
@@ -27,7 +39,7 @@ class WebsiteAppointmentTest(AppointmentCommon, MockVisitor):
 
             # Test appointment timezone when user doesn't have timezone and visitor have timezone
             visitor.timezone = 'Europe/Brussels'
-            AppointmentType.with_user(user).create_and_get_website_url(**{'name': 'Appointment Visitor Timezone'})
+            AppointmentType.with_user(test_user).create_and_get_website_url(**{'name': 'Appointment Visitor Timezone'})
             self.assertEqual(
                 AppointmentType.search([
                     ('name', '=', 'Appointment Visitor Timezone')
@@ -35,66 +47,114 @@ class WebsiteAppointmentTest(AppointmentCommon, MockVisitor):
             )
 
             # Test appointment timezone when user has timezone
-            user.tz = 'Asia/Calcutta'
-            AppointmentType.with_user(user).create_and_get_website_url(**{'name': 'Appointment User Timezone'})
+            test_user.tz = 'Asia/Calcutta'
+            AppointmentType.with_user(test_user).create_and_get_website_url(**{'name': 'Appointment User Timezone'})
             self.assertEqual(
                 AppointmentType.search([
                     ('name', '=', 'Appointment User Timezone')
-                ]).appointment_tz, user.tz
+                ]).appointment_tz, test_user.tz
             )
 
-    @users('admin')
-    def test_is_published_custom_appointment_type(self):
-        custom_appointment = self.env['calendar.appointment.type'].create({
-            'name': 'Custom Appointment',
-            'category': 'custom',
+    @users('apt_manager')
+    def test_apt_type_create_from_website_slots(self):
+        """ Test that when creating an appointment type from the website, defaults slots are set."""
+        pre_slots = self.env['appointment.slot'].search([])
+        # Necessary for appointment type as `create_and_get_website_url` does not return the record.
+        pre_appts = self.env['appointment.type'].search([])
+
+        self.env['appointment.type'].create_and_get_website_url(**{
+            'name': 'Test Appointment Type has slots',
+            'staff_user_ids': [self.staff_user_bxls.id]
         })
-        self.assertTrue(custom_appointment.is_published, "A custom appointment type should be auto published at creation")
-        appointment_copied = custom_appointment.copy()
-        self.assertFalse(appointment_copied.is_published, "When we copy an appointment type, the new one should not be published")
 
-        custom_appointment.write({'is_published': False})
-        appointment_copied = custom_appointment.copy()
-        self.assertFalse(appointment_copied.is_published)
+        new_appt = self.env['appointment.type'].search([]) - pre_appts
+        new_slots = self.env['appointment.slot'].search([]) - pre_slots
+        self.assertEqual(new_slots.appointment_type_id, new_appt)
 
-    @users('admin')
-    def test_is_published_website_appointment_type(self):
-        website_appointment = self.env['calendar.appointment.type'].create({
-            'name': 'Website Appointment',
-            'category': 'website',
-        })
-        self.assertFalse(website_appointment.is_published, "A website appointment type should not be published at creation")
-        appointment_copied = website_appointment.copy()
-        self.assertFalse(appointment_copied.is_published, "When we copy an appointment type, the new one should not be published")
-
-        website_appointment.write({'is_published': True})
-        appointment_copied = website_appointment.copy()
-        self.assertFalse(appointment_copied.is_published, "The appointment copied should still be unpublished even if the later was published")
+        expected_slots = {
+            (str(weekday), start_hour, end_hour) : 1
+            for weekday in range(1, 6)
+            for start_hour, end_hour in ((9., 12.), (14., 17.))
+        }
+        created_slots = Counter()
+        for slot in new_slots:
+            created_slots[(slot.weekday, slot.start_hour, slot.end_hour)] += 1
+        self.assertDictEqual(created_slots, expected_slots)
 
     @users('admin')
-    def test_is_published_work_hours_appointment_type(self):
-        work_hours_appointment = self.env['calendar.appointment.type'].create({
-            'name': 'Work Hours Appointment',
-            'category': 'work_hours',
-        })
-        self.assertTrue(work_hours_appointment.is_published, "A custom appointment type should be published at creation")
-        with self.assertRaises(ValidationError):
-            # A maximum of 1 work_hours per employee is allowed
-            work_hours_appointment.copy()
+    def test_apt_type_is_published(self):
+        for category, default in [
+                ('custom', True),
+                ('website', False),
+                ('anytime', True)
+            ]:
+            appointment_type = self.env['appointment.type'].create({
+                'name': 'Custom Appointment',
+                'category': category,
+            })
+            self.assertEqual(appointment_type.is_published, default)
+
+            if category in ['custom', 'website']:
+                appointment_copied = appointment_type.copy()
+                self.assertFalse(appointment_copied.is_published, "When we copy an appointment type, the new one should not be published")
+
+                appointment_type.write({'is_published': False})
+                appointment_copied = appointment_type.copy()
+                self.assertFalse(appointment_copied.is_published)
+            else:
+                with self.assertRaises(ValidationError):
+                    # A maximum of 1 anytime appointment per employee is allowed
+                    appointment_type.copy()
 
     @users('admin')
-    def test_is_published_write_appointment_type_category(self):
-        appointment = self.env['calendar.appointment.type'].create({
+    def test_apt_type_is_published_update(self):
+        appointment = self.env['appointment.type'].create({
             'name': 'Website Appointment',
             'category': 'website',
         })
         self.assertFalse(appointment.is_published, "A website appointment type should not be published at creation")
-        
+
         appointment.write({'category': 'custom'})
         self.assertTrue(appointment.is_published, "Modifying an appointment type category to custom auto-published it")
 
         appointment.write({'category': 'website'})
         self.assertFalse(appointment.is_published, "Modifying an appointment type category to website unpublished it")
 
-        appointment.write({'category': 'work_hours'})
-        self.assertTrue(appointment.is_published, "Modifying an appointment type category to work_hours auto-published it")
+        appointment.write({'category': 'anytime'})
+        self.assertTrue(appointment.is_published, "Modifying an appointment type category to anytime auto-published it")
+
+    def test_find_customer_country_from_visitor(self):
+        belgium = self.env.ref('base.be')
+        usa = self.env.ref('base.us')
+        appointments_belgium, appointment_usa = self.env['appointment.type'].create([
+            {
+                'name': 'Appointment for Belgium',
+                'country_ids': [(6, 0, [belgium.id])],
+            }, {
+                'name': 'Appointment for the US',
+                'country_ids': [(6, 0, [usa.id])],
+            },
+        ])
+
+        visitor_from_the_us = self.env['website.visitor'].create({
+            "name": 'Visitor from the US',
+            'access_token': self.apt_manager.partner_id.id,
+            "country_id": usa.id,
+        })
+
+        wa_controller = WebsiteAppointment()
+
+        self.env.user.country_id = False
+        with MockRequest(self.env) as mock_request:
+            with self.mock_visitor_from_request(force_visitor=visitor_from_the_us), \
+                    patch.object(mock_request, 'geoip', new={}):
+                # Make sure no country was identified before
+                self.assertFalse(mock_request.env.user.country_id)
+                self.assertFalse(mock_request.geoip)
+
+                available_appointments = wa_controller._fetch_available_appointments(None, None, "")
+
+                self.assertNotIn(appointments_belgium, available_appointments,
+                                 "US visitor should not have access to an Appointment Type restricted to Belgium.")
+                self.assertIn(appointment_usa, available_appointments,
+                              "US visitor should have access to an Appointment Type restricted to the US.")

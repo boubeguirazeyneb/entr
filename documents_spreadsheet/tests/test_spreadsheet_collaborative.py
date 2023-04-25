@@ -135,6 +135,52 @@ class SpreadsheetCollaborative(SpreadsheetTestCommon):
             "The revision should not have been updated",
         )
 
+    def test_unlink_revisions(self):
+        spreadsheet = self.create_spreadsheet()
+        spreadsheet.dispatch_spreadsheet_message(
+            self.new_revision_data(spreadsheet)
+        )
+        ids = spreadsheet.spreadsheet_revision_ids.ids
+        spreadsheet.unlink()
+        self.assertFalse(self.env["spreadsheet.revision"].browse(ids).exists())
+
+    def test_unlink_archived_revisions(self):
+        spreadsheet = self.create_spreadsheet()
+        spreadsheet.dispatch_spreadsheet_message(
+            self.new_revision_data(spreadsheet)
+        )
+        self.snapshot(
+            spreadsheet,
+            self.get_revision(spreadsheet), "snapshot-id", "{}",
+        )
+        revisions = spreadsheet.with_context(active_test=False).spreadsheet_revision_ids
+        self.assertTrue(revisions)
+        self.assertFalse(any(revisions.mapped('active')))
+        spreadsheet.unlink()
+        self.assertFalse(revisions.exists())
+
+    def test_autovacuum_revisions(self):
+        spreadsheet = self.create_spreadsheet()
+        with freeze_time("2021-01-10 18:00"):
+            spreadsheet.dispatch_spreadsheet_message(self.new_revision_data(spreadsheet))
+
+        with freeze_time("2021-01-20 18:00"):
+            spreadsheet.dispatch_spreadsheet_message(self.new_revision_data(spreadsheet))
+
+        with freeze_time("2021-03-15 18:00"):
+            self.env["spreadsheet.revision"]._gc_revisions()
+        self.assertEqual(len(self.env["spreadsheet.revision"].with_context(active_test=False).search([])), 2)
+
+        self.env["spreadsheet.revision"].search([]).active = False
+
+        with freeze_time("2021-03-15 18:00"):
+            self.env["spreadsheet.revision"]._gc_revisions()
+        self.assertEqual(len(self.env["spreadsheet.revision"].with_context(active_test=False).search([])), 1)
+
+        with freeze_time("2021-04-15 18:00"):
+            self.env["spreadsheet.revision"]._gc_revisions()
+        self.assertEqual(len(self.env["spreadsheet.revision"].with_context(active_test=False).search([])), 0)
+
 
 @tagged("collaborative_spreadsheet")
 class SpreadsheetORMAccess(SpreadsheetTestCommon):
@@ -146,8 +192,8 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
         cls.user = new_test_user(
             cls.env, login="John", groups="documents.group_documents_user"
         )
-        cls.manager = new_test_user(
-            cls.env, login="John's manager", groups="documents.group_documents_manager"
+        cls.admin = new_test_user(
+            cls.env, login="John's manager", groups="documents.group_documents_manager,base.group_system"
         )
         cls.spreadsheet = cls.env["documents.document"].create(
             {
@@ -178,7 +224,8 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
             self.env["spreadsheet.revision"].with_user(self.user).create(
                 {
                     "commands": self.new_revision_data(self.spreadsheet),
-                    "document_id": self.spreadsheet.id,
+                    "res_id": self.spreadsheet.id,
+                    "res_model": "documents.document",
                     "revision_id": "a revision id",
                 }
             )
@@ -186,11 +233,12 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
     def test_create_manager(self):
         revision = (
             self.env["spreadsheet.revision"]
-            .with_user(self.manager)
+            .with_user(self.admin)
             .create(
                 {
                     "commands": self.new_revision_data(self.spreadsheet),
-                    "document_id": self.spreadsheet.id,
+                    "res_id": self.spreadsheet.id,
+                    "res_model": "documents.document",
                     "revision_id": "a revision id",
                     "parent_revision_id": uuid4().hex,
                 }
@@ -216,8 +264,8 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
         self.spreadsheet.dispatch_spreadsheet_message(
             self.new_revision_data(self.spreadsheet)
         )
-        self.spreadsheet.invalidate_cache()
-        revision = self.env["spreadsheet.revision"].with_user(self.manager).search([])
+        self.env.invalidate_all()
+        revision = self.env["spreadsheet.revision"].with_user(self.admin).search([])
         self.assertTrue(revision)
         self.assertTrue(revision.read())
 
@@ -227,7 +275,7 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
 
     def test_write_user_with_doc_access(self):
         self.user.groups_id |= self.group
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         self.spreadsheet.with_user(self.user).write(
             {"name": "new name"}
         )  # the user can write the document
@@ -238,8 +286,8 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
         self.spreadsheet.dispatch_spreadsheet_message(
             self.new_revision_data(self.spreadsheet)
         )
-        self.spreadsheet.invalidate_cache()
-        self.spreadsheet.with_user(self.manager).spreadsheet_revision_ids.write(
+        self.env.invalidate_all()
+        self.spreadsheet.with_user(self.admin).spreadsheet_revision_ids.write(
             {"commands": "coucou"}
         )
         self.assertEqual(self.spreadsheet.spreadsheet_revision_ids.commands, "coucou")
@@ -258,8 +306,8 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
             self.new_revision_data(self.spreadsheet)
         )
         self.assertTrue(self.spreadsheet.spreadsheet_revision_ids)
-        self.spreadsheet.invalidate_cache()
-        self.spreadsheet.with_user(self.manager).spreadsheet_revision_ids.unlink()
+        self.env.invalidate_all()
+        self.spreadsheet.with_user(self.admin).spreadsheet_revision_ids.unlink()
         self.assertFalse(self.spreadsheet.spreadsheet_revision_ids)
 
     def test_join_user(self):
@@ -268,19 +316,36 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
 
     def test_join_user_with_doc_access(self):
         self.user.groups_id |= self.group
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         self.spreadsheet.with_user(self.user).join_spreadsheet_session()
 
     def test_join_user_with_read_doc_access(self):
         self.user.groups_id |= self.group
         self.folder.group_ids = False
         self.folder.read_group_ids = self.group
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         self.spreadsheet.with_user(self.user).join_spreadsheet_session()
         with self.assertRaises(AccessError):
             self.spreadsheet.with_user(self.user).dispatch_spreadsheet_message(
                 self.new_revision_data(self.spreadsheet)
             )
+
+    def test_join_new_spreadsheet_user(self):
+        # only read access
+        self.user.groups_id |= self.group
+        self.folder.group_ids = False
+        self.folder.read_group_ids = self.group
+        spreadsheet = self.env["documents.document"].create(
+            {
+                "raw": b"{}",
+                "folder_id": self.folder.id,
+                "handler": "spreadsheet",
+                "mimetype": "application/o-spreadsheet",
+            }
+        )
+        # no one ever joined this spreadsheet
+        result = spreadsheet.with_user(self.user).join_spreadsheet_session()
+        self.assertEqual(result["raw"], b"{}")
 
     def test_join_snapshot_request(self):
         with freeze_time("2020-02-02 18:00"):
@@ -314,7 +379,7 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
             # add at least one revision
             self.new_revision_data(self.spreadsheet)
         )
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         self.snapshot(
             self.spreadsheet.with_user(self.user),
             self.get_revision(self.spreadsheet), "snapshot-id", "{}",
@@ -326,7 +391,7 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
         self.folder.group_ids = False
         self.folder.read_group_ids = self.group
         self.get_revision(self.spreadsheet)
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         with self.assertRaises(AccessError):
             self.snapshot(
                 self.spreadsheet.with_user(self.user),
@@ -342,7 +407,7 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
     def test_dispatch_user_with_doc_access(self):
         self.user.groups_id |= self.group
         commands = self.new_revision_data(self.spreadsheet)
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         self.spreadsheet.with_user(self.user).dispatch_spreadsheet_message(commands)
         self.assertEqual(
             json.loads(self.spreadsheet.spreadsheet_revision_ids.commands),
@@ -363,7 +428,7 @@ class SpreadsheetORMAccess(SpreadsheetTestCommon):
         self.user.groups_id |= self.group
         self.folder.group_ids = False
         self.folder.read_group_ids = self.group
-        self.spreadsheet.invalidate_cache()
+        self.env.invalidate_all()
         self.spreadsheet.with_user(self.user).dispatch_spreadsheet_message(
             {"type": "CLIENT_MOVED"}
         )

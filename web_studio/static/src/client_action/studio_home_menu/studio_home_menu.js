@@ -4,6 +4,7 @@ import { useService } from "@web/core/utils/hooks";
 import { NotEditableActionError } from "../../studio_service";
 import { IconCreatorDialog } from "./icon_creator_dialog/icon_creator_dialog";
 
+import { onMounted, onWillUnmount, useRef } from "@odoo/owl";
 const NEW_APP_BUTTON = {
     isNewAppButton: true,
     label: "New App",
@@ -32,25 +33,24 @@ export class StudioHomeMenu extends HomeMenu {
      * @param {string} [props.apps[].webIconData]
      * @param {string} props.apps[].xmlid
      */
-    constructor() {
-        super(...arguments);
+    setup() {
+        super.setup(...arguments);
 
         this.user = useService("user");
         this.studio = useService("studio");
         this.notifications = useService("notification");
         this.dialog = useService("dialog");
-    }
+        this.root = useRef("root");
 
-    mounted() {
-        super.mounted();
-        this.canEditIcons = true;
-        this.el.classList.add("o_studio_home_menu");
-    }
+        onMounted(() => {
+            this.canEditIcons = true;
+            document.body.classList.add("o_home_menu_background");
+            document.body.classList.toggle("o_home_menu_background_custom", this.menus.getMenu("root").backgroundImage);
+        });
 
-    async willUpdateProps(nextProps) {
-        this.availableApps = this.state.query.length
-            ? this._filter(nextProps.apps)
-            : nextProps.apps;
+        onWillUnmount(() => {
+            document.body.classList.remove("o_home_menu_background", "o_home_menu_background_custom");
+        })
     }
 
     //--------------------------------------------------------------------------
@@ -58,17 +58,13 @@ export class StudioHomeMenu extends HomeMenu {
     //--------------------------------------------------------------------------
 
     get displayedApps() {
-        return super.displayedApps.concat([NEW_APP_BUTTON]);
+        return [...super.displayedApps, NEW_APP_BUTTON];
     }
 
     //--------------------------------------------------------------------------
-    // Private
+    // Protected
     //--------------------------------------------------------------------------
 
-    /**
-     * @override
-     * @private
-     */
     async _openMenu(menu) {
         if (menu.isNewAppButton) {
             this.canEditIcons = false;
@@ -96,7 +92,6 @@ export class StudioHomeMenu extends HomeMenu {
     //--------------------------------------------------------------------------
 
     /**
-     * @private
      * @param {Object} app
      */
     onEditIconClick(app) {

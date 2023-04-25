@@ -7,7 +7,6 @@
         <field name="arch" type="xml">
             <xpath expr="//filter[@name='group_employee']" position="before">
                 <separator/>
-                <filter string="To Report in Payslip" name="to_report" domain="[('payslip_state', '=', 'normal')]" groups="hr_holidays.group_hr_holidays_user"/>
                 <filter string="To Defer" name="to_defer" domain="[('payslip_state', '=', 'blocked')]" groups="hr_holidays.group_hr_holidays_user"/>
                 <separator/>
             </xpath>
@@ -19,7 +18,7 @@
         <field name="res_model">hr.leave</field>
         <field name="view_mode">tree,kanban,form,calendar,activity</field>
         <field name="search_view_id" ref="hr_holidays.hr_leave_view_search_manager"/>
-        <field name="domain">[('payslip_state', '=', 'blocked')]</field>
+        <field name="domain">[('payslip_state', '=', 'blocked'), ('state', '=', 'validate'), ('employee_company_id', 'in', allowed_company_ids)]</field>
     </record>
 
     <record id="hr_leave_view_form_inherit" model="ir.ui.view">
@@ -28,7 +27,7 @@
         <field name="inherit_id" ref="hr_holidays.hr_leave_view_form_manager"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='holiday_status_id']" position="after">
-                <field name="payslip_state" widget="state_selection" class="ml-auto"/>
+                <field name="payslip_state" widget="state_selection" class="ms-auto mb-2"/>
             </xpath>
             <button name="action_refuse" position="before">
                 <button
@@ -62,7 +61,6 @@
         <field name="view_id" ref="hr_payroll_holidays.hr_leave_view_tree_inherit_payroll"/>
         <field name="context">{
             'search_default_to_defer':1,
-            'search_default_to_report':1,
             'hide_employee_name': 1
         }</field>
         <field name="help" type="html">

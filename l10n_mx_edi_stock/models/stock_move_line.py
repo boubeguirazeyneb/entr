@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import api, models, fields
+from odoo import models, fields
 
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
@@ -22,5 +22,5 @@ class StockMoveLine(models.Model):
         aggregated_move_lines = super()._get_aggregated_product_quantities(**kwargs)
         if self.picking_id.l10n_mx_edi_status == 'sent':
             for v in aggregated_move_lines.values():
-                v['weight'] = v['product_uom_rec']._compute_quantity(v['qty_done'], v['product'].uom_id) * v['product'].weight
+                v['weight'] = v['product_uom']._compute_quantity(v['qty_done'], v['product'].uom_id) * v['product'].weight
         return aggregated_move_lines

@@ -92,7 +92,7 @@ class TestDeliveryUSPS(TransactionCase):
         picking = sale_order.picking_ids[0]
         self.assertEqual(picking.carrier_id.id, sale_order.carrier_id.id, "Carrier is not the same on Picking and on SO.")
 
-        picking.move_lines[0].quantity_done = 1.0
+        picking.move_ids[0].quantity_done = 1.0
         self.assertGreater(picking.shipping_weight, 0.0, "Picking weight should be positive.")
 
         picking._action_done()
@@ -140,7 +140,7 @@ class TestDeliveryUSPS(TransactionCase):
         picking = sale_order.picking_ids[0]
         self.assertEqual(picking.carrier_id.id, sale_order.carrier_id.id, "Carrier is not the same on Picking and on SO.")
 
-        picking.move_lines[0].quantity_done = 1.0
+        picking.move_ids[0].quantity_done = 1.0
         self.assertGreater(picking.shipping_weight, 0.0, "Picking weight should be positive.")
 
         picking._action_done()
@@ -187,7 +187,7 @@ class TestDeliveryUSPS(TransactionCase):
         picking = sale_order.picking_ids[0]
         self.assertEqual(picking.carrier_id.id, sale_order.carrier_id.id, "Carrier is not the same on Picking and on SO.")
 
-        picking.move_lines[0].quantity_done = 1.0
+        picking.move_ids[0].quantity_done = 1.0
         self.assertGreater(picking.shipping_weight, 0.0, "Picking weight should be positive.")
 
         picking._action_done()
@@ -220,9 +220,6 @@ class TestDeliveryUSPS(TransactionCase):
         self.assertEqual(delivery_order.state, 'draft', 'Shipment state should be draft.')
 
         delivery_order.action_confirm()
-        self.assertEqual(delivery_order.state, 'confirmed', 'Shipment state should be waiting(confirmed).')
-
-        delivery_order.action_assign()
         self.assertEqual(delivery_order.state, 'assigned', 'Shipment state should be ready(assigned).')
         delivery_order.move_ids_without_package.quantity_done = 1.0
 

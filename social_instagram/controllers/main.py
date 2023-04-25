@@ -17,8 +17,8 @@ from werkzeug.urls import url_encode, url_join
 
 class SocialInstagramController(SocialController):
 
-    @fragment_to_query_string
     @http.route('/social_instagram/callback', type='http', auth='user')
+    @fragment_to_query_string
     def social_instagram_callback(self, access_token=None, extended_access_token=None, **kw):
         if not request.env.user.has_group('social.group_social_manager'):
             return request.render('social.social_http_error_view',
@@ -44,7 +44,7 @@ class SocialInstagramController(SocialController):
             'view_type': 'kanban',
             'model': 'social.stream.post',
         })
-        return werkzeug.utils.redirect(url)
+        return request.redirect(url)
 
     # ========================================================
     # COMMENTS / LIKES
@@ -88,12 +88,10 @@ class SocialInstagramController(SocialController):
         # called manually to throw a ValidationError if not valid instagram image
         social_post._check_post_access()
 
-        status, headers, image_base64 = request.env['ir.http'].sudo().binary_content(
-            id=social_post.instagram_image_id.id,
-            default_mimetype='image/jpeg'
-        )
-
-        return request.env['ir.http']._content_image_get_response(status, headers, image_base64)
+        return request.env['ir.binary']._get_image_stream_from(
+            social_post.instagram_image_id,
+            default_mimetype='image/jpeg',
+        ).get_response()
 
     def _instagram_create_accounts(self, access_token, extended_access_token):
         """ 1. Retrieve all Facebook pages data from '/me/accounts'
@@ -103,6 +101,7 @@ class SocialInstagramController(SocialController):
         media = request.env.ref('social_instagram.social_media_instagram')
         accounts_url = url_join(request.env['social.media']._INSTAGRAM_ENDPOINT, "/me/accounts/")
         accounts = requests.get(accounts_url, params={
+            'fields': 'access_token,name,id,instagram_business_account',
             'access_token': extended_access_token or self._instagram_get_extended_access_token(access_token, media)
         }).json()
 
@@ -118,31 +117,31 @@ class SocialInstagramController(SocialController):
         accounts_to_create = []
         has_existing_accounts = False
         for account in accounts['data']:
-            instagram_account_name = account['name']
             instagram_access_token = account['access_token']
             facebook_account_id = account['id']
+            instagram_account_id = account.get('instagram_business_account', {}).get('id')
+
+            if not instagram_account_id:
+                continue
 
             instagram_accounts_endpoint = url_join(
                 request.env['social.media']._INSTAGRAM_ENDPOINT,
-                '/v10.0/%s' % facebook_account_id)
+                f'/v10.0/{instagram_account_id}')
 
             instagram_account = requests.get(instagram_accounts_endpoint,
                 params={
-                    'fields': 'instagram_business_account',
+                    'fields': 'username',
                     'access_token': instagram_access_token
                 },
                 timeout=5
             ).json()
 
-            if 'instagram_business_account' not in instagram_account:
-                continue
-
-            instagram_account_id = instagram_account['instagram_business_account']['id']
             account_values = {
-                'name': instagram_account_name,
+                'name': account['name'],
                 'instagram_facebook_account_id': facebook_account_id,
                 'instagram_account_id': instagram_account_id,
                 'instagram_access_token': instagram_access_token,
+                'social_account_handle': instagram_account['username'],
                 'image': self._instagram_get_profile_image(facebook_account_id)
             }
 

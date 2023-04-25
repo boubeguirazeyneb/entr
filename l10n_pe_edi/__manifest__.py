@@ -27,6 +27,7 @@ We support sending and cancelling of customer invoices.
         'product_unspsc',
         'account_edi',
     ],
+    'auto_install': ['l10n_pe', 'account_edi'],
     "data": [
         'security/ir.model.access.csv',
         'data/2.1/edi_common.xml',
@@ -51,7 +52,6 @@ We support sending and cancelling of customer invoices.
         'views/report_invoice.xml',
         'views/account_menuitem.xml',
         'views/product_views.xml',
-        'data/ir_cron.xml',
         'data/account_edi_data.xml',
     ],
     'demo': [
@@ -61,6 +61,5 @@ We support sending and cancelling of customer invoices.
     'external_dependencies': {
         'python': ['pyOpenSSL']
     },
-    'post_init_hook': 'post_init_hook',
     'installable': True,
 }

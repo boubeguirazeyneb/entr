@@ -30,25 +30,23 @@ tour.register('test_receipt_classic_subcontracted_product', {test: true}, [
         trigger: '.o_barcode_client_action',
         run: 'scan LOC-01-01-00',
     },
-
+    // Adds a line with the "Add Product" button, then scans its destination location.
+    { trigger: '.o_add_line' },
     {
-        trigger: '.o_barcode_client_action',
-        run: 'scan product_subcontracted',
+        trigger: '.o_field_widget[name=product_id] input',
+        run: 'text Chocolate Eclairs',
     },
-
+    { trigger: ".ui-menu-item > a:contains('Chocolate Eclairs')" },
     {
-        trigger: '.o_barcode_client_action',
+        trigger: '[name=qty_done] input',
+        run: 'text 1',
+    },
+    { trigger: '.o_save' },
+    {
+        trigger: '.o_barcode_line',
         run: 'scan LOC-01-02-00',
     },
-
-    {
-        trigger: '.o_barcode_client_action',
-        run: 'scan O-BTN.validate',
-    },
-
-    {
-        trigger: '.o_notification.bg-success',
-    },
+    ...tour.stepUtils.validateBarcodeForm(),
 
 ]);
 
@@ -59,7 +57,7 @@ tour.register('test_receipt_tracked_subcontracted_product', {test: true}, [
     },
 
     {
-        trigger: ".o_field_widget[name=qty_producing]",
+        trigger: ".o_field_widget[name=qty_producing] input",
         position: "right",
         run: "text 1",
     },
@@ -82,7 +80,7 @@ tour.register('test_receipt_tracked_subcontracted_product', {test: true}, [
     },
 
     {
-        trigger: ".o_field_widget[name=qty_producing]",
+        trigger: ".o_field_widget[name=qty_producing] input",
         position: "right",
         run: "text 1",
     },
@@ -99,15 +97,7 @@ tour.register('test_receipt_tracked_subcontracted_product', {test: true}, [
         content: _t('Record production'),
         position: "bottom",
     },
-
-    {
-        trigger: '.o_barcode_client_action',
-        run: 'scan O-BTN.validate',
-    },
-
-    {
-        trigger: '.o_notification.bg-success',
-    },
+    ...tour.stepUtils.validateBarcodeForm(),
 ]);
 
 tour.register('test_receipt_flexible_subcontracted_product', {test: true}, [
@@ -116,17 +106,16 @@ tour.register('test_receipt_flexible_subcontracted_product', {test: true}, [
     },
 
     {
-        trigger: ".o_field_widget[name=qty_producing]",
+        trigger: ".o_field_widget[name=qty_producing] input",
         position: "right",
         run: "text 1",
     },
-
     {
         trigger: "div[name=move_line_raw_ids] td[name=qty_done]",
     },
     
     {
-        trigger: "div[name=move_line_raw_ids] input[name=qty_done]",
+        trigger: "div[name=move_line_raw_ids] [name=qty_done] input",
         run: "text 2", 
     },
     {
@@ -134,15 +123,7 @@ tour.register('test_receipt_flexible_subcontracted_product', {test: true}, [
         content: _t('Record production'),
         position: "bottom",
     },
-
-    {
-        trigger: '.o_barcode_client_action',
-        run: 'scan O-BTN.validate',
-    },
-
-    {
-        trigger: '.o_notification.bg-success',
-    },
+    ...tour.stepUtils.validateBarcodeForm(),
 ]);
 
 });

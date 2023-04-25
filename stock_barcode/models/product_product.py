@@ -9,8 +9,14 @@ class Product(models.Model):
     _barcode_field = 'barcode'
 
     @api.model
+    def _search(self, args, offset=0, limit=None, order=None, count=False, access_rights_uid=None):
+        # sudo is added for external users to get the products
+        args = self.env.company.sudo().nomenclature_id._preprocess_gs1_search_args(args, ['product'])
+        return super()._search(args, offset=offset, limit=limit, order=order, count=count, access_rights_uid=access_rights_uid)
+
+    @api.model
     def _get_fields_stock_barcode(self):
-        return ['barcode', 'default_code', 'detailed_type', 'tracking', 'display_name', 'uom_id']
+        return ['barcode', 'default_code', 'categ_id', 'code', 'detailed_type', 'tracking', 'display_name', 'uom_id']
 
     def _get_stock_barcode_specific_data(self):
         return {

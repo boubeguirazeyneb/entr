@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api
-from odoo.osv import expression
 
 
 class TagsCategories(models.Model):
@@ -16,7 +15,7 @@ class TagsCategories(models.Model):
 
     folder_id = fields.Many2one('documents.folder', string="Workspace", ondelete="cascade")
     name = fields.Char(required=True, translate=True)
-    tag_ids = fields.One2many('documents.tag', 'facet_id')
+    tag_ids = fields.One2many('documents.tag', 'facet_id', copy=True)
     tooltip = fields.Char(help="Text shown when hovering on this tag category or its tags", string="Tooltip")
     sequence = fields.Integer('Sequence', default=10)
 
@@ -57,8 +56,8 @@ class Tags(models.Model):
         # folders are searched with sudo() so we fetch the tags and facets from all the folder hierarchy (as tags
         # and facets are inherited from ancestor folders).
         folders = self.env['documents.folder'].sudo().search([('parent_folder_id', 'parent_of', folder_id)])
-        self.flush(['sequence', 'name', 'facet_id'])
-        self.env['documents.facet'].flush(['sequence', 'name', 'tooltip'])
+        self.flush_model(['sequence', 'name', 'facet_id'])
+        self.env['documents.facet'].flush_model(['sequence', 'name', 'tooltip'])
         query = """
             SELECT  facet.sequence AS group_sequence,
                     facet.id AS group_id,

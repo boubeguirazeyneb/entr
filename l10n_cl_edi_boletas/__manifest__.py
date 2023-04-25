@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": """Chile - Electronic Receipt""",
+    'icon': '/l10n_cl/static/description/icon.png',
     'version': '1.0',
     'category': 'Accounting/Localizations/EDI',
     'sequence': 12,
@@ -8,16 +9,9 @@
     'website': 'http://blancomartin.cl',
     'depends': ['l10n_cl_edi'],
     'data': [
-        'data/cron.xml',
-        'template/daily_sales_book_template.xml',
         'template/dte_template.xml',
-        'security/ir.model.access.csv',
-        'security/l10n_cl_edi_boletas_security.xml',
-        'views/l10n_cl_daily_sales_book_views.xml',
     ],
     'installable': True,
-    'auto_install': False,
-    'application': False,
     'description': """
 Purpose of the Module:
 ======================
@@ -27,11 +21,9 @@ beginning on March 2021 boletas transactions must be sent to the SII under the
 electronic workflow using a different web service than the one used for electronic Invoices. 
 Previously, there was no need to send the boletas to the SII, just a daily report.
 
-Additionally of sending the Boleta individually (with the EDI workflow),
-at the end of the day, a daily summary with all the Boletas transactions
-should be sent to the SII - electronically (also a legal requirement).
-This is called "Libro de ventas diarias" (former "reporte de consumo de folios" or RCOF).
-
+The requirement to send a daily sales book 
+"Libro de ventas diarias" (former "reporte de consumo de folios" or RCOF) has been eliminated by the authority, 
+effective August 1st 2022. For that reason it has been eliminated from this new version of Odoo.
 
 Differences between Electronic boletas vs Electronic Invoicing Workflows:
 =========================================================================
@@ -49,5 +41,6 @@ Here are the differences:
 Highlights from this SII Guide:
     https://www.sii.cl/factura_electronica/factura_mercado/Instructivo_Emision_Boleta_Elect.pdf
     """,
+    'auto_install': True,
     'license': 'OEEL-1',
 }

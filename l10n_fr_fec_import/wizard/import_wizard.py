@@ -11,7 +11,7 @@ import logging
 
 from odoo import _, fields, models
 from odoo.exceptions import UserError, RedirectWarning
-from odoo.tools import float_repr, float_is_zero
+from odoo.tools import float_repr, float_is_zero, get_lang
 
 _logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ class FecImportWizard(models.TransientModel):
                         "code": account_code,
                         "name": account_name,
                         "reconcile": reconcile,
-                        "user_type_id": self.env.ref('account.data_account_type_current_assets').id,
+                        "account_type": 'asset_current',
                     }
 
                     yield data
@@ -221,9 +221,9 @@ class FecImportWizard(models.TransientModel):
                     # Setup account properties
                     account = account_code and cache["account.account"].get(account_code.rstrip('0'), None)
                     if account:
-                        if account.user_type_id == self.env.ref("account.data_account_type_receivable"):
+                        if account.account_type == 'asset_receivable':
                             data["property_account_receivable_id"] = account.id
-                        elif account.user_type_id == self.env.ref("account.data_account_type_payable"):
+                        elif account.account_type == 'liability_payable':
                             data["property_account_payable_id"] = account.id
 
                     yield data
@@ -233,8 +233,13 @@ class FecImportWizard(models.TransientModel):
             when a rounding issue is found. """
 
         # Get the accounts for the debit and credit differences
-        domain = [('code', 'in', ('658000', '758000')), ('company_id', '=', self.company_id.id)]
-        debit_account, credit_account = self.env["account.account"].search(domain, order='code')
+        debit_account, credit_account = [
+            self.env["account.account"].search(
+                [('code', '=like', code), ('company_id', '=', self.company_id.id)],
+                order='code',
+                limit=1,
+            ) for code in ('6580%', '7580%')
+        ]
 
         # Check the moves for rounding issues
         currency = self.company_id.currency_id
@@ -370,7 +375,7 @@ class FecImportWizard(models.TransientModel):
         if credit < 0 or debit < 0:
             debit, credit = -credit, -debit
 
-        balance = currency.round(credit - debit)
+        balance = currency.round(debit - credit)
 
         return credit, debit, balance
 
@@ -416,7 +421,7 @@ class FecImportWizard(models.TransientModel):
             move_line_name = record.get("EcritureLib", "")
             account_code = record.get("CompteNum", "")
             currency_name = record.get("Idevise", "")
-            amount_currency = self._normalize_float_value(record, "MontantDevise")
+            amount_currency = self._normalize_float_value(record, "Montantdevise")
             matching = record.get("EcritureLet", "")
 
             # Move import --------------------------------------
@@ -460,7 +465,6 @@ class FecImportWizard(models.TransientModel):
                 "name": move_line_name,
                 "ref": piece_ref,
                 "account_id": account.id,
-                "exclude_from_invoice_tab": account.user_type_id.type in ('receivable', 'payable') and journal.type in ('sale', 'purchase'),
                 "fec_matching_number": matching or False,
             }
 
@@ -482,7 +486,6 @@ class FecImportWizard(models.TransientModel):
                 line_data.update({
                     "currency_id": currency.id,
                     "amount_currency": amount_currency,
-                    "amount_residual_currency": amount_currency,
                 })
             else:
                 currency = self.company_id.currency_id
@@ -492,6 +495,11 @@ class FecImportWizard(models.TransientModel):
             line_data["credit"] = credit
             line_data["debit"] = debit
             balance_data["balance"] = currency.round(balance_data["balance"] + balance)
+
+            # Montantdevise can be positive while the line is credited:
+            # => amount_currency and balance (debit - credit) should always have the same sign
+            if currency_name in cache["res.currency"] and line_data['amount_currency'] * balance < 0:
+                line_data["amount_currency"] *= -1
 
             # Append the move_line data to the move
             data["line_ids"].append(fields.Command.create(line_data))
@@ -518,11 +526,11 @@ class FecImportWizard(models.TransientModel):
     def _gather_templates(self):
         """ Find all the templates for the considered entities.
             These templates will be used to fill out missing information coming from the records.
-            For accounts, user_type_id and reconcile flags are used.  """
+            For accounts, account_type and reconcile flags are used.  """
 
         # account.account templates
         domain = [('chart_template_id', '=', self.env.company.chart_template_id.id)]
-        account_templates = self.env["account.account.template"].search_read(domain, ['code', 'display_name', 'user_type_id', 'reconcile'])
+        account_templates = self.env["account.account.template"].search_read(domain, ['code', 'display_name', 'account_type', 'reconcile'])
 
         all_templates = {"account.account": {x['code']: x for x in account_templates}}
         return all_templates
@@ -539,7 +547,7 @@ class FecImportWizard(models.TransientModel):
                 if template:
                     for key, value in template.items():
                         if key not in ['id', 'code']:
-                            record[key] = value if key != "user_type_id" else value[0]
+                            record[key] = value
                     break
 
     # ------------------------------------
@@ -573,23 +581,27 @@ class FecImportWizard(models.TransientModel):
         """
 
         # Ensure data consistency
-        journals.flush()
+        self.env.flush_all()
 
         # Query the database to determine the journal type
         # The sum_move_lines_per_move query determines the type of the account of the lines
         # The sum_moves_per_journal query counts the account types on the lines for each move
         # The main query compares the sums with the threshold and determines the type
-        sql = """
+        if self.pool['account.journal'].name.translate:
+            lang = self.env.user.lang or get_lang(self.env).code
+            aj_name = f"COALESCE(aj.name->>'{lang}', aj.name->>'en_US')"
+        else:
+            aj_name = 'aj.name'
+        sql = f"""
             WITH sum_move_lines_per_move as (
                 SELECT aml.journal_id as journal_id,
-                       aj.name as journal_name,
+                       {aj_name} as journal_name,
                        aml.move_id,
-                       SUM(CASE aat.type WHEN 'liquidity' THEN 1 ELSE 0 END) as bank,
-                       SUM(CASE aat.type WHEN 'receivable' THEN 1 ELSE 0 END) as sale,
-                       SUM(CASE aat.type WHEN 'payable' THEN 1 ELSE 0 END) as purchase
+                       SUM(CASE WHEN aa.account_type IN ('asset_cash','liability_credit_card') THEN 1 ELSE 0 END) as bank,
+                       SUM(CASE aa.account_type WHEN 'asset_receivable' THEN 1 ELSE 0 END) as sale,
+                       SUM(CASE aa.account_type WHEN 'liability_payable' THEN 1 ELSE 0 END) as purchase
                   FROM account_move_line aml
                        JOIN account_account aa on aa.id = aml.account_id
-                       JOIN account_account_type aat on aat.id = aa.user_type_id
                        JOIN account_journal aj on aj.id = aml.journal_id
                  WHERE aj.id in %s
               GROUP BY journal_id, journal_name, move_id),
@@ -629,10 +641,9 @@ class FecImportWizard(models.TransientModel):
                    COUNT(*) as frequency
               FROM account_move_line aml
                    JOIN account_account aa on aa.id = aml.account_id
-                   JOIN account_account_type aat on aat.id = aa.user_type_id
                    JOIN account_journal aj on aj.id = aml.journal_id
               WHERE aj.id = %s
-                    and aat.type = 'liquidity'
+                    and (aa.account_type = 'asset_cash' OR aa.account_type = 'liability_credit_card')
            GROUP BY aa.id
            ORDER BY frequency DESC
         """
@@ -648,7 +659,7 @@ class FecImportWizard(models.TransientModel):
         """ Reconcile imported move lines, the matching is done between the fields ['account_id', 'matching_number'] """
 
         # Ensure that the database is aligned
-        moves.flush()
+        self.env.flush_all()
 
         # Retrieve the move lines
         sql = """ SELECT ARRAY_AGG(id) ids,
@@ -665,8 +676,13 @@ class FecImportWizard(models.TransientModel):
         self.env.cr.execute(sql, (tuple(moves.ids), ))
         for record in self.env.cr.fetchall():
             matched_move_line_ids, account_id = record
-            self.env["account.account"].browse([account_id]).reconcile = True
-            self.env["account.move.line"].browse(matched_move_line_ids).with_context(no_exchange_difference=True).reconcile()
+            self.env["account.account"].browse(account_id).reconcile = True
+            lines = self.env["account.move.line"].browse(matched_move_line_ids)
+
+            # Since the accounts are now 'reconcile', we need to force the update of the residual amounts.
+            self.env.add_to_compute(lines._fields['amount_residual'], lines)
+
+            lines.with_context(no_exchange_difference=True).reconcile()
 
     def _post_process(self, journals, moves):
         """ Post-process the imported entities.

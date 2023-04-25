@@ -5,7 +5,7 @@
     'name': 'Social Twitter',
     'category': 'Marketing/Social Marketing',
     'summary': 'Manage your Twitter accounts and schedule tweets',
-    'version': '1.0',
+    'version': '1.1',
     'description': """Manage your Twitter accounts and schedule tweets""",
     'depends': ['social', 'iap'],
     'data': [
@@ -21,13 +21,19 @@
     'assets': {
         'web.assets_backend': [
             'social_twitter/static/src/scss/social_twitter.scss',
+            'social_twitter/static/src/js/stream_post_comment.js',
+            'social_twitter/static/src/js/stream_post_comment_list.js',
+            'social_twitter/static/src/js/stream_post_comments.js',
+            'social_twitter/static/src/js/stream_post_comments_reply.js',
+            'social_twitter/static/src/js/stream_post_comments_reply_quote.js',
+            'social_twitter/static/src/js/stream_post_kanban_record.js',
+            'social_twitter/static/src/js/stream_post_twitter_quote.js',
             'social_twitter/static/src/js/twitter_users_autocomplete.js',
-            'social_twitter/static/src/js/stream_post_twitter_comments.js',
-            'social_twitter/static/src/js/stream_post_kanban_controller.js',
             ('after', 'social/static/src/js/social_post_formatter_mixin.js', 'social_twitter/static/src/js/social_post_formatter_mixin.js'),
-        ],
-        'web.assets_qweb': [
             'social_twitter/static/src/xml/**/*',
+        ],
+        'web.assets_tests': [
+            'social_twitter/static/tests/tours/tour_social_twitter_spam.js',
         ],
     },
     'license': 'OEEL-1',

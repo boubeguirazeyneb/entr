@@ -41,7 +41,7 @@ class ProductProduct(models.Model):
             return
 
         task = self.env['project.task'].browse(task_id)
-        if not task or task.fsm_done:
+        if not task:
             self.quantity_decreasable = False
             return
         elif task.sale_order_id.sudo().state in ['draft', 'sent']:
@@ -59,7 +59,7 @@ class ProductProduct(models.Model):
     def write(self, vals):
         new_fsm_quantity = vals.get('fsm_quantity')
         if new_fsm_quantity and any(not product.quantity_decreasable and product.fsm_quantity > new_fsm_quantity for product in self):
-            raise UserError(_('You can no longer decrease the delivered quantity of a product once the task is marked as done. Please, create a return in your Inventory instead.'))
+            raise UserError(_('The ordered quantity cannot be decreased below the amount already delivered. Instead, create a return in your inventory.'))
         return super().write(vals)
 
     def action_assign_serial(self):
@@ -108,22 +108,3 @@ class ProductProduct(models.Model):
             'res_id': validation.id,
             'views': [(False, 'form')]
         }
-
-    def set_fsm_quantity(self, quantity):
-        old_qty = self.fsm_quantity
-        res = super().set_fsm_quantity(quantity)
-
-        if res and old_qty > quantity:
-            # Check if we can remove from delivery order, else raise an error.
-            qty2remove = old_qty - quantity
-            delivery = self._get_contextual_fsm_task().sale_order_id.picking_ids
-            if delivery:
-                available_moves = delivery.move_lines.filtered(lambda d: d.state != 'done' and d.product_id == self)
-                for move in available_moves:
-                    removable = min(move.product_uom_qty - move.quantity_done, qty2remove)
-                    qty2remove -= removable
-                    move.product_uom_qty -= removable
-                if qty2remove > 0:
-                    raise UserError(_("You cannot have a quantity inferior to the number of items which have already been delivered."))
-
-        return res

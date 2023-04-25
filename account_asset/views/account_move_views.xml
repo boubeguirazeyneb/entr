@@ -8,7 +8,7 @@
             <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
                 <field name="asset_id" invisible="1"/>
                 <field name="asset_asset_type" invisible="1"/>
-                <field name="asset_ids_display_name" invisible="1"/>
+                <field name="linked_asset_type" invisible="1"/>
                 <field name="number_asset_ids" invisible="1"/>
                 <field name="draft_asset_ids" invisible="1"/>
                 <button name="open_asset_view"
@@ -23,14 +23,28 @@
                     class="oe_stat_button"
                     icon="fa-id-card-o"
                     attrs="{'invisible': ['|', ('number_asset_ids', '=', 0), ('draft_asset_ids', '=', True)]}">
-                    <field name="asset_ids_display_name" nolabel="1"/>
+                    <div class="o_field_widget o_stat_info">
+                        <field name="number_asset_ids" nolabel="1" help=""/>
+                        <span class="o_stat_text">
+                        <label for="number_asset_ids" string="Assets" attrs="{'invisible': [('linked_asset_type', '!=', 'purchase')]}"/>
+                        <label for="number_asset_ids" string="Def. Expenses" attrs="{'invisible': [('linked_asset_type', '!=', 'expense')]}"/>
+                        <label for="number_asset_ids" string="Def. Revenues" attrs="{'invisible': [('linked_asset_type', '!=', 'sale')]}"/>
+                        </span>
+                    </div>
                 </button>
                 <button name="action_open_asset_ids"
                     type="object"
                     class="oe_stat_button text-danger"
                     icon="fa-id-card-o"
                     attrs="{'invisible': ['|', ('number_asset_ids', '=', 0), ('draft_asset_ids', '=', False)]}">
-                    <field name="asset_ids_display_name" nolabel="1"/>
+                    <div class="o_field_widget o_stat_info">
+                        <field name="number_asset_ids" nolabel="1" help=""/>
+                        <span class="o_stat_text">
+                        <label for="number_asset_ids" string="Assets" attrs="{'invisible': [('linked_asset_type', '!=', 'purchase')]}"/>
+                        <label for="number_asset_ids" string="Def. Expenses" attrs="{'invisible': [('linked_asset_type', '!=', 'expense')]}"/>
+                        <label for="number_asset_ids" string="Def. Revenues" attrs="{'invisible': [('linked_asset_type', '!=', 'sale')]}"/>
+                        </span>
+                    </div>
                 </button>
             </xpath>
         </field>

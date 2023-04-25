@@ -16,7 +16,7 @@ class AccountMoveLine(models.Model):
             create_column(self.env.cr, "account_move_line", "subscription_mrr", "numeric")
         return super()._auto_init()
 
-    subscription_id = fields.Many2one("sale.subscription")
+    subscription_id = fields.Many2one("sale.order")
     subscription_start_date = fields.Date(
         string="Subscription Revenue Start Date", readonly=True
     )
@@ -37,12 +37,12 @@ class AccountMoveLine(models.Model):
     # NOTE: deps on subscription_id are omitted by design, as it would trigger a recompute of
     # past data is a subscription's template where changed somehow
     # This computation should happen once and should basically be left as-is once done
-    @api.depends("price_subtotal", "subscription_start_date", "subscription_end_date")
+    @api.depends("price_subtotal", "subscription_start_date", "subscription_end_date", "move_id.move_type")
     def _compute_mrr(self):
         """Compute the Subscription MRR for the line.
 
         The MRR is defined using generally accepted ratios used identically in the
-        sale.subscription model to compute the MRR for a subscription; this method
+        sale.order model to compute the MRR for a subscription; this method
         simply applies the same computation for a single invoice line for reporting
         purposes.
         """
@@ -59,3 +59,5 @@ class AccountMoveLine(models.Model):
             )
             months = delta.months + delta.days / 30.0 + delta.years * 12.0
             line.subscription_mrr = line.price_subtotal / months if months else 0
+            if line.move_id.move_type == "out_refund":
+                line.subscription_mrr *= -1

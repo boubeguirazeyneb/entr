@@ -6,7 +6,7 @@ from odoo import models, fields, api, _
 
 class Task(models.Model):
     _name = "project.task"
-    _inherit = ["project.task", "timer.mixin"]
+    _inherit = ["project.task", "timer.mixin", "timesheet.grid.mixin"]
 
     display_timesheet_timer = fields.Boolean("Display Timesheet Time", compute='_compute_display_timesheet_timer')
 
@@ -50,6 +50,41 @@ class Task(models.Model):
         for task in self:
             task.display_timesheet_timer = task.allow_timesheets and task.analytic_account_active
 
+    def _gantt_progress_bar_project_id(self, res_ids):
+        project_dict = {
+            project.id: project.allocated_hours
+            for project in self.env['project.project'].search([('id', 'in', res_ids)])
+        }
+        timesheet_read_group = self.env['account.analytic.line']._read_group(
+            [('project_id', 'in', res_ids)],
+            ['project_id', 'unit_amount'],
+            ['project_id'],
+        )
+        return {
+            res['project_id'][0]: {
+                'value': res['unit_amount'],
+                'max_value': project_dict.get(res['project_id'][0], 0)
+            }
+            for res in timesheet_read_group
+        }
+
+    def _gantt_progress_bar(self, field, res_ids, start, stop):
+        if field == 'project_id':
+            return dict(
+                self._gantt_progress_bar_project_id(res_ids),
+                warning=_("This project isn't expected to have task during this period. Planned hours :"),
+            )
+        return super()._gantt_progress_bar(field, res_ids, start, stop)
+
+    def action_view_subtask_timesheet(self):
+        action = super().action_view_subtask_timesheet()
+        grid_view_id = self.env.ref('timesheet_grid.timesheet_view_grid_by_employee').id
+        action['views'] = [
+            [grid_view_id, view_mode] if view_mode == 'grid' else [view_id, view_mode]
+            for view_id, view_mode in action['views']
+        ]
+        return action
+
     def action_timer_start(self):
         if not self.user_timer_id.timer_start and self.display_timesheet_timer:
             super(Task, self).action_timer_start()
@@ -81,3 +116,12 @@ class Task(models.Model):
                 'default_time_spent': time_spent,
             },
         }
+
+    def get_planned_hours_field(self):
+        return 'planned_hours'
+
+    def get_worked_hours_fields(self):
+        return ['effective_hours', 'subtask_effective_hours']
+
+    def _get_hours_to_plan(self):
+        return self.remaining_hours

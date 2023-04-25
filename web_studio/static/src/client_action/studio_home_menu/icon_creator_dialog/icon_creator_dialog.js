@@ -1,36 +1,33 @@
-/* @odoo-module */
+/** @odoo-module **/
 
-import { _lt } from "@web/core/l10n/translation";
 import { Dialog } from "@web/core/dialog/dialog";
-import { IconCreator } from "@web_studio/client_action/icon_creator/icon_creator";
+import { _lt } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
+import { IconCreator } from "@web_studio/client_action/icon_creator/icon_creator";
 
-export class IconCreatorDialog extends Dialog {
+import { Component, useState } from "@odoo/owl";
+
+export class IconCreatorDialog extends Component {
     setup() {
-        super.setup();
         this.user = useService("user");
         this.rpc = useService("rpc");
         this.menus = useService("menu");
-        this.initialAppData = Object.assign({}, this.props.editedAppData);
-        this.editedAppData = owl.hooks.useState(this.props.editedAppData);
+        this.initialAppData = { ...this.props.editedAppData };
+        this.editedAppData = useState(this.props.editedAppData);
     }
 
     /**
-     * @private
-     * @param {CustomEvent} ev
+     * @param {Object} icon
      */
-    onIconChanged(ev) {
+    onIconChanged(icon) {
         for (const key in this.editedAppData) {
             delete this.editedAppData[key];
         }
-        for (const key in ev.detail) {
-            this.editedAppData[key] = ev.detail[key];
+        for (const key in icon) {
+            this.editedAppData[key] = icon[key];
         }
     }
 
-    /**
-     * @private
-     */
     async saveIcon() {
         const { type } = this.initialAppData;
         const appId = this.props.appId;
@@ -66,12 +63,9 @@ export class IconCreatorDialog extends Dialog {
             });
             await this.menus.reload();
         }
-        this.close();
+        this.props.close();
     }
 }
 IconCreatorDialog.title = _lt("Edit Application Icon");
-IconCreatorDialog.contentClass = "o_web_studio_edit_menu_icon_modal";
-IconCreatorDialog.size = "modal-md";
-IconCreatorDialog.bodyTemplate = "web_studio.IconCreatorDialogBody";
-IconCreatorDialog.footerTemplate = "web_studio.IconCreatorDialogFooter";
-IconCreatorDialog.components = { IconCreator };
+IconCreatorDialog.template = "web_studio.IconCreatorDialog";
+IconCreatorDialog.components = { Dialog, IconCreator };

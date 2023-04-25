@@ -1,33 +1,27 @@
-odoo.define('documents.component.PdfPage', function (require) {
-'use strict';
+/** @odoo-module alias=documents.component.PdfPage **/
 
-const { useState, useRef } = owl.hooks;
+const { Component, onMounted, onPatched, useState, useRef } = owl;
 
 /**
  * Represents the page of a PDF.
  */
-class PdfPage extends owl.Component {
+export class PdfPage extends Component {
 
     /**
      * @override
      */
-    constructor() {
-        super(...arguments);
+    setup() {
         this.state = useState({
             isHover: false,
             isRendered: false,
         });
         // Used to append a canvas when it has been rendered.
         this.canvasWrapperRef = useRef("canvasWrapper");
-    }
 
-    mounted() {
-        this.renderPage(this.props.canvas);
-    }
-
-    patched() {
-        this.renderPage(this.props.canvas);
-    }
+        onMounted(() => this.renderPage(this.props.canvas));
+    
+        onPatched(() => this.renderPage(this.props.canvas));
+    }   
 
     //--------------------------------------------------------------------------
     // Public
@@ -60,7 +54,7 @@ class PdfPage extends owl.Component {
      */
     _onClickWrapper(ev) {
         ev.stopPropagation();
-        this.trigger('page-clicked', this.props.pageId);
+        this.props.onPageClicked(this.props.pageId);
     }
     /**
      * @private
@@ -68,12 +62,14 @@ class PdfPage extends owl.Component {
      */
     _onClickSelect(ev) {
         ev.stopPropagation();
-        this.trigger('select-clicked', {
-            pageId: this.props.pageId,
-            isCheckbox: true,
-            isRangeSelection: ev.shiftKey,
-            isKeepSelection: true,
-        });
+        if (this.props.onSelectClicked) {
+            this.props.onSelectClicked(
+                this.props.pageId,
+                true,
+                ev.shiftKey,
+                true,
+            );
+        }
     }
     /**
      * @private
@@ -106,7 +102,9 @@ class PdfPage extends owl.Component {
      */
     _onDragStart(ev) {
         ev.stopPropagation();
-        this.trigger('page-dragged');
+        if (this.props.onPageDragged) {
+            this.props.onPageDragged(ev);
+        }
         ev.dataTransfer.setData('o_documents_pdf_data', this.props.pageId);
     }
     /**
@@ -122,7 +120,9 @@ class PdfPage extends owl.Component {
         if (pageId === this.props.pageId) {
             return;
         }
-        this.trigger('page-dropped', { targetPageId: this.props.pageId, pageId });
+        if (this.props.onPageDropped) {
+            this.props.onPageDropped(this.props.pageId, pageId);
+        }
     }
 }
 
@@ -136,13 +136,31 @@ PdfPage.props = {
         type: Object,
         optional: true,
     },
-    isPreview: Boolean,
-    isSelected: Boolean,
-    pageId: String,
+    isPreview: {
+        type: Boolean,
+        optional: true,
+    },
+    isSelected: {
+        type: Boolean,
+        optional: true,
+    },
+    onPageClicked: {
+        type: Function,
+        optional: true,
+    },
+    onPageDragged: {
+        type: Function,
+        optional: true,
+    },
+    onPageDropped: {
+        type: Function,
+        optional: true,
+    },
+    onSelectClicked: {
+        type: Function,
+        optional: true,
+    },
+    pageId: String,    
 };
 
 PdfPage.template = 'documents.component.PdfPage';
-
-return PdfPage;
-
-});

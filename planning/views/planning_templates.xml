@@ -46,41 +46,44 @@
                         </div>
                     </div>
                 </div>
-                <div class="container o_planning_calendar_open_shifts d-print-none">
+                <div class="container o_planning_calendar_open_shifts d-print-none mt-5">
                     <!-- open shift's container -->
                     <t t-if="open_slots_ids">
                         <div class="container">
                             <h1 align="center" class="m-3">Open Shifts Available</h1>
-                            <div>
-                                <table class="table table-borderless">
+                            <div class="table-responsive-md">
+                                <table class="table table-borderless table-hover table-striped">
                                     <thead class="o_thead">
                                         <tr>
-                                            <th class="text-left">From</th>
-                                            <th class="text-left">To</th>
-                                            <th id="o_role" t-if="has_role" class="text-left">Role</th>
-                                            <th t-if="has_note" class="text-left">Note</th>
+                                            <th class="text-start">Date</th>
+                                            <th id="o_role" t-if="has_role" class="text-start">Role</th>
+                                            <th t-if="has_note" class="text-start">Note</th>
+                                            <th/>
                                         </tr>
                                     </thead>
                                     <tbody class="o_tbody">
                                         <t t-foreach="open_slots_ids" t-as="shift">
                                             <tr>
                                                 <td class="align-middle">
-                                                    <t t-esc="format_datetime(shift.start_datetime, dt_format='E')"/>.
-                                                    <t t-esc="format_datetime(shift.start_datetime, dt_format='short')"/>
-                                                </td>
-                                                <td class="align-middle">
-                                                    <t t-esc="format_datetime(shift.end_datetime, dt_format='E')"/>.
-                                                    <t t-esc="format_datetime(shift.end_datetime, dt_format='short')"/>
+                                                    <t t-out="shift.start_datetime" t-options="{'widget': 'datetime', 'format': 'EEE'}"/>.&amp;nbsp;
+                                                    <t t-out="shift.start_datetime" t-options="{'widget': 'datetime',  'hide_seconds': 'True'}"/>
+                                                    <i class="fa fa-long-arrow-right" aria-label="Arrow icon" title="Arrow"/>
+                                                    <t t-out="shift.end_datetime" t-options="{'widget': 'datetime', 'format': 'EEE'}"/>.&amp;nbsp;
+                                                    <t t-out="shift.end_datetime" t-options="{'widget': 'datetime',  'hide_seconds': 'True'}"/>
+                                                    (<t t-out="'%d:%02d' % (int(shift.allocated_hours), round(shift.allocated_hours % 1 * 60))"/>)
+                                                    <t t-if="shift.allocated_percentage &lt; 100">
+                                                        (<t t-out="shift.allocated_percentage" t-options="{'widget': 'float', 'precision': 2}"/>%)
+                                                    </t>
                                                 </td>
                                                 <td t-if="has_role" class="align-middle" name="role_id"><t t-esc="shift.role_id.name"/></td>
                                                 <td t-if="has_note" class="align-middle"><t t-esc="shift.name"/></td>
                                                 <td>
                                                     <t t-if="not shift.resource_id">
-                                                        <div class="text-center float-right">
+                                                        <div class="text-center float-end">
                                                             <form t-attf-action="/planning/#{planning_planning_id.access_token}/#{employee.employee_token}/assign/#{shift.id}" method="post">
                                                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                                 <input type="hidden" name="message" value="assign"/>
-                                                                <button type="submit" class="btn btn-primary">ASSIGN ME THIS SHIFT</button>
+                                                                <button type="submit" class="btn btn-primary">ASSIGN TO ME</button>
                                                             </form>
                                                         </div>
                                                     </t>
@@ -99,22 +102,17 @@
                             <div class="modal-content border-0">
                                 <div class="modal-header modal-header-primary py-3 border-0 rounded-top text-light">
                                     <h5 class="modal-title"/>
-                                    <button type="button" class="close text-light shadow-none" data-dismiss="modal">
+                                    <button type="button" class="close btn text-light shadow-none" data-bs-dismiss="modal">
                                         <span aria-label="Close">×</span>
                                     </button>
                                 </div>
                                 <div class="modal-body">
                                     <dl class="row mt-0 mb-0">
-                                        <dt class="col-sm-4">Start Date</dt>
-                                        <dd class="col-sm-8" id="start"/>
-                                        <dt class="col-sm-4">End Date</dt>
-                                        <dd class="col-sm-8" id="stop"/>
-                                        <dt class="col-sm-4">Allocated Hours</dt>
-                                        <dd class="col-sm-8" id="alloc_hours_time">
-                                            <span id="alloc_hours"/>
-                                            <span id="alloc_perc">
-                                                (<span id="alloc_perc_value"/>%)
-                                            </span>
+                                        <dt class="col-sm-4">Date </dt>
+                                        <dd class="col-sm-8" id="date">
+                                            <span class="o_start_date"/>
+                                            <i class="mx-1 fa fa-long-arrow-right" aria-label="Arrow icon" title="Arrow"/>
+                                            <span class="o_end_date"/>
                                         </dd>
                                         <dt class="col-sm-4">Role</dt>
                                         <dd class="col-sm-8" id="role"/>
@@ -147,7 +145,7 @@
             <t t-else="">
                 <t t-set="o_toast_color" t-value="'bg-danger'"/>
             </t>
-            <div t-att-class="'toast o_planning_toast ' + o_toast_color" role="alert" id="PlanningToast" data-delay="3000">
+            <div t-att-class="'position-absolute mx-2 my-1 toast o_planning_toast ' + o_toast_color" role="alert" id="PlanningToast" data-delay="3000">
                 <div class="toast-body">
                     <t t-if="message_slug == 'assign'">
                         <i class="fa fa-check-circle text-success"/> You were successfully assigned this open shift.
@@ -173,7 +171,7 @@
                 <div class="container">
                     <div class="alert alert-success text-center" role="alert">
                         <p class="d-inline">You have been successfully unassigned from this shift</p>
-                        <i class="fa fa-2x fa-check-circle pull-right" style="margin-top:-3px"/>
+                        <i class="fa fa-2x fa-check-circle float-end" style="margin-top:-3px"/>
                     </div>
                 </div>
             </body>

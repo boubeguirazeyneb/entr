@@ -32,10 +32,11 @@ class CurrencyTestCase(TransactionCase):
 
     def test_live_currency_update_banxico(self):
         self.test_company.currency_provider = 'banxico'
+        self.env.ref('base.MXN').write({'active': True})
         rates_count = len(self.currency_usd.rate_ids)
         res = self.test_company.update_currency_rates()
-        if res:
-            self.assertEqual(len(self.currency_usd.rate_ids), rates_count + 1)
+        self.assertTrue(res)
+        self.assertEqual(len(self.currency_usd.rate_ids), rates_count + 1)
 
     def test_live_currency_update_boc(self):
         self.test_company.currency_provider = 'boc'
@@ -89,3 +90,32 @@ class CurrencyTestCase(TransactionCase):
         self.assertEqual(pen.rate_ids[-1].rate, 1.0)
         self.assertEqual(len(usd.rate_ids), usd_rates_count + 1)
         self.assertLess(usd.rate_ids[-1].rate, 1)
+
+    def test_live_currency_update_tcmb(self):
+        ytl = self.env.ref('base.TRY')
+        ytl.active = True
+        self.test_company.write({
+            'currency_provider': 'tcmb',
+            'currency_id': ytl.id
+        })
+        rates_count = len(ytl.rate_ids)
+        res = self.test_company.update_currency_rates()
+        self.assertTrue(res)
+        self.assertEqual(len(ytl.rate_ids), rates_count + 1)
+
+    def test_live_currency_update_nbp(self):
+        pln = self.env.ref('base.PLN')
+        pln.active = True
+        usd = self.env.ref('base.USD')
+        usd.active = True
+        self.test_company.write({
+            'currency_provider': 'nbp',
+            'currency_id': pln.id
+        })
+        pln_rates_count = len(pln.rate_ids)
+        usd_rates_count = len(usd.rate_ids)
+        res = self.test_company.update_currency_rates()
+        self.assertTrue(res)
+        self.assertEqual(len(pln.rate_ids), pln_rates_count + 1)
+        self.assertEqual(pln.rate_ids[-1].rate, 1.0)
+        self.assertEqual(len(usd.rate_ids), usd_rates_count + 1)

@@ -2,19 +2,19 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
-import re
 
 from collections import defaultdict
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
-from dateutil.rrule import rrule, WEEKLY, MO
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.backends import default_backend
 from lxml import etree
 
 from odoo import api, fields, models, _
 from odoo.tools import date_utils
 from odoo.exceptions import ValidationError, UserError
 from odoo.modules.module import get_resource_path
-
 
 def format_amount(amount, width=11, hundredth=True):
     """
@@ -273,6 +273,9 @@ class DMFAWorker(DMFANode):
         line_values = contribution_payslips._get_line_values(['SALARY', 'BASIC', 'PAY_SIMPLE'])
         basis = round(sum(line_values[basis_lines[p.struct_id.code]][p.id]['total'] for p in contribution_payslips), 2)
 
+        if not basis:
+            return []
+
         contributions = [
             DMFAWorkerContribution(contribution_payslips, basis)
         ] + [
@@ -355,11 +358,11 @@ class DMFAWorker(DMFANode):
         # as they should be declared together
         # Put termination fees in it's own occupation
         occupation_data = contracts._get_occupation_dates()
+        termination_occupations = []
         for data in occupation_data:
             occupation_contracts, date_from, date_to = data
             payslips = self.payslips.filtered(lambda p: p.contract_id in occupation_contracts)
             termination_payslips = payslips.filtered(lambda p: p.struct_id.code == 'CP200TERM')
-            termination_occupations = []
             if termination_payslips:
                 # YTI TODO master: Store the supposed notice period even for termination fees
                 # Le salaire et les données relatives aux prestations se rapportant à une indemnité
@@ -395,19 +398,9 @@ class DMFAWorker(DMFANode):
                 # mensuellement (entreprises en difficulté), les indemnités doivent toujours être
                 # reprises intégralement sur la déclaration du trimestre au cours duquel le contrat
                 # de travail a été rompu.
-                next_monday = rrule(freq=WEEKLY, dtstart=date_to, byweekday=MO, count=1)[0].date()
-                termination_wizard = self.env['hr.payslip.employee.depature.notice'].new({
-                    'employee_id': termination_payslips.employee_id.id,
-                    'leaving_type_id': self.env.ref('hr.departure_fired').id,
-                    'start_notice_period': next_monday,
-                    'notice_respect': 'with'
-                })
-                termination_wizard._compute_oldest_contract_id()
-                termination_wizard._onchange_notice_duration()
-                termination_from = date_to + relativedelta(days=1)
-                termination_to = termination_wizard.end_notice_period
-                if termination_to < termination_from:
-                    termination_to = termination_from
+                employee = termination_payslips.employee_id
+                if not employee.start_notice_period or not employee.end_notice_period:
+                    raise UserError(_('No start/end notice period defined for %s', termination_payslips.employee_id.name))
                 # YTI Check Termination fees
                 # Les indemnités considérées comme de la rémunération sont déclarées
                 # en DmfA, avec le code rémunération 3 et en mentionnant, pour la période correspondante
@@ -423,7 +416,8 @@ class DMFAWorker(DMFANode):
                 #   <RemunCode>003</RemunCode>
                 #   <RemunAmount>00000400546</RemunAmount>
                 # </Remun>
-                termination_periods = _split_termination_period(termination_from, termination_to)
+                termination_periods = _split_termination_period(
+                    employee.start_notice_period, employee.end_notice_period)
                 termination_remuneration = termination_payslips._get_line_values(['BASIC'])['BASIC'][termination_payslips.id]['total']
 
                 period_remuneration = termination_remuneration / len(termination_periods)
@@ -504,7 +498,7 @@ class DMFAWorkerContribution(DMFANode):
         # the correct value is 0 for 4xx numbers.
         self.contribution_type = 0
         self.calculation_basis = format_amount(basis)
-        self.amount = format_amount(round(basis * 0.3810, 2))
+        self.amount = format_amount(round(basis * 0.3809, 2))
         self.first_hiring_date = -1
 
 class DMFAWorkerContributionFFE(DMFANode):
@@ -518,7 +512,7 @@ class DMFAWorkerContributionFFE(DMFANode):
         self.calculation_basis = format_amount(basis)
         self.worker_count = worker_count
         # Cotisations de base FFE
-        rate = payslips[0].company_id._get_ffe_contribution_rate(worker_count)
+        rate = payslips[0]._get_ffe_contribution_rate(worker_count)
         self.amount = format_amount(round(basis * rate, 2))
         self.first_hiring_date = -1
 
@@ -725,8 +719,8 @@ class DMFAOccupation(DMFANode):
         termination_n = self.env.ref('l10n_be_hr_payroll.cp200_employees_termination_n_pay_simple')
         termination_n1 = self.env.ref('l10n_be_hr_payroll.cp200_employees_termination_n1_pay_simple')
         termination_fees = self.env.ref('l10n_be_hr_payroll.cp200_employees_termination_fees_basic')
-        holiday_pay_recovery_n = self.env.ref('l10n_be_hr_payroll_holiday_pay_recovery.cp200_employees_salary_holiday_pay_recovery_n', raise_if_not_found=False)
-        holiday_pay_recovery_n1 = self.env.ref('l10n_be_hr_payroll_holiday_pay_recovery.cp200_employees_salary_holiday_pay_recovery_n1', raise_if_not_found=False)
+        holiday_pay_recovery_n = self.env.ref('l10n_be_hr_payroll.cp200_employees_salary_holiday_pay_recovery_n', raise_if_not_found=False)
+        holiday_pay_recovery_n1 = self.env.ref('l10n_be_hr_payroll.cp200_employees_salary_holiday_pay_recovery_n1', raise_if_not_found=False)
         codes = {
             regular_gross: 1,
             regular_gross_student: 1,
@@ -874,13 +868,23 @@ class HrDMFAReport(models.Model):
         ('3', '3rd'),
         ('4', '4th'),
     ], required=True, default=lambda self: str(date_utils.get_quarter_number(fields.Date.today())))
+    declaration_type = fields.Selection([
+        ('web', 'Via Web',),
+        ('batch', 'Via Batch'),
+    ], default='web', required=True)
     file_type = fields.Selection([
         ('R', 'Real File (R)'),
         ('S', 'Declaration Test (S)'),
         ('T', 'Circuit Test (T)'),
     ], default='R', required=True)
     dmfa_xml = fields.Binary(string="XML file")
-    dmfa_xml_filename = fields.Char(compute='_compute_filename', store=True)
+    dmfa_xml_filename = fields.Char(compute='_compute_xml_filename', store=True)
+    dmfa_signature = fields.Binary(string="Signature file")
+    dmfa_signature_filename = fields.Char(compute='_compute_xml_filename', store=True)
+    dmfa_go = fields.Binary(string="Go file")
+    dmfa_go_filename = fields.Char(compute='_compute_xml_filename', store=True)
+    dmfa_pdf = fields.Binary(string="PDF file")
+    dmfa_pdf_filename = fields.Char(compute='_compute_pdf_filename', store=True)
     quarter_start = fields.Date(compute='_compute_dates')
     quarter_end = fields.Date(compute='_compute_dates')
     validation_state = fields.Selection([
@@ -888,7 +892,7 @@ class HrDMFAReport(models.Model):
         ('done', "Valid"),
         ('invalid', "Invalid"),
     ], default='normal', compute='_compute_validation_state', store=True)
-    error_message = fields.Char(store=True, compute='_compute_validation_state', help="Technical error message")
+    error_message = fields.Char(store=True, compute='_compute_validation_state', string="Error Message")
 
     _sql_constraints = [
         ('_unique', 'unique (company_id, year, quarter)', "Only one DMFA per year and per quarter is allowed. Another one already exists."),
@@ -930,7 +934,7 @@ class HrDMFAReport(models.Model):
                     dmfa.error_message = str(err)
 
     @api.depends('dmfa_xml')
-    def _compute_filename(self):
+    def _compute_xml_filename(self):
         # https://www.socialsecurity.be/site_fr/general/helpcentre/batch/files/directives.htm
         num_expedition = self.env["ir.config_parameter"].sudo().get_param("l10n_be.dmfa_expeditor_nbr", False)
         now = fields.Date.today()
@@ -938,6 +942,7 @@ class HrDMFAReport(models.Model):
             raise UserError(_('There is no defined expeditor number for the company.'))
 
         for dmfa in self:
+            # Declaration File
             if not dmfa._origin.dmfa_xml_filename:
                 num_suite = 0
             else:
@@ -946,8 +951,35 @@ class HrDMFAReport(models.Model):
             num_suite = str(num_suite).zfill(5)
             file_type = dmfa.file_type
 
-            filename = 'FI.DMFA.%s.%s.%s.%s.1.1' % (num_expedition, now.strftime('%Y%m%d'), num_suite, file_type)
+            filename_common = '.DMFA.%s.%s.%s.%s.1' % (num_expedition, now.strftime('%Y%m%d'), num_suite, file_type)
+
+            filename = 'FI' + filename_common + '.1'
             dmfa.dmfa_xml_filename = filename
+
+            filename = 'FS'  + filename_common + '.1'
+            dmfa.dmfa_signature_filename = filename
+
+            filename = 'GO' + filename_common
+            dmfa.dmfa_go_filename = filename
+
+    @api.depends('dmfa_pdf')
+    def _compute_pdf_filename(self):
+        num_expedition = self.env["ir.config_parameter"].sudo().get_param("l10n_be.dmfa_expeditor_nbr", False)
+        now = fields.Date.today()
+        if not num_expedition:
+            raise UserError(_('There is no defined expeditor number for the company.'))
+
+        for dmfa in self:
+            if not dmfa._origin.dmfa_pdf_filename:
+                num_suite = 0
+            else:
+                num_suite = dmfa.dmfa_pdf_filename.split('.')[4]
+                num_suite = str(int(num_suite) + 1)
+            num_suite = str(num_suite).zfill(5)
+            file_type = dmfa.file_type
+
+            filename = 'FI.DMFA.%s.%s.%s.%s.1.1.pdf' % (num_expedition, now.strftime('%Y%m%d'), num_suite, file_type)
+            dmfa.dmfa_pdf_filename = filename
 
     @api.depends('year', 'quarter')
     def _compute_dates(self):
@@ -956,7 +988,7 @@ class HrDMFAReport(models.Model):
             month = int(dmfa.quarter) * 3
             self.quarter_start, self.quarter_end = date_utils.get_quarter(date(year, month, 1))
 
-    def generate_dmfa_report(self):
+    def generate_dmfa_xml_report(self):
         # Sources:
         # Procedure: https://www.socialsecurity.be/site_fr/employer/applics/dmfa/batch/outline.htm
         # XML Specification: https://www.socialsecurity.be/site_fr/employer/applics/dmfa/batch/outline.htm
@@ -967,13 +999,66 @@ class HrDMFAReport(models.Model):
         # PDF History: https://www.socialsecurity.be/lambda/portail/glossaires/dmfa.nsf/consult/fr/ImprPDF
         # Most related documentation: https://www.socialsecurity.be/lambda/portail/glossaires/dmfa.nsf/web/glossary_home_fr
 
-        xml_str = self.env.ref('l10n_be_hr_payroll.dmfa_xml_report')._render(self._get_rendering_data())
+        # Declaration File
+        # ================
+        xml_str = self.env['ir.qweb']._render('l10n_be_hr_payroll.dmfa_xml_report', self._get_rendering_data())
 
         # Prettify xml string
         root = etree.fromstring(xml_str, parser=etree.XMLParser(remove_blank_text=True))
         xml_formatted_str = etree.tostring(root, pretty_print=True, encoding='UTF-8', xml_declaration=True)
 
         self.dmfa_xml = base64.encodebytes(xml_formatted_str)
+
+        if self.env.context.get('dmfa_skip_signature'):
+            return
+
+        # Signature File
+        # ==============
+        company_sudo = self.company_id.sudo()
+
+        # Load certificate
+        pem = company_sudo.onss_pem_certificate
+        passphrase = company_sudo.onss_pem_passphrase
+        if passphrase:
+            passphrase = passphrase.encode()
+        else:
+            passphrase = None
+        if not pem:
+            raise UserError(_('No PEM Certificate defined on the Payroll Configuration'))
+        pem = base64.b64decode(pem, validate=True)
+
+        # Load key
+        ca_key = company_sudo.onss_key
+        if not ca_key:
+            raise UserError(_('No KEY file defined on the Payroll Configuration'))
+
+        # The PKCS7 signature builder can create both basic PKCS7 signed messages as well as
+        # S/MIME messages, which are commonly used in email. S/MIME has multiple versions,
+        # but this implements a subset of RFC 2632, also known as S/MIME Version 3.
+        # See: https://cryptography.io/en/3.4.8/hazmat/primitives/asymmetric/serialization.html#cryptography.hazmat.primitives.serialization.pkcs7.PKCS7SignatureBuilder
+        cert = x509.load_pem_x509_certificate(pem, backend=default_backend())
+        key = serialization.load_pem_private_key(pem, password=passphrase, backend=default_backend())
+        options = [serialization.pkcs7.PKCS7Options.DetachedSignature]
+        sign = serialization.pkcs7.PKCS7SignatureBuilder().set_data(
+            self.dmfa_xml
+        ).add_signer(
+            cert, key, hashes.SHA256()
+        ).sign(
+            serialization.Encoding.PEM, options
+        )
+        # Remove -----BEGIN PKCS7-----, -----END PKCS7----- and final new line
+        sign = (b'\n').join(sign.split(b'\n')[1:-2])
+        self.dmfa_signature = sign
+
+        # GO File
+        # =======
+        self.dmfa_go = base64.b64encode('go')
+
+    def generate_dmfa_pdf_report(self):
+        dmfa_pdf, dummy = self.env["ir.actions.report"].sudo()._render_qweb_pdf(
+            'l10n_be_hr_payroll.action_report_dmfa',
+            res_ids=self.ids, data=self._get_rendering_data())
+        self.dmfa_pdf = base64.encodebytes(dmfa_pdf)
 
     def _get_rendering_data(self):
         payslips = self.env['hr.payslip'].search([
@@ -1017,12 +1102,14 @@ class HrDMFAReport(models.Model):
             employee_payslips[payslip.employee_id] |= payslip
 
         double_basis, double_onss = self._get_double_holiday_pay_contribution(payslips)  # rounded
+        group_basis, group_onss = self._get_group_insurance_contribution()
 
         result = {
             'employer_class': self.company_id.dmfa_employer_class,
             'onss_company_id': format_amount(self.company_id.onss_company_id or 0, width=10, hundredth=False),
             'onss_registration_number': format_amount(self.company_id.onss_registration_number or 0, width=9, hundredth=False),
             'quarter_repr': '%s%s' % (self.year, self.quarter),
+            'quarter_display': '%s/%s' % (self.year, self.quarter),
             'quarter_start': self.quarter_start,
             'quarter_end': self.quarter_end,
             'data': self,
@@ -1036,6 +1123,9 @@ class HrDMFAReport(models.Model):
                 worker_count) for employee in employees]),
             'double_holiday_pay_contribution': format_amount(double_onss),
             'unrelated_calculation_basis': format_amount(double_basis),
+            'group_insurance_basis': format_amount(group_basis),
+            'group_insurance_amount': format_amount(group_onss),
+            'pretty_format': lambda a: str(round(int(a) / 100.0, 2)),
         }
         result['global_contribution'] = format_amount(self._get_global_contribution(result['natural_persons'], format_amount(double_onss)))
         return result
@@ -1060,7 +1150,29 @@ class HrDMFAReport(models.Model):
                 #             total += int(remuneration.amount) / 100.00 * 0.1307
                 for deduction in worker_record.deductions:
                     total -= int(deduction.amount) / 100.00
-        return round(total, 2)
+        # https://www.socialsecurity.be/employer/instructions/dmfa/fr/latest/instructions/special_contributions/extralegal_pensions.html#h24
+        # En DMFA, la cotisation sur les avantages extra-légaux se déclare globalement par catégorie
+        # d’employeur dans le bloc 90002 « cotisation non liée à une personne physique» sous les codes
+        # travailleur 864, 865 ou 866 selon le cas.
+
+        # 864 : pour les versements effectués directement au travailleur pensionné ou à ses ayants
+        #       droit
+        # 865 : pour les versements destinés au financement d'une pension complémentaire dans le cadre
+        #       d'un plan d'entreprise
+        # 866 : pour les versements destinés au financement d'une pension complémentaire dans le cadre
+        #       d'un plan sectoriel
+        # ! à partir du 1/2014, cotisation 866 déclarée uniquement par l'organisateur du régime
+        #   sectoriel (catégorie X99)
+        # Jusqu'au 3ème trimestre 2011 inclus, le code travailleur 851 était d'application mais il
+        # n'est plus autorisé pour les trimestres ultérieurs.
+
+        # La base de calcul qui correspond à la somme des avantages octroyés pour l’entreprise par
+        # type de versement doit être mentionnée.
+
+        # Lorsque la DMFA est introduite via le web, la base de calcul de cette cotisation doit être
+        # mentionnée dans les cotisations dues pour l’ensemble de l’entreprise et la cotisation est
+        # calculée automatiquement.
+        return round(total, 2) + self._get_group_insurance_contribution()[1]
 
     def _get_double_holiday_pay_contribution(self, payslips):
         """ Some contribution are not specified at the worker level but globally for the whole company """
@@ -1079,6 +1191,22 @@ class HrDMFAReport(models.Model):
         basis = round(basis_raw, 2)
         onss_amount = round(basis_raw * 0.1307, 2)
         return (basis, onss_amount)
+
+    def _get_group_insurance_contribution(self):
+        regular_payslip = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary')
+        payslips_sudo = self.env['hr.payslip'].sudo().search([
+            ('date_to', '>=', self.quarter_start),
+            ('date_to', '<=', self.quarter_end),
+            ('state', 'in', ['done', 'paid']),
+            ('struct_id', '=', regular_payslip.id),
+            ('company_id', '=', self.company_id.id),
+        ])
+        line_values = payslips_sudo._get_line_values(
+            ['GROUPINSURANCE'], vals_list=['amount', 'total'], compute_sum=True
+        )
+        basis = line_values['GROUPINSURANCE']['sum']['amount']
+        onss_amount = line_values['GROUPINSURANCE']['sum']['total']
+        return (round(basis, 2), round(onss_amount, 2))
 
 
 class HrDMFALocationUnit(models.Model):

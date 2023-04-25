@@ -3,17 +3,17 @@
 # 	* hr_payroll_account_sepa
 # 
 # Translators:
-# Martin Trigaux, 2021
-# 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022
+# Martin Trigaux, 2022
+# Raymond Yu <cl_yu@hotmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:40+0000\n"
-"Last-Translator: 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022\n"
-"Language-Team: Chinese (China) (https://www.transifex.com/odoo/teams/41243/zh_CN/)\n"
+"POT-Creation-Date: 2023-04-14 06:18+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Raymond Yu <cl_yu@hotmail.com>, 2022\n"
+"Language-Team: Chinese (China) (https://app.transifex.com/odoo/teams/41243/zh_CN/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -57,21 +57,27 @@ msgid "Created on"
 msgstr "创建时间"
 
 #. module: hr_payroll_account_sepa
-#: model:ir.model.fields,help:hr_payroll_account_sepa.field_hr_payslip__sepa_export_date
-#: model:ir.model.fields,help:hr_payroll_account_sepa.field_hr_payslip_run__sepa_export_date
-msgid "Creation date of the payment file."
-msgstr "付款文件的创建日期。"
-
-#. module: hr_payroll_account_sepa
 #: model:ir.model.fields,field_description:hr_payroll_account_sepa.field_hr_payslip_run_sepa_wizard__display_name
 #: model:ir.model.fields,field_description:hr_payroll_account_sepa.field_hr_payslip_sepa_wizard__display_name
 msgid "Display Name"
 msgstr "显示名称"
 
 #. module: hr_payroll_account_sepa
+#: model:ir.model,name:hr_payroll_account_sepa.model_hr_employee
+msgid "Employee"
+msgstr "员工"
+
+#. module: hr_payroll_account_sepa
+#. odoo-python
+#: code:addons/hr_payroll_account_sepa/models/hr_payslip.py:0
+#, python-format
+msgid "Employees With Invalid Bank Accounts"
+msgstr "拥有无效银行账户的员工"
+
+#. module: hr_payroll_account_sepa
 #: model:ir.model.fields,help:hr_payroll_account_sepa.field_hr_payslip__sepa_export
 msgid "Export file related to this payslip"
-msgstr "导出这个工资条的相关文件"
+msgstr "导出这个工资单的相关文件"
 
 #. module: hr_payroll_account_sepa
 #: model_terms:ir.ui.view,arch_db:hr_payroll_account_sepa.hr_payslip_view_form
@@ -108,12 +114,12 @@ msgstr "生成日期"
 #. module: hr_payroll_account_sepa
 #: model:ir.model,name:hr_payroll_account_sepa.model_hr_payslip_run_sepa_wizard
 msgid "HR Payslip Run SEPA Wizard"
-msgstr "HR工资条执行SEPA向导"
+msgstr "HR工资单运行SEPA向导"
 
 #. module: hr_payroll_account_sepa
 #: model:ir.model,name:hr_payroll_account_sepa.model_hr_payslip_sepa_wizard
 msgid "HR Payslip SEPA Wizard"
-msgstr "HR工资条SPA向导"
+msgstr "HR工资单SPA向导"
 
 #. module: hr_payroll_account_sepa
 #: model:ir.model.fields,field_description:hr_payroll_account_sepa.field_hr_payslip_run_sepa_wizard__id
@@ -122,6 +128,7 @@ msgid "ID"
 msgstr "ID"
 
 #. module: hr_payroll_account_sepa
+#. odoo-python
 #: code:addons/hr_payroll_account_sepa/wizard/hr_payroll_account_sepa_wizard.py:0
 #: code:addons/hr_payroll_account_sepa/wizard/hr_payroll_account_sepa_wizard.py:0
 #, python-format
@@ -153,17 +160,17 @@ msgstr "最后更新时间"
 #. module: hr_payroll_account_sepa
 #: model:ir.model.fields,help:hr_payroll_account_sepa.field_hr_payslip__sepa_export_filename
 msgid "Name of the export file generated for this payslip"
-msgstr "这个工资条生成的导出文件名称"
+msgstr "这个工资单生成的导出文件名称"
 
 #. module: hr_payroll_account_sepa
 #: model:ir.model,name:hr_payroll_account_sepa.model_hr_payslip
 msgid "Pay Slip"
-msgstr "工资条"
+msgstr "工资单"
 
 #. module: hr_payroll_account_sepa
 #: model:ir.model,name:hr_payroll_account_sepa.model_hr_payslip_run
 msgid "Payslip Batches"
-msgstr "工资条批处理"
+msgstr "工资单批处理"
 
 #. module: hr_payroll_account_sepa
 #: model:ir.model.fields,field_description:hr_payroll_account_sepa.field_hr_payslip__sepa_export
@@ -178,24 +185,28 @@ msgid "Select a bank journal."
 msgstr "选择一个银行日记账"
 
 #. module: hr_payroll_account_sepa
+#. odoo-python
 #: code:addons/hr_payroll_account_sepa/models/hr_payslip.py:0
 #, python-format
 msgid "Some employees (%s) don't have a bank account."
 msgstr "一些员工（%s）没有银行账户信息。"
 
 #. module: hr_payroll_account_sepa
+#. odoo-python
 #: code:addons/hr_payroll_account_sepa/models/hr_payslip.py:0
 #, python-format
 msgid "Some employees (%s) don't have a private address."
 msgstr "一些员工（%s）没有私人地址信息。"
 
 #. module: hr_payroll_account_sepa
+#. odoo-python
 #: code:addons/hr_payroll_account_sepa/models/hr_payslip.py:0
 #, python-format
 msgid "Some employees (%s) don't have a valid name on the private address."
 msgstr "一些雇员（%s）在私人地址上没有有效的名字。"
 
 #. module: hr_payroll_account_sepa
+#. odoo-python
 #: code:addons/hr_payroll_account_sepa/models/hr_payslip.py:0
 #, python-format
 msgid ""

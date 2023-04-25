@@ -6,6 +6,7 @@ from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_round, float_repr, DEFAULT_SERVER_DATE_FORMAT
 from odoo.tools.misc import mod10r, remove_accents
 from odoo.tools.xml_utils import create_xml_node, create_xml_node_chain
+from odoo.addons.account_batch_payment.models.sepa_mapping import _replace_characters_SEPA
 
 from collections import defaultdict
 
@@ -30,7 +31,7 @@ def sanitize_communication(communication):
         communication = communication[1:]
     if communication.endswith('/'):
         communication = communication[:-1]
-    communication = re.sub('[^-A-Za-z0-9/?:().,\'+ ]', '', remove_accents(communication))
+    communication = _replace_characters_SEPA(communication)
     return communication
 
 class AccountJournal(models.Model):
@@ -154,11 +155,13 @@ class AccountJournal(models.Model):
             PmtInf.append(self._get_DbtrAcct())
             DbtrAgt = etree.SubElement(PmtInf, "DbtrAgt")
             FinInstnId = etree.SubElement(DbtrAgt, "FinInstnId")
-            if pain_version in ['pain.001.001.03.se', 'pain.001.001.03.ch.02'] and not self.bank_account_id.bank_bic:
-                raise UserError(_("Bank account %s 's bank does not have any BIC number associated. Please define one.") % self.bank_account_id.sanitized_acc_number)
-            if self.bank_account_id.bank_bic:
+            bank_account = self.bank_account_id
+            bic_code = self._get_cleaned_bic_code(bank_account)
+            if pain_version in ['pain.001.001.03.se', 'pain.001.001.03.ch.02'] and not bic_code:
+                raise UserError(_("Bank account %s 's bank does not have any BIC number associated. Please define one.") % bank_account.sanitized_acc_number)
+            if bic_code:
                 BIC = etree.SubElement(FinInstnId, "BIC")
-                BIC.text = self.bank_account_id.bank_bic.replace(' ', '').upper()
+                BIC.text = bic_code
             else:
                 Othr = etree.SubElement(FinInstnId, "Othr")
                 Id = etree.SubElement(Othr, "Id")
@@ -173,9 +176,7 @@ class AccountJournal(models.Model):
     def _get_document(self, pain_version):
         if pain_version == 'pain.001.001.03.ch.02':
             Document = self._create_pain_001_001_03_ch_document()
-        elif pain_version == 'pain.001.003.03':
-            Document = self._create_pain_001_003_03_document()
-        else:
+        else: #The German version will also use the create_pain_001_001_03_document since the version 001.003.03 is deprecated
             Document = self._create_pain_001_001_03_document()
 
         return Document
@@ -200,7 +201,8 @@ class AccountJournal(models.Model):
         return Document
 
     def _create_pain_001_003_03_document(self):
-        """ Create a sepa credit transfer file that follows the german specific guidelines, as established
+        """ This funtion is now deprecated since pain.001.003.03 cannot be used anymore.
+            Create a sepa credit transfer file that follows the German specific guidelines, as established
             by the German Bank Association (Deutsche Kreditwirtschaft) (pain.001.003.03)
 
             :param doc_payments: recordset of account.payment to be exported in the XML document returned
@@ -267,7 +269,7 @@ class AccountJournal(models.Model):
     def _get_PmtTpInf(self, sct_generic=False, local_instrument=None):
         PmtTpInf = etree.Element("PmtTpInf")
 
-        if not sct_generic:
+        if not sct_generic and self.sepa_pain_version != 'pain.001.001.03.ch.02':
             SvcLvl = etree.SubElement(PmtTpInf, "SvcLvl")
             Cd = etree.SubElement(SvcLvl, "Cd")
             Cd.text = 'SEPA'
@@ -321,10 +323,11 @@ class AccountJournal(models.Model):
     def _get_CdtTrfTxInf(self, PmtInfId, payment, sct_generic, pain_version, local_instrument=None):
         CdtTrfTxInf = etree.Element("CdtTrfTxInf")
         PmtId = etree.SubElement(CdtTrfTxInf, "PmtId")
-        InstrId = etree.SubElement(PmtId, "InstrId")
-        InstrId.text = sanitize_communication(payment['name'][:35])
+        if payment['name']:
+            InstrId = etree.SubElement(PmtId, "InstrId")
+            InstrId.text = sanitize_communication(payment['name'][:35])
         EndToEndId = etree.SubElement(PmtId, "EndToEndId")
-        EndToEndId.text = (PmtInfId.text + str(payment['id']))[-30:]
+        EndToEndId.text = (PmtInfId.text + str(payment['id']))[-30:].strip()
         Amt = etree.SubElement(CdtTrfTxInf, "Amt")
 
         currency_id = self.env['res.currency'].search([('id', '=', payment['currency_id'])], limit=1)
@@ -336,7 +339,7 @@ class AccountJournal(models.Model):
             raise ValidationError(_(
                 "The amount of the payment '%(payment)s' is too high. The maximum permitted is %(limit)s.",
                 payment=payment['name'],
-                limit=str(9) * (max_digits - 3) + ".99",
+                limit=str(9) * (max_digits - 2) + ".99",
             ))
         InstdAmt = etree.SubElement(Amt, "InstdAmt", Ccy=val_Ccy)
         InstdAmt.text = val_InstdAmt
@@ -357,7 +360,7 @@ class AccountJournal(models.Model):
         Nm = etree.SubElement(Cdtr, "Nm")
         Nm.text = sanitize_communication((
             partner_bank.acc_holder_name or partner.name or partner.commercial_partner_id.name or '/'
-        )[:70])
+        )[:70]).strip() or '/'
         if partner.country_id.code and (partner.city or pain_version == "pain.001.001.03.se"):  # For Sweden, country is enough
             Cdtr.append(self._get_PstlAdr(partner))
 
@@ -376,9 +379,10 @@ class AccountJournal(models.Model):
     def _get_CdtrAgt(self, bank_account, sct_generic, pain_version):
         CdtrAgt = etree.Element("CdtrAgt")
         FinInstnId = etree.SubElement(CdtrAgt, "FinInstnId")
-        if bank_account.bank_bic:
+        bic_code = self._get_cleaned_bic_code(bank_account)
+        if bic_code:
             BIC = etree.SubElement(FinInstnId, "BIC")
-            BIC.text = bank_account.bank_bic.replace(' ', '').upper()
+            BIC.text = bic_code
         else:
             if pain_version in ['pain.001.001.03.austrian.004', 'pain.001.001.03.ch.02']:
                 # Othr and NOTPROVIDED are not supported in CdtrAgt by those flavours
@@ -457,7 +461,7 @@ class AccountJournal(models.Model):
         iban = partner_bank.sanitized_acc_number
         if (
             partner_bank.acc_type != 'iban'
-            or (partner_bank.sanitized_acc_number or '')[:2] != 'CH'
+            or (partner_bank.sanitized_acc_number or '')[:2] not in ('CH', 'LI')
             or partner_bank.company_id.id not in (False, company.id)
             or len(iban) < 9
         ):
@@ -481,3 +485,22 @@ class AccountJournal(models.Model):
         ):
             return 'CH01'
         return None
+
+    def _get_cleaned_bic_code(self, bank_account):
+        """ Checks if the BIC code is matching the pattern from the XSD to avoid
+            having files generated here that are refused by banks after.
+            It also returns a cleaned version of the BIC as a convenient use.
+        """
+        if not bank_account.bank_bic:
+            return
+        if not re.match('[A-Z]{6,6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3,3}){0,1}', bank_account.bank_bic):
+            raise UserError(_("The BIC code '%s' associated to the bank '%s' of bank account '%s' "
+                              "of partner '%s' does not respect the required convention.\n"
+                              "It must contain 8 or 11 characters and match the following structure:\n"
+                              "- 4 letters: institution code or bank code\n"
+                              "- 2 letters: country code\n"
+                              "- 2 letters or digits: location code\n"
+                              "- 3 letters or digits: branch code, optional\n",
+                              bank_account.bank_bic, bank_account.bank_id.name,
+                              bank_account.sanitized_acc_number, bank_account.partner_id.name))
+        return bank_account.bank_bic.replace(' ', '').upper()

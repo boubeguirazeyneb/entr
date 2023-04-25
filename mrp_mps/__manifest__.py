@@ -7,7 +7,7 @@
     'category': 'Manufacturing/Manufacturing',
     'sequence': 50,
     'summary': 'Master Production Schedule',
-    'depends': ['mrp', 'purchase_stock'],
+    'depends': ['base_import', 'mrp', 'purchase_stock'],
     'description': """
 Master Production Schedule
 ==========================
@@ -28,6 +28,7 @@ procure.
         'security/mrp_mps_security.xml',
         'views/mrp_mps_views.xml',
         'views/mrp_mps_menu_views.xml',
+        'views/mrp_bom_views.xml',
         'views/product_product_views.xml',
         'views/product_template_views.xml',
         'views/res_config_settings_views.xml',
@@ -36,15 +37,10 @@ procure.
     'demo': [
         'data/mps_demo.xml',
     ],
-    'application': False,
     'license': 'OEEL-1',
     'assets': {
         'web.assets_backend': [
-            'mrp_mps/static/src/js/client_action.js',
-            'mrp_mps/static/src/scss/client_action.scss',
-        ],
-        'web.assets_qweb': [
-            'mrp_mps/static/src/xml/**/*',
+            'mrp_mps/static/src/**/*',
         ],
     }
 }

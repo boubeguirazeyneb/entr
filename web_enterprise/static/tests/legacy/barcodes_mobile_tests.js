@@ -1,14 +1,13 @@
 odoo.define('web_mobile.barcode.tests', function (require) {
     "use strict";
 
-    const ajax = require('web.ajax');
     const fieldRegistry = require('web.field_registry');
     const FormView = require('web.FormView');
     const { FieldMany2One } = require('web.relational_fields');
     const { createView, dom, mock } = require('web.test_utils');
 
     const FieldMany2OneBarcode = require('web_mobile.barcode_fields');
-    const BarcodeScanner = require('@web_enterprise/webclient/barcode/barcode_scanner');
+    const BarcodeScanner = require('@web/webclient/barcode/barcode_scanner');
 
     const NAME_SEARCH = "name_search";
     const PRODUCT_PRODUCT = 'product.product';
@@ -96,7 +95,7 @@ odoo.define('web_mobile.barcode.tests', function (require) {
                 mockRPC,
             });
 
-            const $scanButton = form.$('.o_barcode_mobile');
+            const $scanButton = form.$('.o_barcode');
 
             assert.equal($scanButton.length, 1, "has scanner button");
 
@@ -135,9 +134,7 @@ odoo.define('web_mobile.barcode.tests', function (require) {
                 mockRPC,
             });
 
-            await ajax.loadJS('/web/static/lib/jquery.touchSwipe/jquery.touchSwipe.js');
-
-            const $scanButton = form.$('.o_barcode_mobile');
+            const $scanButton = form.$('.o_barcode');
 
             assert.equal($scanButton.length, 1, "has scanner button");
 
@@ -146,10 +143,10 @@ odoo.define('web_mobile.barcode.tests', function (require) {
             const $modal = $('.o_modal_full .modal-lg');
             assert.equal($modal.length, 1, 'there should be one modal opened in full screen');
 
-            assert.equal($modal.find('.o_kanban_view .o_kanban_record:not(.o_kanban_ghost)').length, 2,
+            assert.equal($modal.find('.o_legacy_kanban_view .o_kanban_record:not(.o_kanban_ghost)').length, 2,
                 'there should be 2 records displayed');
 
-            await dom.click($modal.find('.o_kanban_view .o_kanban_record:first'));
+            await dom.click($modal.find('.o_legacy_kanban_view .o_kanban_record:first'));
 
             const selectedId = form.renderer.state.data[PRODUCT_FIELD_NAME].res_id;
             assert.equal(selectedId, this.data[PRODUCT_PRODUCT].records[1].id,

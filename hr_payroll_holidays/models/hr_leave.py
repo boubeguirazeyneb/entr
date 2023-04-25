@@ -3,12 +3,12 @@
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import calendar
 
 from odoo import api, fields, models, _
 from odoo.fields import Datetime
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools.float_utils import float_compare
-
 
 class HrLeave(models.Model):
     _inherit = 'hr.leave'
@@ -35,7 +35,8 @@ class HrLeave(models.Model):
             if any(
                 p.employee_id == leave.employee_id and
                 p.date_from <= leave.date_to.date() and
-                p.date_to >= leave.date_from.date()
+                p.date_to >= leave.date_from.date() and
+                p.is_regular
                 for p in all_payslips
             ):
                 raise ValidationError(_("The selected period is covered by a validated payslip. You can't create a time off for that period."))
@@ -59,12 +60,17 @@ class HrLeave(models.Model):
                 and payslip.date_to >= leave.date_from.date()) for payslip in waiting_payslips):
                 leave.payslip_state = 'blocked'
         res = super().action_validate()
-        self._recompute_payslips()
+        self.sudo()._recompute_payslips()
         return res
 
     def action_refuse(self):
         res = super().action_refuse()
-        self._recompute_payslips()
+        self.sudo()._recompute_payslips()
+        return res
+
+    def _action_user_cancel(self, reason):
+        res = super()._action_user_cancel(reason)
+        self.sudo()._recompute_payslips()
         return res
 
     def _recompute_payslips(self):
@@ -93,8 +99,9 @@ class HrLeave(models.Model):
             leave.activity_schedule(
                 'hr_payroll_holidays.mail_activity_data_hr_leave_to_defer',
                 summary=_('Validated Time Off to Defer'),
-                note=_('Please create manually the work entry for <a href="#" data-oe-model="%s" data-oe-id="%s">%s</a>') % (
-                    leave.employee_id._name, leave.employee_id.id, leave.employee_id.display_name),
+                note=_(
+                    'Please create manually the work entry for %s',
+                    leave.employee_id._get_html_link()),
                 user_id=leave.employee_id.company_id.deferred_time_off_manager.id or self.env.ref('base.user_admin').id)
         return super(HrLeave, self - leaves_to_defer)._cancel_work_entry_conflict()
 
@@ -109,13 +116,14 @@ class HrLeave(models.Model):
                 raise UserError(_('Only an employee time off to defer can be reported to next month'))
             if (leave.date_to.year - leave.date_from.year) * 12 + leave.date_to.month - leave.date_from.month > 1:
                 raise UserError(_('The time off %s can not be reported because it is defined over more than 2 months', leave.display_name))
-            max_date_to = min(leave.date_to, leave.date_from + relativedelta(months=1, day=1, days=-1))
-            work_entries_date_to = datetime.combine(Datetime.to_datetime(max_date_to), datetime.max.time())
+            last_day = calendar.monthrange(leave.date_from.year, leave.date_from.month)[1]
+            last_day_of_first_month = leave.date_to.replace(month=leave.date_from.month, day=last_day)
+            date_to = min(last_day_of_first_month, leave.date_to)
             leave_work_entries = self.env['hr.work.entry'].search([
                 ('employee_id', '=', leave.employee_id.id),
                 ('company_id', '=', self.env.company.id),
-                ('date_start', '>=', Datetime.to_datetime(leave.date_from)),
-                ('date_stop', '<=', work_entries_date_to)
+                ('date_start', '>=', leave.date_from),
+                ('date_stop', '<=', date_to),
             ])
             next_month_work_entries = self.env['hr.work.entry'].search([
                 ('employee_id', '=', leave.employee_id.id),
@@ -138,6 +146,6 @@ class HrLeave(models.Model):
                         found = True
                         break
                 if not found:
-                    raise UserError(_('Not enough attendance work entries to report the time off %s. Plase make the operation manually', leave.display_name))
+                    raise UserError(_('Not enough attendance work entries to report the time off %s. Please make the operation manually', leave.display_name))
         # Should change payslip_state to 'done' at the same time
         self.activity_feedback(['hr_payroll_holidays.mail_activity_data_hr_leave_to_defer'])

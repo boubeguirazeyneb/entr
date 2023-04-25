@@ -41,6 +41,7 @@ Budgets
         <field name="model">account.budget.post</field>
         <field name="arch" type="xml">
             <form string="Budgetary Position">
+            <field name="company_id" invisible="1"/>
             <sheet>
                 <group col="4">
                     <field name="name"/>
@@ -77,11 +78,12 @@ Budgets
                     <button string="Cancel Budget" name="action_budget_cancel" states="confirm,validate" type="object"/>
                     <field name="state" widget="statusbar" />
                 </header>
+                <field name="company_id" invisible="1"/>
                 <sheet string="Budget">
                     <div class="oe_title">
                         <label for="name"/>
                         <h1>
-                            <field name="name" attrs="{'readonly':[('state','!=','draft')]}" placeholder="e.g. Budget 2021: Optimistic"/>
+                            <field name="name" attrs="{'readonly':[('state','!=','draft')]}" placeholder="e.g. Budget 2023: Optimistic"/>
                         </h1>
                     </div>
                     <group>
@@ -92,8 +94,9 @@ Budgets
                             <label for="date_from" string="Period"/>
                             <div>
                                 <div name="date_edit_only" class="o_row oe_edit_only">
-                                    <span>From <field name="date_from" class='oe_inline' attrs="{'readonly':[('state','!=','draft')]}"/></span>
-                                    <span>To <field name="date_to" class='oe_inline' attrs="{'readonly':[('state','!=','draft')]}"/></span>
+                                    <field name="date_from" class='oe_inline' attrs="{'readonly':[('state','!=','draft')]}"/>
+                                    <i class="fa fa-long-arrow-right mx-2" aria-label="Arrow icon" title="Arrow"/>
+                                    <field name="date_to" class='oe_inline' attrs="{'readonly':[('state','!=','draft')]}"/>
                                 </div>
                                 <div name="date_read_only" class="o_row oe_read_only">
                                     <span attrs="{'invisible': [('date_from', '=', False)]}">From <field name="date_from" class='oe_inline'/></span>
@@ -195,7 +198,7 @@ Budgets
                                     </strong>
                                 </div>
                                 <div class="col-4">
-                                    <span class="float-right">
+                                    <span class="float-end">
                                         <field name="state" widget="label_selection"
                                                options="{'classes': {'draft': 'default', 'done': 'success'}}"/>
                                     </span>
@@ -208,7 +211,7 @@ Budgets
                                     <t t-esc="record.date_to.value"/>
                                 </div>
                                 <div class="col-2">
-                                    <span class="float-right">
+                                    <span class="float-end">
                                         <field name="user_id" widget="many2one_avatar_user"/>
                                     </span>
                                 </div>
@@ -269,7 +272,7 @@ Budgets
         <field name="model">crossovered.budget.lines</field>
         <field name="arch" type="xml">
             <search string="Budget Lines">
-                <field name="analytic_account_id"/>
+                <field name="analytic_account_id" groups="analytic.group_analytic_accounting"/>
                 <field name="crossovered_budget_id"/>
                 <filter name="filter_not_cancelled" string="Not Cancelled" domain="[('crossovered_budget_state','!=','cancel')]"/>
                 <separator/>
@@ -309,10 +312,11 @@ Budgets
             <form string="Budget Lines">
                 <sheet>
                     <group col="4">
+                        <field name="company_id" invisible="1"/>
                         <field name="currency_id" invisible="1"/>
                         <field name="crossovered_budget_state" invisible="1"/>
                         <field name="crossovered_budget_id"  attrs="{'readonly':[('crossovered_budget_state','!=','draft')]}"/>
-                        <field name="analytic_account_id" domain="['|', ('company_id', '=', company_id), ('company_id', '=', False)]" attrs="{'readonly':[('crossovered_budget_state','!=','draft')]}"/>
+                        <field name="analytic_account_id" domain="['|', ('company_id', '=', company_id), ('company_id', '=', False)]" attrs="{'readonly':[('crossovered_budget_state','!=','draft')]}" groups="analytic.group_analytic_accounting"/>
                         <field name="general_budget_id"  attrs="{'readonly':[('crossovered_budget_state','!=','draft')]}"/>
                         <field name="date_from"  attrs="{'readonly':[('crossovered_budget_state','!=','draft')]}"/>
                         <field name="date_to"  attrs="{'readonly':[('crossovered_budget_state','!=','draft')]}"/>

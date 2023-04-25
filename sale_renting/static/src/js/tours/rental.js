@@ -25,20 +25,20 @@ tour.register('rental_tour', {
     content: _t("Click here to set up your first rental product."),
     position: 'bottom',
 }, {
-    trigger: "input[name='name']",
+    trigger: ".o_field_widget[name='name'] input",
     content: _t("Enter the product name."),
     position: 'bottom',
-}, {
-    trigger: ".nav-item a.nav-link:contains(Rental)",
-    content: _t("The rental configuration is available here."),
-    position: 'top',
 }, {
     trigger: '.o_form_button_save',
     content: _t("Save the product."),
     position: 'bottom',
 }, {
+    trigger: ".nav-item a.nav-link:contains(Time-based pricing)",
+    content: _t("The rental configuration is available here."),
+    position: 'top',
+}, {
     trigger: 'button[data-menu-xmlid="sale_renting.rental_order_menu"]',
-    extra_trigger: '.o_form_button_edit',
+    extra_trigger: '.o_form_button_create', // wait for the new product to be saved
     content: _t("Let's now create an order."),
     position: 'bottom',
 }, {
@@ -50,17 +50,17 @@ tour.register('rental_tour', {
     content: _t("Click here to create a new quotation."),
     position: 'bottom',
 }, {
-    trigger: ".o_field_many2one[name=partner_id] input",
+    trigger: ".o_field_widget[name=partner_id] input",
     content: _t("Create or select a customer here."),
     position: 'bottom',
     run: 'text Agrolait',
 }, {
-    trigger: '.ui-menu-item > a',
+    trigger: '.o_field_widget[name=partner_id] .ui-menu-item > a:contains(Agrolait)',
     auto: true,
     in_modal: false,
 }, {
     trigger: "a:contains('Add a product')",
-    extra_trigger: ".o_field_many2one[name='partner_id'] .o_external_button",
+    extra_trigger: ".o_field_widget[name='partner_id'] .o_external_button",
     content: _t("Click here to start filling the quotation."),
     position: 'bottom',
 }, {
@@ -82,7 +82,7 @@ tour.register('rental_tour', {
     position: 'bottom',
 }, {
     trigger: 'button[name=action_confirm]',
-    extra_trigger: '.o_form_button_edit',
+    extra_trigger: '.o_form_button_create', // wait for the new order to be saved
     content: _t("Confirm the order when the customer agrees with the terms."),
     position: 'bottom',
 }, {
@@ -103,8 +103,10 @@ tour.register('rental_tour', {
     trigger: "button[name='apply']",
     content: _t("Confirm the returned quantities and hit Validate."),
     position: 'bottom',
+}, {
+    trigger: '.text-bg-success:contains("Returned")',
+    content: _t("You're done with your fist rental. Congratulations !"),
+    run() {},
 }]);
-
-// message to do : You're done with your fist rental. Congratulations !
 
 });

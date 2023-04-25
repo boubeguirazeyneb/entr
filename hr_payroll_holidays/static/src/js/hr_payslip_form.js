@@ -1,26 +1,19 @@
-odoo.define('hr_payroll_holidays.payslip.form', function (require) {
-"use strict";
-    var core = require('web.core');
-    var FormController = require('web.FormController');
-    var FormView = require('web.FormView');
-    var viewRegistry = require('web.view_registry');
-    var WorkEntryPayrollHolidaysControllerMixin = require('hr_payroll_holidays.WorkEntryPayrollHolidaysControllerMixin');
+/** @odoo-module **/
 
-    var QWeb = core.qweb;
+import { registry } from '@web/core/registry';
+import { formView } from '@web/views/form/form_view';
+import { FormController } from "@web/views/form/form_controller";
+import { useTimeOffToDefer } from '@hr_payroll_holidays/views/hooks';
 
-    var PayslipFormController = FormController.extend(WorkEntryPayrollHolidaysControllerMixin, {
-        _displayWarning: function ($warning) {
-            this.$('.o_form_statusbar').after($warning);
-        },
-    });
+export class PayslipFormController extends FormController {
+    setup() {
+        super.setup();
+        useTimeOffToDefer('.o_form_sheet_bg', "first-child");
+    }
+}
 
-    var PayslipFormView = FormView.extend({
-        config: _.extend({}, FormView.prototype.config, {
-            Controller: PayslipFormController,
-        }),
-    });
 
-    viewRegistry.add('hr_payslip_form', PayslipFormView);
-
-    return PayslipFormController;
+registry.category('views').add('hr_payslip_form', {
+    ...formView,
+    Controller: PayslipFormController
 });

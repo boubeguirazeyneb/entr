@@ -11,7 +11,7 @@ class OSSTaxReportTest(TestAccountReportsCommon):
 
     @classmethod
     def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref)
+        super().setUpClass(chart_template_ref=chart_template_ref)
 
         cls.env.company.account_fiscal_country_id = cls.env.ref('base.be')
         cls.env.company.vat = 'BE0477472701'
@@ -51,11 +51,8 @@ class OSSTaxReportTest(TestAccountReportsCommon):
     def test_tax_report_oss(self):
         """ Test tax report's content for 'domestic' foreign VAT fiscal position option.
         """
-        report = self.env['account.generic.tax.report']
-        options = self._init_options(
-            report, fields.Date.from_string('2021-04-01'), fields.Date.from_string('2021-06-30'),
-            {'tax_report': 'generic_oss_no_import'}
-        )
+        report = self.env.ref('l10n_eu_oss_reports.oss_sales_report')
+        options = self._generate_options(report, fields.Date.from_string('2021-04-01'), fields.Date.from_string('2021-06-30'))
 
         self.assertLinesValues(
             # pylint: disable=C0326
@@ -63,20 +60,20 @@ class OSSTaxReportTest(TestAccountReportsCommon):
             #   Name                        Net               Tax
             [   0,                            1,                2],
             [
-                ("Sales",                    '',              370),
+                ("Sales",                    '',              360),
                 ("France",                   '',              200),
                 ("20.0% FR VAT (20.0%)",   1000,              200),
-                ("Luxembourg",               '',              170),
-                ("17.0% LU VAT (17.0%)",   1000,              170),
+                ("Total France",             '',              200),
+                ("Luxembourg",               '',              160),
+                ("16.0% LU VAT (16.0%)",   1000,              160),
+                ("Total Luxembourg",         '',              160),
+                ("Total Sales",              '',              360),
             ],
         )
 
     def test_generate_oss_xml_be(self):
-        report = self.env['account.generic.tax.report']
-        options = self._init_options(
-            report, fields.Date.from_string('2021-04-01'), fields.Date.from_string('2021-06-30'),
-            {'tax_report': 'generic_oss_no_import'}
-        )
+        report = self.env.ref('l10n_eu_oss_reports.oss_sales_report')
+        options = self._generate_options(report, fields.Date.from_string('2021-04-01'), fields.Date.from_string('2021-06-30'))
 
         expected_xml = """
             <ns0:OSSConsignment
@@ -99,12 +96,10 @@ class OSSTaxReportTest(TestAccountReportsCommon):
                     <ns2:FixedEstablishment>
                         <ns2:VATIdentificationNumber issuedBy="BE">0477472701</ns2:VATIdentificationNumber>
                     </ns2:FixedEstablishment>
-                    <ns2:VatRateType>20.0</ns2:VatRateType>
+                    <ns2:VatRateType type="STANDARD">20.00</ns2:VatRateType>
                     <ns2:VatAmount currency="USD">200.0</ns2:VatAmount>
                     <ns2:TaxableAmount currency="USD">1000.0</ns2:TaxableAmount>
                   </ns2:OSSDeclarationRows>
-                  <ns2:CorrectionsInfo>
-                  </ns2:CorrectionsInfo>
                 </ns0:OSSDeclarationInfo>
                 <ns0:OSSDeclarationInfo SequenceNumber="2">
                   <ns2:MemberStateOfConsumption>LU</ns2:MemberStateOfConsumption>
@@ -113,22 +108,19 @@ class OSSTaxReportTest(TestAccountReportsCommon):
                     <ns2:FixedEstablishment>
                         <ns2:VATIdentificationNumber issuedBy="BE">0477472701</ns2:VATIdentificationNumber>
                     </ns2:FixedEstablishment>
-                    <ns2:VatRateType>17.0</ns2:VatRateType>
-                    <ns2:VatAmount currency="USD">170.0</ns2:VatAmount>
+                    <ns2:VatRateType type="REDUCED">16.00</ns2:VatRateType>
+                    <ns2:VatAmount currency="USD">160.0</ns2:VatAmount>
                     <ns2:TaxableAmount currency="USD">1000.0</ns2:TaxableAmount>
                   </ns2:OSSDeclarationRows>
-                  <ns2:CorrectionsInfo>
-                  </ns2:CorrectionsInfo>
                 </ns0:OSSDeclarationInfo>
               </ns0:OSSDeclaration>
             </ns0:OSSConsignment>
         """
 
         self.assertXmlTreeEqual(
-            self.get_xml_tree_from_string(report.get_xml(options)),
+            self.get_xml_tree_from_string(self.env[report.custom_handler_model_name].export_to_xml(options)['file_content']),
             self.get_xml_tree_from_string(expected_xml)
         )
-
 
 @tagged('post_install_l10n', 'post_install', '-at_install')
 class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
@@ -139,12 +131,14 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
         cls.company_data['company'].account_fiscal_country_id = cls.env.ref('base.be')
         cls.company_data['company'].vat = 'BE0477472701'
 
-        cls.tax_report = cls.env['account.tax.report'].create({
+        cls.tax_report = cls.env['account.report'].create({
             'name': 'Fictive tax report',
             'country_id': cls.company_data['company'].account_fiscal_country_id.id,
+            'root_report_id': cls.env.ref("account.generic_tax_report").id,
+            'column_ids': [Command.create({'name': 'balance', 'sequence': 1, 'expression_label': 'balance',})],
         })
         report_line_invoice_base_line = cls._create_tax_report_line('Invoice base', cls.tax_report, sequence=1, tag_name='invoice_base_line')
-        report_line_refund_base_line = cls._create_tax_report_line('Refund base', cls.tax_report, sequence=1, tag_name='refund_base_line')
+        report_line_refund_base_line = cls._create_tax_report_line('Refund base', cls.tax_report, sequence=2, tag_name='refund_base_line')
 
         # Create an OSS tax from scratch
         oss_tag = cls.env.ref('l10n_eu_oss.tag_oss')
@@ -154,24 +148,20 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
             'country_id': cls.company_data['company'].account_fiscal_country_id.id,
             'invoice_repartition_line_ids': [
                 Command.create({
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'tag_ids': [Command.set(report_line_invoice_base_line.tag_ids.filtered(lambda x: not x.tax_negate).ids + oss_tag.ids)],
+                    'tag_ids': [Command.set(report_line_invoice_base_line.expression_ids._get_matching_tags("+").ids + oss_tag.ids)],
                 }),
                 Command.create({
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'tag_ids': [Command.set(oss_tag.ids)],
                 }),
             ],
             'refund_repartition_line_ids': [
                 Command.create({
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'tag_ids': [Command.set(report_line_refund_base_line.tag_ids.filtered(lambda x: not x.tax_negate).ids + oss_tag.ids)],
+                    'tag_ids': [Command.set(report_line_refund_base_line.expression_ids._get_matching_tags("+").ids + oss_tag.ids)],
                 }),
                 Command.create({
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'tag_ids': [Command.set(oss_tag.ids)],
                 }),
@@ -199,13 +189,12 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
             taxes=[self.oss_tax],
             post=True,
         )
-        options = self._init_options(
-            self.env['account.generic.tax.report'],
+        options = self._generate_options(
+            self.tax_report,
             fields.Date.from_string('2022-02-01'),
             fields.Date.from_string('2022-02-28'),
-            default_options={'tax_report': self.tax_report.id}
         )
-        report_results = self.env['account.generic.tax.report']._get_lines(options)
+        report_results = self.tax_report._get_lines(options)
 
         self.assertLinesValues(
             # pylint: disable=C0326
@@ -214,7 +203,7 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
             [   0,                    1],
             [
                 ('Invoice base', 100.00),
-                ('Refund base',    0.00),
+                ('Refund base',      ''),
             ],
         )
 
@@ -228,16 +217,12 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
             taxes=[self.oss_tax],
             post=True,
         )
-        options = self._init_options(
-            self.env['account.generic.tax.report'],
+        options = self._generate_options(
+            self.tax_report,
             fields.Date.from_string('2022-02-01'),
             fields.Date.from_string('2022-02-28'),
-            default_options={'tax_report': self.tax_report.id}
         )
-        tax_closing_entry_lines = self.env['account.generic.tax.report']\
-            ._generate_tax_closing_entries(options)\
-            .line_ids\
-            .filtered(lambda l: l.balance != 0.0)
+        tax_closing_entry_lines = self.env['account.generic.tax.report.handler']._generate_tax_closing_entries(self.tax_report, options).line_ids.filtered(lambda l: l.balance != 0.0)
 
         self.assertEqual(len(tax_closing_entry_lines), 0, "The tax closing entry shouldn't take amls wearing the OSS tag into account")
 
@@ -251,14 +236,8 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
             taxes=[self.oss_tax],
             post=True,
         )
-        report = self.env['account.generic.tax.report']
-        options = self._init_options(
-            self.env['account.generic.tax.report'],
-            fields.Date.from_string('2022-02-01'),
-            fields.Date.from_string('2022-02-28'),
-            {'tax_report': 'generic_oss_no_import'}
-        )
-
+        report = self.env.ref('l10n_eu_oss_reports.oss_sales_report')
+        options = self._generate_options(report, '2022-02-01', '2022-02-28')
         self.assertLinesValues(
             # pylint: disable=C0326
             report._get_lines(options),
@@ -268,5 +247,7 @@ class TestTaxReportOSSNoMapping(TestAccountReportsCommon):
                 ("Sales",                      '',             25.0),
                 ("Denmark",                    '',             25.0),
                 ("OSS tax for DK (25.0%)",  100.0,             25.0),
+                ("Total Denmark",              '',             25.0),
+                ("Total Sales",                '',             25.0),
             ],
         )

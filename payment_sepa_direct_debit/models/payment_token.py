@@ -11,22 +11,27 @@ class PaymentToken(models.Model):
         string="SEPA Direct Debit Mandate", comodel_name='sdd.mandate', readonly=True,
         ondelete='set null')
 
-    def _handle_reactivation_request(self):
-        """ Override of payment to raise an error informing that SEPA tokens cannot be restored.
-
-        A SEPA token might be archived for several reasons:
-          - It was archived manually by the customer.
-          - The commercial partner of the token's partner was updated, hence invalidating the token.
-          - The SDD mandate was closed or revoked, hence invalidating the token.
-        As we don't distinguish those cases, we block the reactivation of every token.
+    def _build_display_name(self, *args, max_length=34, should_pad=True, **kwargs):
+        """ Override of `payment` to return the full bank account number for SEPA Direct Debit.
 
         Note: self.ensure_one()
 
-        :return: None
-        :raise: UserError if the token is managed by SEPA
+        :param list args: The arguments passed by QWeb when calling this method.
+        :param int max_length: The desired maximum length of the token name.
+        :param bool should_pad: Whether the token should be padded or not.
+        :param dict kwargs: Optional data.
+        :return: The IBAN of the token.
+        :rtype: str
         """
-        super()._handle_reactivation_request()
-        if self.provider != 'sepa_direct_debit':
-            return
+        payment_details = super()._build_display_name(
+            *args, max_length=max_length, should_pad=should_pad, **kwargs
+        )
+        if self.provider_code != 'sepa_direct_debit':
+            return payment_details
 
-        raise UserError(_("Saved payment methods cannot be restored once they have been archived."))
+        if len(self.payment_details) <= max_length:
+            return super()._build_display_name(
+                *args, max_length=max_length, should_pad=False, **kwargs
+            )
+        else:  # Not enough room for the full IBAN.
+            return f"{self.payment_details[:2]}*{self.payment_details[-4:]}"

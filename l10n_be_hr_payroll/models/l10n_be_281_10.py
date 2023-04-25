@@ -2,10 +2,8 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
-import io
 import logging
 import re
-import zipfile
 
 from collections import defaultdict
 from datetime import date
@@ -21,18 +19,38 @@ _logger = logging.getLogger(__name__)
 # - "Avis aux débiteurs" https://finances.belgium.be/fr/entreprises/personnel_et_remuneration/avis_aux_debiteurs#q2
 
 COUNTRY_CODES = {
-    'BE': '00150',
-    'ES': '00109',
-    'FR': '00111',
-    'GR': '00112',
-    'LU': '00113',
-    'DE': '00103',
-    'RO': '00124',
-    'IT': '00128',
-    'NL': '00129',
-    'TR': '00262',
-    'US': '00402',
-    'MA': '00354',
+    'AD': '00102', 'AE': '00260', 'AF': '00251', 'AG': '00403', 'AI': '00490', 'AL': '00101', 'AM': '00249',
+    'AO': '00341', 'AR': '00511', 'AS': '00690', 'AT': '00105', 'AU': '00611', 'AZ': '00250', 'BA': '00149',
+    'BB': '00423', 'BD': '00237', 'BE': '00000', 'BF': '00308', 'BG': '00106', 'BH': '00268', 'BI': '00303',
+    'BJ': '00310', 'BM': '00485', 'BN': '00224', 'BO': '00512', 'BR': '00513', 'BS': '00425', 'BT': '00223',
+    'BW': '00302', 'BY': '00142', 'BZ': '00430', 'CA': '00401', 'CD': '00306', 'CF': '00305', 'CG': '00307',
+    'CH': '00127', 'CI': '00309', 'CK': '00687', 'CL': '00514', 'CM': '00304', 'CN': '00218', 'CO': '00515',
+    'CR': '00411', 'CU': '00412', 'CV': '00339', 'CY': '00107', 'CZ': '00140', 'DE': '00103', 'DJ': '00345',
+    'DK': '00108', 'DM': '00480', 'DO': '00427', 'DZ': '00351', 'EC': '00516', 'EE': '00136', 'EG': '00352',
+    'EH': '00388', 'ER': '00349', 'ES': '00109', 'ET': '00311', 'FI': '00110', 'FJ': '00617', 'FK': '00580',
+    'FM': '00602', 'FR': '00111', 'GA': '00312', 'GB': '00112', 'GD': '00426', 'GE': '00253', 'GF': '00581',
+    'GH': '00314', 'GI': '00180', 'GL': '00498', 'GM': '00313', 'GN': '00315', 'GP': '00496', 'GQ': '00337',
+    'GR': '00114', 'GT': '00413', 'GU': '00681', 'GW': '00338', 'GY': '00521', 'HK': '00234', 'HN': '00414',
+    'HR': '00146', 'HT': '00419', 'HU': '00115', 'ID': '00208', 'IE': '00116', 'IL': '00256', 'IN': '00207',
+    'IQ': '00254', 'IR': '00255', 'IS': '00117', 'IT': '00128', 'JM': '00415', 'JO': '00257', 'JP': '00209',
+    'KE': '00336', 'KG': '00226', 'KH': '00216', 'KI': '00622', 'KM': '00343', 'KN': '00431', 'KP': '00219',
+    'KR': '00206', 'KW': '00264', 'KY': '00492', 'KZ': '00225', 'LA': '00210', 'LB': '00258', 'LC': '00428',
+    'LI': '00118', 'LK': '00203', 'LR': '00318', 'LS': '00301', 'LT': '00137', 'LU': '00113', 'LV': '00135',
+    'LY': '00353', 'MA': '00354', 'MC': '00120', 'MD': '00144', 'ME': '00151', 'MG': '00324', 'MH': '00603',
+    'MK': '00148', 'ML': '00319', 'MM': '00201', 'MN': '00221', 'MO': '00281', 'MQ': '00497', 'MR': '00355',
+    'MS': '00493', 'MT': '00119', 'MU': '00317', 'MV': '00222', 'MW': '00358', 'MX': '00416', 'MY': '00212',
+    'MZ': '00340', 'NA': '00384', 'NC': '00683', 'NE': '00321', 'NG': '00322', 'NI': '00417', 'NL': '00129',
+    'NO': '00121', 'NP': '00213', 'NR': '00615', 'NU': '00604', 'NZ': '00613', 'OM': '00266', 'PA': '00418',
+    'PE': '00518', 'PF': '00684', 'PG': '00619', 'PH': '00214', 'PK': '00259', 'PL': '00122', 'PM': '00495',
+    'PN': '00692', 'PR': '00487', 'PS': '00271', 'PT': '00123', 'PW': '00679', 'PY': '00517', 'QA': '00267',
+    'RE': '00387', 'RO': '00124', 'RS': '00152', 'RU': '00145', 'RW': '00327', 'SA': '00252', 'SB': '00623',
+    'SC': '00342', 'SD': '00356', 'SE': '00126', 'SG': '00205', 'SH': '00389', 'SI': '00147', 'SK': '00141',
+    'SL': '00328', 'SM': '00125', 'SN': '00320', 'SO': '00329', 'SR': '00522', 'SS': '00365', 'SV': '00421',
+    'SY': '00261', 'SZ': '00347', 'TC': '00488', 'TD': '00333', 'TG': '00334', 'TH': '00235', 'TJ': '00228',
+    'TL': '00282', 'TM': '00229', 'TN': '00357', 'TO': '00616', 'TR': '00262', 'TT': '00422', 'TV': '00621',
+    'TW': '00204', 'TZ': '00332', 'UA': '00143', 'UG': '00323', 'US': '00402', 'UY': '00519', 'UZ': '00227',
+    'VA': '00133', 'VC': '00429', 'VE': '00520', 'VG': '00479', 'VI': '00478', 'VN': '00220', 'VU': '00624',
+    'WF': '00689', 'WS': '00614', 'XK': '00153', 'YE': '00270', 'ZA': '00325', 'ZM': '00335', 'ZW': '00344'
 }
 
 
@@ -66,24 +84,23 @@ class L10nBe28110(models.Model):
         ('2', 'Add'),
         ('3', 'Cancel'),
         ], string="Treatment Type", default='0', required=True)
-    pdf_file = fields.Binary('PDF File', readonly=True, attachment=False)
     xml_file = fields.Binary('XML File', readonly=True, attachment=False)
-    pdf_filename = fields.Char()
     xml_filename = fields.Char()
-    documents_enabled = fields.Boolean(compute='_compute_documents_enabled')
     xml_validation_state = fields.Selection([
         ('normal', 'N/A'),
         ('done', 'Valid'),
         ('invalid', 'Invalid'),
     ], default='normal', compute='_compute_validation_state', store=True)
     error_message = fields.Char('Error Message', compute='_compute_validation_state', store=True)
+    line_ids = fields.One2many(
+        'l10n_be.281_10.line', 'sheet_id', compute='_compute_line_ids', store=True, readonly=False)
 
     @api.depends('xml_file')
     def _compute_validation_state(self):
         xsd_schema_file_path = get_resource_path(
             'l10n_be_hr_payroll',
             'data',
-            '161-xsd-2021-20220120.xsd',
+            '161-xsd-2022-20221213.xsd',
         )
         xsd_root = etree.parse(xsd_schema_file_path)
         schema = etree.XMLSchema(xsd_root)
@@ -118,8 +135,14 @@ class L10nBe28110(models.Model):
         if invalid_employees:
             raise UserError(_("The following employees don't have a valid private address (with a street, a zip, a city and a country):\n%s", '\n'.join(invalid_employees.mapped('name'))))
 
-        if not all(emp.contract_ids and emp.contract_id for emp in employees):
-            raise UserError(_('Some employee has no contract.'))
+        invalid_employees = employees.filtered(lambda emp: not emp.contract_ids or not emp.contract_id)
+        for employee in invalid_employees:
+            history = self.env['hr.contract.history'].search([('employee_id', '=', employee.id)], limit=1)
+            contracts = history.contract_ids.filtered(lambda c: c.active and c.state in ['open', 'close'])[0]
+            employee.contract_id = contracts[0] if contracts else False
+        invalid_employees = employees.filtered(lambda emp: not emp.contract_ids or not emp.contract_id)
+        if invalid_employees:
+            raise UserError(_("Some employee don't have any contract.:\n%s", '\n'.join(invalid_employees.mapped('name'))))
 
         invalid_employees = employees.filtered(lambda e: not e._is_niss_valid())
         if invalid_employees:
@@ -156,15 +179,35 @@ class L10nBe28110(models.Model):
             result += 'K'
         return result
 
-    def _get_rendering_data(self):
+    @api.depends('reference_year', 'company_id')
+    def _compute_line_ids(self):
+        for sheet in self:
+            all_payslips = self.env['hr.payslip'].search([
+                ('date_to', '<=', date(int(sheet.reference_year), 12, 31)),
+                ('date_from', '>=', date(int(sheet.reference_year), 1, 1)),
+                ('state', 'in', ['done', 'paid']),
+                ('company_id', '=', sheet.company_id.id),
+            ])
+            all_employees = all_payslips.mapped('employee_id')
+            sheet.update({
+                'line_ids': [(5, 0, 0)] + [(0, 0, {
+                    'employee_id': employee.id,
+                }) for employee in all_employees]
+            })
+
+    def _get_rendering_data(self, employees):
         # Round to eurocent for XML file, not PDF
         no_round = self.env.context.get('no_round_281_10')
 
         def _to_eurocent(amount):
             return amount if no_round else int(amount * 100)
 
+        if not self.company_id.vat or not self.company_id.zip:
+            raise UserError(_('The VAT or the ZIP number is not specified on your company'))
         bce_number = self.company_id.vat.replace('BE', '')
 
+        if not self.company_id.phone:
+            raise UserError(_('The phone number is not specified on your company'))
         phone = self.company_id.phone.strip().replace(' ', '')
         if len(phone) > 12:
             raise UserError(_("The company phone number shouldn't exceed 12 characters"))
@@ -199,6 +242,7 @@ class L10nBe28110(models.Model):
             ('date_to', '<=', date(int(self.reference_year), 12, 31)),
             ('date_from', '>=', date(int(self.reference_year), 1, 1)),
             ('state', 'in', ['done', 'paid']),
+            ('employee_id', 'in', employees.ids)
         ])
         all_employees = all_payslips.mapped('employee_id')
         self._check_employees_configuration(all_employees)
@@ -208,10 +252,11 @@ class L10nBe28110(models.Model):
             employee_payslips[payslip.employee_id] |= payslip
 
         line_codes = [
-            'NET', 'PAY_SIMPLE', 'PPTOTAL', 'M.ONSS', 'ATN.INT', 'ATN.MOB', 'ATN.LAP', 'CAR.PRIV',
-            'ATN.CAR', 'REP.FEES', 'REP.FEES.VOLATILE', 'PUB.TRANS', 'EmpBonus.1', 'GROSS',
+            'NET', 'PAY_SIMPLE', 'PPTOTAL', 'M.ONSS', 'ATN.INT', 'ATN.MOB', 'ATN.LAP', 'CYCLE',
+            'ATN.CAR', 'REP.FEES', 'REP.FEES.VOLATILE', 'PUB.TRANS', 'CAR.PRIV', 'EmpBonus.1', 'GROSS',
+            'DOUBLE.DECEMBER.GROSS', 'DOUBLE.DECEMBER.P.P',
         ]
-        all_line_values = all_payslips._get_line_values(line_codes)
+        all_line_values = all_payslips._get_line_values(line_codes, vals_list=['total', 'quantity'])
 
         belgium = self.env.ref('base.be')
         sequence = 0
@@ -219,6 +264,7 @@ class L10nBe28110(models.Model):
         warrant_structure = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_structure_warrant')
         holiday_n_structure = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_departure_n_holidays')
         holiday_n1_structure = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_departure_n1_holidays')
+        termination_fees_structure = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_termination_fees')
 
         for employee in employee_payslips:
             is_belgium = employee.address_home_id.country_id == belgium
@@ -229,10 +275,11 @@ class L10nBe28110(models.Model):
                 code: sum(all_line_values[code][p.id]['total'] for p in payslips)
                 for code in line_codes}
 
-            total_gross = mapped_total['GROSS']
+            total_gross = mapped_total['GROSS'] + mapped_total['DOUBLE.DECEMBER.GROSS']
             warrant_gross = sum(all_line_values['GROSS'][p.id]['total'] for p in payslips if p.struct_id == warrant_structure)
             holiday_gross = sum(all_line_values['GROSS'][p.id]['total'] for p in payslips if p.struct_id in holiday_n_structure + holiday_n1_structure)
-            common_gross = total_gross - warrant_gross - holiday_gross
+            termination_gross = sum(all_line_values['GROSS'][p.id]['total'] for p in payslips if p.struct_id == termination_fees_structure)
+            common_gross = total_gross - warrant_gross - holiday_gross - termination_gross
 
             postcode = employee.address_home_id.zip.strip() if is_belgium else '0'
             if len(postcode) > 4 or not postcode.isdecimal():
@@ -244,24 +291,30 @@ class L10nBe28110(models.Model):
             if len(first_name) > 30:
                 raise UserError(_("The employee first name shouldn't exceed 30 characters for employee %s", employee.name))
 
+            first_contract_date = employee.with_context(
+                before_date=date(int(self.reference_year), 12, 31))._get_first_contract_date()
+            if not first_contract_date:
+                raise UserError(_("No first contract date found for employee %s", employee.name))
+
             # 2021: Only private car
             # from 2022: private car / company car (from May)
             max_other_transport_exemption = payslip.env['hr.rule.parameter']._get_parameter_from_code(
                 'pricate_car_taxable_threshold',
                 date=date(int(self.reference_year), 1, 1))
-            start = employee.first_contract_date
+            start = first_contract_date
             end = date(int(self.reference_year), 12, 31)
             number_of_month = (end.year - start.year) * 12 + (end.month - start.month) + 1
             number_of_month = min(12, number_of_month)
             other_transport_exemption = 0
             has_company_car = bool(round(mapped_total['ATN.CAR'], 2))
             has_private_car = bool(round(mapped_total['CAR.PRIV'], 2)) and not has_company_car
-            if self.reference_year == '2021':
-                if round(mapped_total['CAR.PRIV'], 2):
-                    other_transport_exemption = max_other_transport_exemption * number_of_month / 12.0
-            if self.reference_year != '2021':
-                if round(mapped_total['CAR.PRIV'], 2) + round(mapped_total['ATN.CAR'], 2):
-                    other_transport_exemption = max_other_transport_exemption * number_of_month / 12.0
+            if round(mapped_total['CAR.PRIV'], 2) + round(mapped_total['ATN.CAR'], 2):
+                other_transport_exemption = max_other_transport_exemption * number_of_month / 12.0
+
+            cycle_days_count = 0
+            cycle_days_amount = 0
+            # cycle_days_count = sum(all_line_values['CYCLE'][p.id]['quantity'] for p in payslips)
+            # cycle_days_amount = sum(all_line_values['CYCLE'][p.id]['total'] for p in payslips)
 
             sheet_values = {
                 'employee': employee,
@@ -281,10 +334,7 @@ class L10nBe28110(models.Model):
                 'f2029_enkelopgave325': 0,
                 'f2112_buitenlandspostnummer': employee.address_home_id.zip if not is_belgium else '0',
                 'f2114_voornamen': first_name,
-                # YTI From 2023, should be distinguished from volatile representation fees
-                # 'f10_2031_compensationwithstandards': round(mapped_total['REP.FEES'], 2),
-                'f10_2031_compensationwithstandards': 0,
-                'f10_2033_compensationwithdocuments': 0,
+                'f10_2031_associationactivity': 0,
                 'f10_2034_ex': 0,
                 'f10_2035_verantwoordingsstukken': 0,
                 'f10_2036_inwonersdeenfr': 0,
@@ -296,34 +346,32 @@ class L10nBe28110(models.Model):
                 'f10_2042_sailorcode': 0,
                 'f10_2045_code': 0,
                 # 'f10_2055_datumvanindienstt': employee.first_contract_date.strftime('%d/%m/%Y') if employee.first_contract_date.year == self.reference_year else '',
-                'f10_2055_datumvanindienstt': employee.first_contract_date.strftime('%d-%m-%Y') if employee.first_contract_date else '',
-                'f10_2056_datumvanvertrek': employee.end_notice_period.strftime('%d-%m-%Y') if employee.end_notice_period else '',
-                'f10_2058_km': employee.has_bicycle and employee.km_home_work or 0,
+                'f10_2055_datumvanindienstt': first_contract_date.strftime('%d-%m-%Y') if first_contract_date else '',
+                'f10_2056_datumvanvertrek': employee.end_notice_period.strftime('%d-%m-%Y') if employee.end_notice_period and employee.end_notice_period > first_contract_date else '',
+                'f10_2058_km': int(cycle_days_count * employee.km_home_work),
                 # f10_2059_totaalcontrole
                 'f10_2060_gewonebezoldiginge': _to_eurocent(round(common_gross, 2)),
                 'f10_2061_bedragoveruren300horeca': 0,
                 # f10_2062_totaal
                 'f10_2063_vervroegdvakantieg': _to_eurocent(round(holiday_gross, 2)),
                 'f10_2064_afzbelachterstall': 0,
-                'f10_2065_opzeggingsreclasseringsverg': 0,
+                'f10_2065_opzeggingsreclasseringsverg': _to_eurocent(round(termination_gross, 2)),
                 'f10_2066_impulsfund': 0,
                 'f10_2067_rechtvermindering66_81': 0,
                 'f10_2068_rechtvermindering57_75': 0,
                 'f10_2069_fidelitystamps': 0,
                 'f10_2070_decemberremuneration': 0,
-                'f10_2071_totalevergoeding': 0,
+                'f10_2071_totalevergoeding': _to_eurocent(round(cycle_days_amount, 2)),
                 'f10_2072_pensioentoezetting':  0,
                 'f10_2073_tipamount': 0,
-                'f10_2074_bedrijfsvoorheffing': _to_eurocent(round(mapped_total['PPTOTAL'], 2)),  # 2.074 = 2.131 + 2.133. YTI Is it ok to include PROF_TAX / should include Double holidays?
+                'f10_2074_bedrijfsvoorheffing': _to_eurocent(round(mapped_total['PPTOTAL'] - mapped_total['DOUBLE.DECEMBER.P.P'], 2)),  # 2.074 = 2.131 + 2.133. YTI Is it ok to include PROF_TAX / should include Double holidays?
                 'f10_2075_bijzonderbijdrage': _to_eurocent(round(-mapped_total['M.ONSS'], 2)),
                 'f10_2076_voordelenaardbedrag': _to_eurocent(
                     max(
                         0,
                         round(sum(mapped_total[code] for code in ['ATN.INT', 'ATN.MOB', 'ATN.LAP', 'ATN.CAR']) - other_transport_exemption, 2) if has_company_car else round(sum(mapped_total[code] for code in ['ATN.INT', 'ATN.MOB', 'ATN.LAP', 'ATN.CAR']), 2))),
                 # f10_2077_totaal
-                # YTI From 2023, should be distinguished from REP.FEES
-                # 'f10_2078_compensationamountwithoutstandards': round(mapped_total['REP.FEES.VOLATILE'], 2),
-                'f10_2078_compensationamountwithoutstandards': _to_eurocent(round(mapped_total['REP.FEES'], 2)),
+                'f10_2078_compensationamountwithoutstandards': _to_eurocent(round(mapped_total['REP.FEES.VOLATILE'], 2)),
                 'f10_2080_detacheringsvergoed': 0,
                 'f10_2081_gewonebijdragenenpremies': 0,
                 'f10_2082_bedrag': _to_eurocent(round(warrant_gross, 2)),
@@ -332,8 +380,7 @@ class L10nBe28110(models.Model):
                 'f10_2085_forfbezoldiging': 0,
                 'f10_2086_openbaargemeenschap': _to_eurocent(round(mapped_total['PUB.TRANS'], 2)),
                 'f10_2087_bedrag': 0,
-                'f10_2088_andervervoermiddel': _to_eurocent(
-                        round(mapped_total['CAR.PRIV'] - other_transport_exemption, 2) if has_private_car else round(other_transport_exemption, 2)),
+                'f10_2088_andervervoermiddel': _to_eurocent(round(mapped_total['CAR.PRIV'], 2) if has_private_car else round(other_transport_exemption, 2)),
                 'f10_2090_outborderdays': 0,
                 'f10_2092_othercode1': 0,
                 'f10_2094_othercode2': 0,
@@ -344,7 +391,7 @@ class L10nBe28110(models.Model):
                 'f10_2099_aard': self._get_atn_nature(payslips),
                 'f10_2102_kas': 0,
                 'f10_2103_kasvrijaanvullendpensioen': 0,
-                'f10_2106_percentages': '', # Note: No percentages for warrants
+                'f10_2106_percentages': '00,00' if _to_eurocent(round(warrant_gross, 2)) else '', # Note: No percentages for warrants
                 'f10_2109_fiscaalidentificat': '', # Use NISS instead
                 'f10_2110_aantaloveruren360': 0,
                 'f10_2111_achterstalloveruren300horeca': 0,
@@ -352,7 +399,7 @@ class L10nBe28110(models.Model):
                 'f10_2115_bonus': _to_eurocent(round(mapped_total['EmpBonus.1'], 2)),
                 'f10_2116_badweatherstamps': 0,
                 'f10_2117_nonrecurrentadvantages': 0,
-                'f10_2118_amountovertime180secondsemester': 0,
+                'f10_2118_overtimehours180': 0,
                 'f10_2119_sportremuneration': 0,
                 'f10_2120_sportvacancysavings': 0,
                 'f10_2121_sportoutdated': 0,
@@ -363,17 +410,17 @@ class L10nBe28110(models.Model):
                 'f10_2126_managerindemnificationofretraction': 0,
                 'f10_2127_nonrecurrentadvantagesoutdated': 0,
                 'f10_2128_vrijaanvullendpensioenwerknemers': 0,
+                'f10_2129_exemptincomesubjecttoprogressivity': 0,
                 'f10_2130_privatepc': 0,
-                'f10_2131_bedrijfsvoorheffingvanwerkgever': _to_eurocent(round(mapped_total['PPTOTAL'], 2)),
-                'f10_2132_amountovertime180firstsemester': 0,
+                'f10_2131_bedrijfsvoorheffingvanwerkgever': _to_eurocent(round(mapped_total['PPTOTAL'] - mapped_total['DOUBLE.DECEMBER.P.P'], 2)),
+                'f10_2132_horeca': 0,
                 'f10_2133_bedrijfsvoorheffingbuitenlvenverbondenwerkgever': 0,
                 'f10_2134_totaalbedragmobiliteitsbudget': 0,
                 'f10_2135_amountpaidforvolontarysuplementaryhourscovid': 0,
                 'f10_2136_amountcontractofstudent': 0,
                 'f10_2137_amountstudent2020oruntilthirdquarter2021': 0,
-                'f10_2138_chequesofconsumptions': 0,
-                'f10_2141_occasionalworkhoreca': 0,
-                'f10_2142_aantaloveruren180': 0,
+                'f10_2141_total': 0,
+                'f10_2142_totalovertimehours180': 0,
                 'f10_2143_bedragoveruren360horeca': 0,
                 'f10_2165_achterstalloveruren360horeca': 0,
                 'f10_2166_flexi_job': 0,
@@ -381,7 +428,9 @@ class L10nBe28110(models.Model):
                 'f10_2168_achterstallaantaloveruren300horeca': 0,
                 'f10_2169_aantaloveruren360horeca': 0,
                 'f10_2170_achterstallaantaloveruren360horeca': 0,
+                'f10_2176_overtimehours180': 0,
                 'f10_2177_winstpremies': 0,
+                'f10_2178_pensioner': 0,
                 'f10_2179_startersjob': 0,
                 'f10_2180_onkostenbrandweerenambulanciers': 0,
                 'f10_2181_remunerationetrang': 0,
@@ -399,7 +448,15 @@ class L10nBe28110(models.Model):
                 'f10_2194_covidovertimehourstotal': 0,
                 'f10_2195_covidovertimehours2020': 0,
                 'f10_2196_covidovertimeremuneration2020': 0,
+                'f10_2197_covidovertimeremuneration2022': 0,
                 'f10_2198_coronabonus': 0,
+                'f10_2199_covidovertimehours2022': 0,
+                'f10_2200_compensationwithstandards': _to_eurocent(round(mapped_total['REP.FEES'], 2)),
+                'f10_2201_compensationwithdocuments': 0,
+                'f10_2202_amount': 0,
+                'f10_2203_amount': 0,
+                'f10_2204_repaidsums': 0,
+                'f10_2204_repaidsums': 0,
             }
             # Le code postal belge (2016) et le code postal étranger (2112) ne peuvent être
             # ni remplis, ni vides tous les deux.
@@ -408,13 +465,14 @@ class L10nBe28110(models.Model):
             else:
                 sheet_values.pop('f2016_postcodebelgisch')
 
-            # Somme de 2.060 + 2.076 + 2069 + 2.082 + 2.083
+            # Somme de 2.060 + 2.076 + 2069 + 2.082 + 2.083 + 2204
             sheet_values['f10_2062_totaal'] = sum(sheet_values[code] for code in [
                 'f10_2060_gewonebezoldiginge',
                 'f10_2076_voordelenaardbedrag',
                 'f10_2069_fidelitystamps',
                 'f10_2082_bedrag',
-                'f10_2083_bedrag'])
+                'f10_2083_bedrag',
+                'f10_2204_repaidsums'])
 
             # Somme de 2.086 + 2.087 + 2.088
             sheet_values['f10_2077_totaal'] = sum(sheet_values[code] for code in [
@@ -486,63 +544,23 @@ class L10nBe28110(models.Model):
 
         return {'data': main_data, 'employees_data': employees_data, 'total_data': total_data}
 
-    def _action_generate_pdf(self, post_process=False):
-        rendering_data = self.with_context(no_round_281_10=True)._get_rendering_data()
-        for sheet_values in rendering_data['employees_data']:
-            for key, value in sheet_values.items():
-                if not value:
-                    sheet_values[key] = 'Néant'
-        template_sudo = self.env.ref('l10n_be_hr_payroll.action_report_employee_281_10').sudo()
-
-        pdf_files = []
-        sheet_count = len(rendering_data['employees_data'])
-        counter = 1
-        for sheet in rendering_data['employees_data']:
-            _logger.info('Printing 281.10 sheet (%s/%s)', counter, sheet_count)
-            counter += 1
-            sheet_filename = '%s-%s-281_10' % (sheet['f2002_inkomstenjaar'], sheet['f2013_naam'])
-            sheet_file, dummy = template_sudo._render_qweb_pdf(sheet['employee_id'], data={**sheet, **rendering_data['data']})
-            pdf_files.append((sheet['employee'], sheet_filename, sheet_file))
-
-        if pdf_files:
-            filename, binary = self._process_files(pdf_files, default_filename='281.10 PDF - %s.zip' % fields.Date.today(), post_process=post_process)
-            if not post_process:
-                self.pdf_filename = filename
-                self.pdf_file = binary
-
-        self.state = 'get'
-
     def action_generate_pdf(self):
-        return self._action_generate_pdf()
+        self.line_ids.write({'pdf_to_generate': True})
+        self.env.ref('hr_payroll.ir_cron_generate_payslip_pdfs')._trigger()
 
-    def _post_process_files(self, files):
-        return
-
-    def _process_files(self, files, default_filename='281.zip', post_process=False):
-        """Groups files into a single file
-        :param files: list of tuple (employee, filename, data)
-        :return: tuple filename, encoded data
-        """
-        if post_process:
-            self._post_process_files(files)
-            return False, False
-
-        if len(files) == 1:
-            dummy, filename, data = files[0]
-            return filename, base64.encodebytes(data)
-
-        stream = io.BytesIO()
-        with zipfile.ZipFile(stream, 'w') as doc_zip:
-            for dummy, filename, data in files:
-                doc_zip.writestr(filename, data, compress_type=zipfile.ZIP_DEFLATED)
-
-        filename = default_filename
-        return filename, base64.encodebytes(stream.getvalue())
+    def _process_files(self, files):
+        self.ensure_one()
+        for employee, filename, data in files:
+            line = self.line_ids.filtered(lambda l: l.employee_id == employee)
+            line.write({
+                'pdf_file': base64.encodebytes(data),
+                'pdf_filename': filename,
+            })
 
     def action_generate_xml(self):
         self.ensure_one()
         self.xml_filename = '%s-281_10_report.xml' % (self.reference_year)
-        xml_str = self.env.ref('l10n_be_hr_payroll.281_10_xml_report')._render(self._get_rendering_data())
+        xml_str = self.env['ir.qweb']._render('l10n_be_hr_payroll.281_10_xml_report', self._get_rendering_data(self.line_ids.employee_id))
 
         # Prettify xml string
         root = etree.fromstring(xml_str, parser=etree.XMLParser(remove_blank_text=True))
@@ -550,3 +568,45 @@ class L10nBe28110(models.Model):
 
         self.xml_file = base64.encodebytes(xml_formatted_str)
         self.state = 'get'
+
+
+class L10nBe28110Line(models.Model):
+    _name = 'l10n_be.281_10.line'
+    _description = 'HR Payroll 281.10 Line Wizard'
+
+    employee_id = fields.Many2one('hr.employee')
+    pdf_file = fields.Binary('PDF File', readonly=True, attachment=False)
+    pdf_filename = fields.Char()
+    sheet_id = fields.Many2one('l10n_be.281_10')
+    pdf_to_generate = fields.Boolean()
+
+    def _generate_pdf(self):
+        report_sudo = self.env["ir.actions.report"].sudo()
+        report_id = self.env.ref('l10n_be_hr_payroll.action_report_employee_281_10').id
+
+        for sheet in self.sheet_id:
+            lines = self.filtered(lambda l: l.sheet_id == sheet)
+            rendering_data = sheet.with_context(no_round_281_10=True)._get_rendering_data(lines.employee_id)
+            for sheet_values in rendering_data['employees_data']:
+                for key, value in sheet_values.items():
+                    if isinstance(value, int) and value == 0:
+                        sheet_values[key] = '0.00 €'
+                    elif isinstance(value, float):
+                        sheet_values[key] = '{:,.2f} €'.format(value)
+                    elif not value:
+                        sheet_values[key] = _('None')
+
+            pdf_files = []
+            sheet_count = len(rendering_data['employees_data'])
+            counter = 1
+            for sheet_data in rendering_data['employees_data']:
+                _logger.info('Printing 281.10 sheet (%s/%s)', counter, sheet_count)
+                counter += 1
+                sheet_filename = '%s-%s-281_10' % (sheet_data['f2002_inkomstenjaar'], sheet_data['f2013_naam'])
+                employee_lang = sheet_data['employee'].sudo().address_home_id.lang
+                sheet_file, dummy = report_sudo.with_context(lang=employee_lang, allowed_company_ids=sheet_data['employee'].company_id.ids)._render_qweb_pdf(
+                    report_id, [sheet_data['employee_id']], data={**sheet_data, **rendering_data['data']})
+                pdf_files.append((sheet_data['employee'], sheet_filename, sheet_file))
+
+            if pdf_files:
+                sheet._process_files(pdf_files)

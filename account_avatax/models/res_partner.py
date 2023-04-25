@@ -22,18 +22,19 @@ class ResPartner(models.Model):
         company_dependent=True,
         domain="['|', ('valid_country_ids', 'in', country_id), ('valid_country_ids', '=', False)]",
     )
+    # field used to hide the address validation button when the partner is not in the US or Canada
     avalara_show_address_validation = fields.Boolean(
         compute='_compute_avalara_show_address_validation',
         store=False,
         string='Avalara Show Address Validation',
-        help="Technical field used to hide the address validation button when the partner is not in the US or Canada."
     )
 
     @api.depends('country_id')
     def _compute_avalara_show_address_validation(self):
         valid_country_ids = self.env.ref('base.us') | self.env.ref('base.ca')
         for partner in self:
-            partner.avalara_show_address_validation = partner.street and (not partner.country_id or partner.country_id in valid_country_ids)
+            company = partner.company_id or self.env.company
+            partner.avalara_show_address_validation = company.avalara_address_validation and partner.street and (not partner.country_id or partner.country_id in valid_country_ids)
 
     def _get_avatax_description(self):
         return 'Contact'

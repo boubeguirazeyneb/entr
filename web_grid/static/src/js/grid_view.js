@@ -10,7 +10,6 @@ var GridRenderer = require('web_grid.GridRenderer');
 var viewRegistry = require('web.view_registry');
 var pyUtils = require('web.py_utils');
 const RendererWrapper = require('web.RendererWrapper');
-var session = require('web.session');
 
 var _t = core._t;
 var _lt = core._lt;
@@ -18,7 +17,7 @@ var _lt = core._lt;
 var GridView = AbstractView.extend({
     display_name: _lt('Grid'),
     mobile_friendly: true,
-    icon: 'fa-th',
+    icon: 'fa fa-th',
     config: _.extend({}, AbstractView.prototype.config, {
         Model: GridModel,
         Controller: GridController,
@@ -60,7 +59,13 @@ var GridView = AbstractView.extend({
 
         // model
         this.loadParams.ranges = ranges;
-        var contextRangeName = params.context.grid_range;
+        let default_range_name = config.device.isMobile ? 'day' : '';
+        ranges.forEach(range => {
+            if (range['name'] === 'week' && !config.device.isMobile) {
+                default_range_name = range['name'];
+            }
+        })
+        let contextRangeName = params.context.grid_range || default_range_name;
         var contextRange = contextRangeName && _.findWhere(ranges, {name: contextRangeName});
         this.loadParams.fields = this.fields;
         this.loadParams.currentRange = contextRange || ranges[0];
@@ -130,26 +135,27 @@ var GridView = AbstractView.extend({
      * @private
      * @param {node} col_node - the node of 'col' in grid view arch definition
      * @param {Object} context - the context used to instanciate the view
+     * @returns {Array<{name: string, string: string, span: string, step: string}>}
      */
-     _extract_ranges: function(col_node, context) {
-        var ranges = [];
-        if (config.device.isMobile) {
-            ranges.push({
+    _extract_ranges: function(col_node, context) {
+        let ranges = [];
+        const pyevalContext = py.dict.fromJSON(context || {});
+        for (const range of col_node.children.map(node => node.attrs)) {
+            if (range.invisible && pyUtils.py_eval(range.invisible, { 'context': pyevalContext })) {
+                continue;
+            }
+            ranges.push(range);
+        }
+        if (config.device.isMobile && !ranges.find(r => r.name === 'day')) {
+            ranges.unshift({
                 name: 'day',
                 string: _t('Day'),
                 span: 'day',
                 step: 'day',
             });
         }
-        var pyevalContext = py.dict.fromJSON(context || {});
-        _.each(_.pluck(col_node.children, 'attrs'), function(range) {
-            if (range.invisible && pyUtils.py_eval(range.invisible, {'context': pyevalContext})) {
-                return;
-            }
-            ranges.push(range);
-        });
         return ranges;
-     },
+    },
 
 });
 

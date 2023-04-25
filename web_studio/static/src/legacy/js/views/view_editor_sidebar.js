@@ -1,25 +1,28 @@
-odoo.define('web_studio.ViewEditorSidebar', function (require) {
-"use strict";
+/** @odoo-module */
 
-var config = require('web.config');
-var core = require('web.core');
-var Dialog = require('web.Dialog');
-var DomainSelectorDialog = require("web.DomainSelectorDialog");
-var Domain = require("web.Domain");
-var field_registry = require('web.field_registry');
-var fieldRegistryOwl = require('web.field_registry_owl');
-var pyUtils = require('web.py_utils');
-var relational_fields = require('web.relational_fields');
-var session = require("web.session");
-var StandaloneFieldManagerMixin = require('web.StandaloneFieldManagerMixin');
-var utils = require('web.utils');
-var view_components = require('web_studio.view_components');
-var Widget = require('web.Widget');
+import config from "web.config";
+import core from "web.core";
+import Dialog from "web.Dialog";
+import DomainSelectorDialog from "web.DomainSelectorDialog";
+import Domain from "web.Domain";
+import field_registry from "web.field_registry";
+import fieldRegistryOwl from "web.field_registry_owl";
+import pyUtils from "web.py_utils";
+import relational_fields from "web.relational_fields";
+import session from "web.session";
+import StandaloneFieldManagerMixin from "web.StandaloneFieldManagerMixin";
+import utils from "web.utils";
+import view_components from "web_studio.view_components";
+import Widget from "web.Widget";
+import { registry } from "@web/core/registry";
+import { sortBy } from "@web/core/utils/arrays";
+import { SIDEBAR_SAFE_FIELDS } from "@web_studio/legacy/js/views/sidebar_safe_fields";
+import { omit } from '@web/core/utils/objects';
 
-var form_component_widget_registry = view_components.registry;
-var _lt = core._lt;
-var _t = core._t;
-var Many2ManyTags = relational_fields.FieldMany2ManyTags;
+const form_component_widget_registry = view_components.registry;
+const _lt = core._lt;
+const _t = core._t;
+const Many2ManyTags = relational_fields.FieldMany2ManyTags;
 const Many2One = relational_fields.FieldMany2One;
 
 
@@ -37,7 +40,7 @@ const Many2One = relational_fields.FieldMany2One;
  *
  * @type {Object}
  */
-var OPTIONS_BY_WIDGET = {
+export const OPTIONS_BY_WIDGET = {
     image: [
         {name: 'size', type: 'selection', string: _lt("Size"), selection: [
             [[0, 90], _lt("Small")], [[0, 180], _lt("Medium")], [[0, 270], _lt("Large")],
@@ -46,6 +49,9 @@ var OPTIONS_BY_WIDGET = {
     many2one: [
         {name: 'no_create', type: 'boolean', string: _lt("Disable creation"), leaveEmpty: 'unchecked'},
         {name: 'no_open', type: 'boolean', string: _lt("Disable opening"), leaveEmpty: 'unchecked'},
+    ],
+    sol_product_many2one: [
+        { name: 'no_create', type: 'boolean', string: _lt("Disable creation"), leaveEmpty: 'unchecked' },
     ],
     many2many_tags: [
         { name: 'no_create', type: 'boolean', string: _lt("Disable creation"), leaveEmpty: 'unchecked' },
@@ -72,7 +78,7 @@ var OPTIONS_BY_WIDGET = {
         {name: 'related_end_date', type: 'selection', string: _lt("Related End Date"), selection: [[]]},
     ],
     phone: [
-        {name: 'enable_sms', type: 'boolean', string: _lt("Enable SMS")},
+        {name: 'enable_sms', type: 'boolean', string: _lt("Enable SMS"), default: true},
     ],
 };
 
@@ -80,7 +86,49 @@ const UNSUPPORTED_WIDGETS_BY_VIEW = {
     list: ['many2many_checkboxes'],
 };
 
-return Widget.extend(StandaloneFieldManagerMixin, {
+const wowlFieldRegistry = registry.category("fields");
+function getWowlFieldWidgets(fieldType, currentKey="", blacklistedKeys=[], debug=false) {
+    const widgets = [];
+    for (const [widgetKey, Component] of wowlFieldRegistry.getEntries()) {
+        if (widgetKey !== currentKey) { // always show the current widget
+            // Widget dosn't explicitly supports the field's type
+            if (!Component.supportedTypes || !Component.supportedTypes.includes(fieldType)) {
+                continue;
+            }
+            // Widget is view-specific or is blacklisted
+            if (widgetKey.includes(".") || blacklistedKeys.includes(widgetKey)) {
+                continue;
+            }
+            // Widget is not whitelisted
+            if (!debug && !SIDEBAR_SAFE_FIELDS.includes(widgetKey)) {
+                continue;
+            }
+        }
+        widgets.push([widgetKey, Component.displayName]);
+    }
+    return sortBy(widgets, (el) => el[1] || el[0]);
+}
+
+export function getFieldWidgetKey(fieldType, viewType, jsClass) {
+    const prefixes = jsClass ? [jsClass, viewType, ""] : [viewType, ""];
+    for (const prefix of prefixes) {
+        const _key = prefix ? `${prefix}.${fieldType}` : fieldType;
+        if (wowlFieldRegistry.contains(_key)) {
+            return _key;
+        }
+    }
+}
+
+function getWidgetDefaultOptions(widgetKey) {
+     if (!(widgetKey in OPTIONS_BY_WIDGET)) {
+        return {};
+    }
+    return Object.fromEntries(Object.values(OPTIONS_BY_WIDGET[widgetKey]).map(opt => {
+        return [opt.name, opt.default]
+    }))
+}
+
+export const ViewEditorSidebar = Widget.extend(StandaloneFieldManagerMixin, {
     template: 'web_studio.ViewEditorSidebar',
     events: {
         'click .o_web_studio_new:not(.inactive)':            '_onTab',
@@ -177,8 +225,26 @@ return Widget.extend(StandaloneFieldManagerMixin, {
             this._isExistingFieldFolded = true;
         }
 
+        const hasWowlFieldWidgets = ["kanban", "form", "list"].includes(this.view_type);
         const Widget = this.state.attrs.Widget;
-        this.widgetKey = this._getWidgetKey(Widget);
+        let propsFromAttrs;
+        if (hasWowlFieldWidgets && this.state.mode === "properties" && this.state.node.tag === "field") {
+            const nodeAttrs = this.state.attrs;
+            const field = this.fields[nodeAttrs.name];
+            this.widgetKey = nodeAttrs.widget || getFieldWidgetKey(field.type, this.view_type);
+
+            let defaultOptions = getWidgetDefaultOptions(this.widgetKey);
+            defaultOptions = omit(defaultOptions, ...Object.keys(nodeAttrs.options));
+            nodeAttrs.options = { ...nodeAttrs.options, ...defaultOptions };
+
+            const Component = wowlFieldRegistry.get(this.widgetKey, null);
+            if (Component && Component.extractProps) {
+                const rawAttrs = Object.fromEntries(Object.entries(nodeAttrs).filter(e => !e[0].startsWith("t-att")));
+                propsFromAttrs = Component.extractProps({ field, attrs: { ...rawAttrs, options: nodeAttrs.options}});
+            }
+        } else {
+            this.widgetKey = this._getWidgetKey(Widget);
+        }
 
         const allowedModifiersNode = ['group', 'page', 'field', 'filter'];
         if (this.state.node && allowedModifiersNode.includes(this.state.node.tag)) {
@@ -191,26 +257,34 @@ return Widget.extend(StandaloneFieldManagerMixin, {
             var field = jQuery.extend(true, {}, this.fields[this.state.attrs.name]);
             var unsupportedWidgets = UNSUPPORTED_WIDGETS_BY_VIEW[this.view_type] || [];
 
-            // fieldRegistryMap contains all widgets and components but we want to filter
-            // these widgets based on field types (and description for non debug mode)
-            const fieldRegistryMap = Object.assign({}, field_registry.map, fieldRegistryOwl.map);
-            field.field_widgets = _.chain(fieldRegistryMap)
-                .pairs()
-                .filter(function (arr) {
-                    const supportedFieldTypes = utils.isComponent(arr[1]) ?
-                        arr[1].supportedFieldTypes :
-                        arr[1].prototype.supportedFieldTypes;
-                    const description = self.getFieldInfo(arr[1], 'description');
-                    const isWidgetKeyDescription = arr[0] === self.widgetKey && !description;
-                    var isSupported = _.contains(supportedFieldTypes, field.type)
-                        && arr[0].indexOf('.') < 0 && unsupportedWidgets.indexOf(arr[0]) < 0;
-                    return config.isDebug() ? isSupported : isSupported && description || isWidgetKeyDescription;
-                })
-                .sortBy(function (arr) {
-                    const description = self.getFieldInfo(arr[1], 'description');
-                    return description || arr[0];
-                })
-                .value();
+            let fieldWidgets;
+            // Converted editors to WOWL and for which one may change field widgets
+            if (hasWowlFieldWidgets) {
+                fieldWidgets = getWowlFieldWidgets(field.type, this.widgetKey, unsupportedWidgets, config.isDebug());
+            } else {
+                // fieldRegistryMap contains all widgets and components but we want to filter
+                // these widgets based on field types (and description for non debug mode)
+                const fieldRegistryMap = Object.assign({}, field_registry.map, fieldRegistryOwl.map);
+                fieldWidgets = _.chain(fieldRegistryMap)
+                    .pairs()
+                    .filter(function (arr) {
+                        const supportedFieldTypes = utils.isComponent(arr[1]) ?
+                            arr[1].supportedFieldTypes :
+                            arr[1].prototype.supportedFieldTypes;
+                        const description = self.getFieldInfo(arr[1], 'description');
+                        const isWidgetKeyDescription = arr[0] === self.widgetKey && !description;
+                        var isSupported = _.contains(supportedFieldTypes, field.type)
+                            && arr[0].indexOf('.') < 0 && unsupportedWidgets.indexOf(arr[0]) < 0;
+                        return config.isDebug() ? isSupported : isSupported && description || isWidgetKeyDescription;
+                    })
+                    .sortBy(function (arr) {
+                        const description = self.getFieldInfo(arr[1], 'description');
+                        return description || arr[0];
+                    })
+                    .value();
+            }
+
+            field.field_widgets = fieldWidgets;
 
             this.state.field = field;
 
@@ -250,7 +324,9 @@ return Widget.extend(StandaloneFieldManagerMixin, {
             }
             this.OPTIONS_BY_WIDGET = OPTIONS_BY_WIDGET;
 
-            this.has_placeholder = Widget && Widget.prototype.has_placeholder || false;
+            this.has_placeholder = hasWowlFieldWidgets ?
+                propsFromAttrs && propsFromAttrs.dynamicPlaceholder :
+                Widget && Widget.prototype.has_placeholder || false;
 
             // aggregate makes no sense with some widgets
             this.hasAggregate = _.contains(['integer', 'float', 'monetary'], field.type) &&
@@ -285,13 +361,13 @@ return Widget.extend(StandaloneFieldManagerMixin, {
 
         }
         if (this.state.mode === 'view' && this.view_type === 'pivot') {
-            this.state.attrs.colGroupBys = params.colGroupBys;
-            this.state.attrs.rowGroupBys = params.rowGroupBys;
+            this.state.attrs.colGroupBys = params.colGroupBys.map((gb) => gb.split(":")[0]);
+            this.state.attrs.rowGroupBys = params.rowGroupBys.map((gb) => gb.split(":")[0]);
             this.measures = params.measures;
         }
         if (this.state.mode === 'view' && this.view_type === 'graph') {
-            this.state.attrs.groupBys = params.groupBys;
-            this.state.attrs.measure = params.measure;
+            this.state.attrs.groupBys = params.groupBys.map((gb) => gb.split(":")[0]);
+            this.state.attrs.measure = params.measure === "__count" ? "__count__" : params.measure;
         }
     },
     /**
@@ -379,6 +455,20 @@ return Widget.extend(StandaloneFieldManagerMixin, {
         this.trigger_up('approval_group_change', {
             ruleId,
             groupId,
+        });
+    },
+    /**
+     * Called by _onFieldChanged when the field changed is the M2O of an approval
+     * rule for its res.users field. Update the according rule server-side.
+     * @private
+     */
+     _changeApprovalResponsible: function (approvalField) {
+        const record = this.model.get(this.approvalHandle);
+        const responsibleId = record.data[approvalField].res_id;
+        const ruleId = parseInt(/rule_responsible_(\d+)/.exec(approvalField)[1]);
+        this.trigger_up('approval_responsible_change', {
+            ruleId,
+            responsibleId,
         });
     },
     /**
@@ -602,7 +692,7 @@ return Widget.extend(StandaloneFieldManagerMixin, {
             const $sectionTitle = $('<h3>', {
                 text: _t('Existing Fields'),
                 class: 'o_web_studio_existing_fields_header',
-            }).append($('<i/>', {class: `o_web_studio_existing_fields_icon fa fa-caret-right ml-2`}));
+            }).append($('<i/>', {class: `o_web_studio_existing_fields_icon fa fa-caret-right ms-2`}));
             const $sectionSubtitle = $('<h6>', {
                 class: 'small text-white',
                 text: _t('The following fields are currently not in the view.'),
@@ -649,15 +739,17 @@ return Widget.extend(StandaloneFieldManagerMixin, {
         return $components_container;
     },
     /**
-     * Render and attach group widget for each approval rule.
+     * Render and attach group and responsible widget for each approval rule.
      * @private
      * @returns {Promise}
      */
     _renderWidgetsApprovalRules: async function () {
         const groupTargets = this.el.querySelectorAll('.o_approval_group');
-        const fields = [];
+        const userTargets = this.el.querySelectorAll('.o_approval_responsible');
+        const groupFields = [];
+        const userFields = [];
         groupTargets.forEach((node) => {
-            fields.push({
+            groupFields.push({
                 name: 'rule_group_' + node.dataset.ruleId,
                 fields: [{
                     name: 'id',
@@ -671,7 +763,23 @@ return Widget.extend(StandaloneFieldManagerMixin, {
                 value: parseInt(node.dataset.groupId),
             })
         });
-        this.approvalHandle  = await this.model.makeRecord('ir.model.fields', fields);
+        userTargets.forEach((node) => {
+            userFields.push({
+                name: 'rule_responsible_' + node.dataset.ruleId,
+                fields: [{
+                    name: 'id',
+                    type: 'integer',
+                }, {
+                    name: 'display_name',
+                    type: 'char',
+                }],
+                relation: 'res.users',
+                domain: [['share', '=', false]],
+                type: 'many2one',
+                value: parseInt(node.dataset.responsibleId),
+            })
+        });
+        this.approvalHandle  = await this.model.makeRecord('ir.model.fields', groupFields.concat(userFields));
         const record = this.model.get(this.approvalHandle);
         const defs = [];
         groupTargets.forEach((node, index) => {
@@ -680,11 +788,23 @@ return Widget.extend(StandaloneFieldManagerMixin, {
                 mode: 'edit',
                 noOpen: true,
             };
-            const fieldName = fields[index].name;
+            const fieldName = groupFields[index].name;
             const many2one = new Many2One(this, fieldName, record, options);
             this._registerWidget(this.approvalHandle, 'group', many2one);
             defs.push(many2one.prependTo($(node)));
         });
+        userTargets.forEach((node, index) => {
+            const options = {
+                idForLabel: 'user',
+                mode: 'edit',
+                noOpen: true,
+            };
+            const fieldName = userFields[index].name;
+            const many2one = new Many2One(this, fieldName, record, options);
+            this._registerWidget(this.approvalHandle, 'user', many2one);
+            defs.push(many2one.prependTo($(node)));
+        });
+
         return Promise.all(defs);
     },
     /**
@@ -775,7 +895,6 @@ return Widget.extend(StandaloneFieldManagerMixin, {
      * @returns {Promise}
      */
     _renderWidgetsPivotMeasuresFields() {
-        const measuresKeys = Object.keys(this.measures);
         const fieldIDs = JSON.parse(this.state.attrs.studio_pivot_measure_field_ids || '[]');
         return this.model.makeRecord('ir.model', [{
             name: 'pivot_popup',
@@ -1105,18 +1224,23 @@ return Widget.extend(StandaloneFieldManagerMixin, {
      * @private
      */
     _onFieldChanged: async function (ev) {
-        const approvalChanges = Object.keys(ev.data.changes).filter(f => f.startsWith('rule_group_'));
-        const isApprovalChange = approvalChanges.length;
+        const approvalGroupChanges = Object.keys(ev.data.changes).filter(f => f.startsWith('rule_group_'));
+        const isApprovalGroupChange = approvalGroupChanges.length;
+        const approvalResponsibleChanges = Object.keys(ev.data.changes).filter(f => f.startsWith('rule_responsible_'));
+        const isApprovalResponsibleChange = approvalResponsibleChanges.length;
         const isMapChange = Object.keys(ev.data.changes).filter(f => f === 'map_popup').length;
         const isPivotChange = Object.keys(ev.data.changes).filter(f => f === 'pivot_popup').length;
-        const approvalField = isApprovalChange && approvalChanges[0];
+        const approvalGroupField = isApprovalGroupChange && approvalGroupChanges[0];
+        const approvalResponsibleField = isApprovalResponsibleChange && approvalResponsibleChanges[0];
         const oldMapPopupField = this.mapPopupFieldHandle && this.model.get(this.mapPopupFieldHandle).data.map_popup;
         const oldPivotMeasureField = this.pivotPopupFieldHandle && this.model.get(this.pivotPopupFieldHandle).data.pivot_popup;
         const result = await StandaloneFieldManagerMixin._onFieldChanged.apply(this, arguments);
         if (isMapChange) {
             this._changeMapPopupFields(ev, oldMapPopupField);
-        } else if (isApprovalChange) {
-            this._changeApprovalGroup(approvalField);
+        } else if (isApprovalGroupChange) {
+            this._changeApprovalGroup(approvalGroupField);
+        } else if (isApprovalResponsibleChange) {
+            this._changeApprovalResponsible(approvalResponsibleField);
         } else if (isPivotChange) {
             this._changePivotMeasuresFields(ev, oldPivotMeasureField);
         } else {
@@ -1190,7 +1314,7 @@ return Widget.extend(StandaloneFieldManagerMixin, {
             try {
                 // the value might have been stringified
                 optionValue = JSON.parse(optionValue);
-            } catch (e) {}
+            } catch (_e) {}
 
             newOptions[optionName] = optionValue;
         }
@@ -1457,6 +1581,4 @@ return Widget.extend(StandaloneFieldManagerMixin, {
     _onXMLEditor: function () {
         this.trigger_up('open_xml_editor');
     },
-});
-
 });

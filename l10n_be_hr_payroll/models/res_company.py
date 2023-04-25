@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _
+from odoo.tools import ormcache
 from odoo.exceptions import ValidationError
 
 
@@ -18,6 +19,31 @@ class ResCompany(models.Model):
         ('commercial', 'Employers with industrial or commercial purposes'),
         ('non_commercial', 'Employers without industrial or commercial purposes'),
     ], default='commercial')
+    sdworx_code = fields.Char("SDWorx code", groups="hr.group_hr_user")
+    onss_expeditor_number = fields.Char(
+        string="ONSS Expeditor Number", groups="base.group_system",
+        help="ONSS Expeditor Number provided when registering service on the technical user")
+    onss_pem_certificate = fields.Binary(
+        string="PEM Certificate", groups="base.group_system",
+        help="Certificate to allow access to batch declarations")
+    onss_key = fields.Binary(
+        string="KEY file", groups="base.group_system",
+        help="Key to allow access to batch declarations")
+    onss_pem_passphrase = fields.Char(
+        string="PEM Passphrase", groups="base.group_system",
+        help="Certificate to allow access to batch declarations")
+
+    @ormcache('self.id')
+    def _get_workers_count(self):
+        self.ensure_one()
+        return len(self.env['hr.contract'].search([
+            ('state', '=', 'open'),
+            ('company_id', '=', self.id)]).employee_id)
+
+    @api.constrains('sdworx_code')
+    def _check_sdworx_code(self):
+        if self.sdworx_code and len(self.sdworx_code) != 7:
+            raise ValidationError(_('The code should have 7 characters!'))
 
     @api.constrains('l10n_be_company_number')
     def _check_l10n_be_company_number(self):
@@ -26,16 +52,15 @@ class ResCompany(models.Model):
             if not number.isdecimal() or len(number) != 10 or (not number.startswith('0') and not number.startswith('1')):
                 raise ValidationError(_("The company number should contain digits only, starts with a '0' or a '1' and be 10 characters long."))
 
-    def _create_resource_calendar(self):
+    def _prepare_resource_calendar_values(self):
         """
         Override to set the default calendar to
         38 hours/week for Belgian companies
         """
-        be_companies = self.filtered(lambda c: c.country_id.code == "BE" and not c.resource_calendar_id)
-        for company in be_companies:
-            company.resource_calendar_id = self.env['resource.calendar'].create({
+        vals = super()._prepare_resource_calendar_values()
+        if self.country_id.code == 'BE':
+            vals.update({
                 'name': _('Standard 38 hours/week'),
-                'company_id': company.id,
                 'hours_per_day': 7.6,
                 'full_time_required_hours': 38.0,
                 'attendance_ids': [
@@ -50,18 +75,5 @@ class ResCompany(models.Model):
                     (0, 0, {'name': 'Friday Morning', 'dayofweek': '4', 'hour_from': 8, 'hour_to': 12, 'day_period': 'morning'}),
                     (0, 0, {'name': 'Friday Afternoon', 'dayofweek': '4', 'hour_from': 13, 'hour_to': 16.6, 'day_period': 'afternoon'})
                 ],
-            }).id
-        super(ResCompany, self - be_companies)._create_resource_calendar()
-
-    def _get_ffe_contribution_rate(self, worker_count):
-        # Fond de fermeture d'entreprise
-        # https://www.socialsecurity.be/employer/instructions/dmfa/fr/latest/instructions/special_contributions/other_specialcontributions/basiccontributions_closingcompanyfunds.html
-        self.ensure_one()
-        if self.l10n_be_ffe_employer_type == 'commercial':
-            if worker_count < 20:
-                rate = 0.0007
-            else:
-                rate = 0.0013
-        else:
-            rate = 0.0002
-        return rate
+            })
+        return vals

@@ -30,8 +30,10 @@ class TestL10nBeReportsPostWizard(TestAccountReportsCommon):
     @classmethod
     def setup_company_data(cls, company_name, **kwargs):
         res = super().setup_company_data(company_name, **kwargs)
+        country_be_id = cls.env.ref('base.be').id
         res['company'].update({
-            'country_id': cls.env.ref('base.be').id,
+            'country_id': country_be_id,
+            'account_fiscal_country_id': country_be_id,
             'vat': 'BE0477472701',
         })
         res['company'].partner_id.update({
@@ -69,14 +71,21 @@ class TestL10nBeReportsPostWizard(TestAccountReportsCommon):
         self.tax_return_move.refresh_tax_entry()
 
         # Posting the tax returns move with the wizard data actually posts the move
-        report = self.env['account.generic.tax.report']
-        with patch.object(type(report), 'get_pdf', autospec=True, side_effect=lambda *args, **kwargs: b''):
+        report = self.env.ref('l10n_be.tax_report_vat')
+
+        mock_pdf = {
+            'file_name': report.get_default_report_filename('pdf'),
+            'file_content': b'',
+            'file_type': 'pdf',
+        }
+
+        with patch.object(type(report), 'export_to_pdf', autospec=True, side_effect=lambda *args, **kwargs: mock_pdf):
             self.tax_return_move.with_context({'l10n_be_reports_generation_options': {}}).action_post()
 
         self.assertRecordValues(self.tax_return_move, [{'state': 'posted'}])
         attachment_ids = self.env['ir.attachment'].search([
             ('res_model', '=', 'account.move'),
             ('res_id', '=', self.tax_return_move.id),
-            ('name', '=', 'vat_report.xml'),
+            ('name', '=', 'vat_return.xml'),
         ])
         self.assertEqual(len(attachment_ids), 1)

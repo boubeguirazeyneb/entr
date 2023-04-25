@@ -9,7 +9,7 @@ class TestQualityCheck(TestQualityMrpCommon):
 
     def test_00_production_quality_check(self):
 
-        """Test quality check on production order."""
+        """Test quality check on production order and its backorder."""
 
         # Create Quality Point for product Laptop Customized with Manufacturing Operation Type.
         self.qality_point_test1 = self.env['quality.point'].create({
@@ -34,11 +34,12 @@ class TestQualityCheck(TestQualityMrpCommon):
         self.mrp_production_qc_test1.action_assign()
 
         mo_form = Form(self.mrp_production_qc_test1)
-        mo_form.qty_producing = self.mrp_production_qc_test1.product_qty
+        mo_form.qty_producing = self.mrp_production_qc_test1.product_qty - 1
         mo_form.lot_producing_id = self.lot_product_27_0
         details_operation_form = Form(self.mrp_production_qc_test1.move_raw_ids[0], view=self.env.ref('stock.view_stock_move_operations'))
         with details_operation_form.move_line_ids.new() as ml:
-            ml.qty_done = self.mrp_production_qc_test1.product_qty
+            ml.qty_done = self.mrp_production_qc_test1.product_qty - 1
+            ml.lot_id = self.lot_component_1
         details_operation_form.save()
 
         self.mrp_production_qc_test1 = mo_form.save()
@@ -49,14 +50,20 @@ class TestQualityCheck(TestQualityMrpCommon):
         # 'Pass' Quality Checks of production order.
         self.mrp_production_qc_test1.check_ids.do_pass()
 
-        # Set MO Done.
-        self.mrp_production_qc_test1.button_mark_done()
+        # Set MO Done and create backorder
+        action = self.mrp_production_qc_test1.button_mark_done()
+        consumption_warning = Form(self.env['mrp.consumption.warning'].with_context(**action['context']))
+        action = consumption_warning.save().action_confirm()
+        backorder = Form(self.env['mrp.production.backorder'].with_context(**action['context']))
+        backorder.save().action_backorder()
 
         # Now check state of quality check.
         self.assertEqual(self.mrp_production_qc_test1.check_ids.quality_state, 'pass')
+        # Check that the Quality Check was created on the backorder
+        self.assertEqual(len(self.mrp_production_qc_test1.procurement_group_id.mrp_production_ids[-1].check_ids), 1)
 
     def test_01_production_quality_check_product(self):
-        """ Test quality check on production order with type product for tracked and non-tracked manufactured product
+        """ Test quality check on production order with type move_line for tracked and non-tracked manufactured product
         """
 
         product_without_tracking = self.env['product.product'].create({
@@ -69,7 +76,7 @@ class TestQualityCheck(TestQualityMrpCommon):
         self.env['quality.point'].create({
             'product_ids': [self.product_id],
             'picking_type_ids': [self.picking_type_id],
-            'measure_on': 'product',
+            'measure_on': 'move_line',
             'is_lot_tested_fractionally': True,
             'testing_percentage_within_lot': 50,
         })
@@ -77,13 +84,13 @@ class TestQualityCheck(TestQualityMrpCommon):
         self.env['quality.point'].create({
             'product_ids': [self.product.bom_ids.bom_line_ids[0].product_id.id],
             'picking_type_ids': [self.picking_type_id],
-            'measure_on': 'product',
+            'measure_on': 'move_line',
         })
         # Create Quality Point for all products with Manufacturing Operation Type.
         # This should apply for all products but not to the components of a MO
         self.env['quality.point'].create({
             'picking_type_ids': [self.picking_type_id],
-            'measure_on': 'product',
+            'measure_on': 'move_line',
         })
 
         # Create Production Order of Drawer to produce 5.0 Unit.
@@ -98,7 +105,7 @@ class TestQualityCheck(TestQualityMrpCommon):
         # Check that the Quality Check were created and has correct values
         self.assertEqual(len(production.move_raw_ids[0].move_line_ids.check_ids), 1)
         self.assertEqual(len(production.check_ids), 3)
-        self.assertEqual(production.move_finished_ids.move_line_ids.check_ids[0].qty_to_test, 2)
+        self.assertEqual(production.check_ids.filtered(lambda qc: qc.product_id == production.product_id)[0].qty_to_test, 2)
 
         # Create Production Order of non-tracked product
         production2_form = Form(self.env['mrp.production'])
@@ -110,7 +117,7 @@ class TestQualityCheck(TestQualityMrpCommon):
         # Check that the Quality Check was created
         self.assertEqual(len(production2.check_ids), 1)
 
-    def test_01_quality_check_scrapped(self):
+    def test_02_quality_check_scrapped(self):
         """
         Test that when scrapping a manufacturing order, no quality check is created for that move
         """
@@ -141,3 +148,41 @@ class TestQualityCheck(TestQualityMrpCommon):
         })
         scrap.do_scrap()
         self.assertEqual(len(self.env['quality.check'].search([('product_id', '=', product.id), ('point_id', '=', qp.id)])), 0, "Quality checks should not be created for scrap moves")
+
+    def test_03_quality_check_on_operations(self):
+        """ Test Quality Check creation of 'operation' type, meaning only one QC will be created per MO.
+        """
+        quality_point_operation_type = self.env['quality.point'].create({
+            'picking_type_ids': [(4, self.picking_type_id)],
+            'measure_on': 'operation',
+            'test_type_id': self.env.ref('quality_control.test_type_passfail').id
+        })
+
+        production_form = Form(self.env['mrp.production'])
+        production_form.product_id = self.env['product.product'].browse(self.product_id)
+        production_form.product_qty = 5.0
+        production = production_form.save()
+        production.action_confirm()
+
+        self.assertEqual(len(production.check_ids), 1)
+        self.assertEqual(production.check_ids.point_id, quality_point_operation_type)
+        self.assertEqual(production.check_ids.production_id, production)
+
+        # Do the quality checks and create backorder
+        production.check_ids.do_pass()
+        production.qty_producing = 3.0
+        production.lot_producing_id = self.lot_product_27_0
+        details_operation_form = Form(production.move_raw_ids[1], view=self.env.ref('stock.view_stock_move_operations'))
+        with details_operation_form.move_line_ids.new() as ml:
+            ml.qty_done = 3.0
+            ml.lot_id = self.lot_component_2
+        details_operation_form.save()
+        action = production.button_mark_done()
+        consumption_warning = Form(self.env['mrp.consumption.warning'].with_context(**action['context']))
+        action = consumption_warning.save().action_confirm()
+        backorder = Form(self.env['mrp.production.backorder'].with_context(**action['context']))
+        backorder.save().action_backorder()
+        production_backorder = production.procurement_group_id.mrp_production_ids[-1]
+        self.assertEqual(len(production_backorder.check_ids), 1)
+        self.assertEqual(production_backorder.check_ids.point_id, quality_point_operation_type)
+        self.assertEqual(production_backorder.check_ids.production_id, production_backorder)

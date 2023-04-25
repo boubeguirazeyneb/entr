@@ -25,20 +25,20 @@ Features:
         'rating',
         'base_automation',
         'sms',
+        'sale_temporal',
     ],
     'data': [
         'security/sale_subscription_security.xml',
         'security/ir.model.access.csv',
-        'security/sms_security.xml',
         'wizard/sale_subscription_close_reason_wizard_views.xml',
-        'wizard/sale_subscription_wizard_views.xml',
-        'wizard/sale_subscription_renew_wizard_views.xml',
         'views/sale_order_views.xml',
         'views/product_template_views.xml',
-        'views/res_partner_views.xml',
         'views/sale_subscription_views.xml',
+        'views/res_partner_views.xml',
         'views/account_analytic_account_views.xml',
         'views/subscription_portal_templates.xml',
+        'views/subscription_templates.xml',
+        'views/payment_templates.xml',
         'views/mail_activity_views.xml',
         'data/mail_template_data.xml',
         'data/sale_subscription_data.xml',
@@ -49,13 +49,14 @@ Features:
         'data/sale_subscription_demo.xml'
     ],
     'application': True,
+    'pre_init_hook': '_pre_init_sale_subscription',
     'license': 'OEEL-1',
     'assets': {
         'web.assets_backend': [
             'sale_subscription/static/src/js/tours/sale_subscription.js',
-            'sale_subscription/static/src/scss/sale_subscription_backend.scss',
         ],
         'web.assets_frontend': [
+            'sale_subscription/static/src/js/manage_form.js',
             'sale_subscription/static/src/js/portal_subscription.js',
         ],
     }

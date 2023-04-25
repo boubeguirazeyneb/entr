@@ -1,25 +1,36 @@
 /** @odoo-module **/
 
-import FieldHtml from 'web_editor.field.html';
-import fieldRegistry from 'web.field_registry';
-import MailEmojisMixin from '@mail/js/emojis_mixin';
-import SocialPostFormatterMixin from 'social.post_formatter_mixin';
+import { SocialPostFormatterMixin } from "./social_post_formatter_mixin";
 
-/**
- * Simple FieldHtml extension that will just wrap the emojis correctly.
- * See 'MailEmojisMixin' documentation for more information.
- */
-var FieldPostPreview = FieldHtml.extend(MailEmojisMixin, SocialPostFormatterMixin, {
-    _textToHtml: function (text) {
-        var html = this._super.apply(this, arguments);
-        var $html = $(html);
-        var $previewMessage = $html.find('.o_social_preview_message');
-        $previewMessage.html(this._formatPost($previewMessage.text().trim()));
+import { HtmlField } from "@web_editor/js/backend/html_field";
+import { patch } from '@web/core/utils/patch';
+import { registry } from "@web/core/registry";
+const { markup } = owl;
 
-        return $html[0].outerHTML;
+export class FieldPostPreview extends HtmlField {
+    get markupValue() {
+        const $html = $(this.props.value + '');
+        $html.find('.o_social_preview_message').each((index, previewMessage) => {
+            $(previewMessage).html(this._formatPost($(previewMessage).text().trim()));
+        });
+
+        return markup($html[0].outerHTML);
     }
-});
+}
 
-fieldRegistry.add('social_post_preview', FieldPostPreview);
+FieldPostPreview.props = {
+    ...FieldPostPreview.props,
+    mediaType: { type: String, optional: true },
+};
 
-export default FieldPostPreview;
+FieldPostPreview.extractProps = ({ attrs, field }) => {
+    return {
+        ...HtmlField.extractProps({ attrs, field }),
+        mediaType: attrs.media_type || '',
+    }
+};
+
+
+patch(FieldPostPreview.prototype, 'social_preview_formatter_mixin', SocialPostFormatterMixin);
+
+registry.category("fields").add("social_post_preview", FieldPostPreview);

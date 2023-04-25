@@ -3,32 +3,33 @@
 # 	* data_merge
 # 
 # Translators:
-# Martin Trigaux, 2021
-# marcescu, 2022
+# Martin Trigaux, 2022
+# Leonardo J. Caballero G. <leonardocaballero@gmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:38+0000\n"
-"Last-Translator: marcescu, 2022\n"
-"Language-Team: Spanish (https://www.transifex.com/odoo/teams/41243/es/)\n"
+"POT-Creation-Date: 2022-12-15 13:28+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Leonardo J. Caballero G. <leonardocaballero@gmail.com>, 2022\n"
+"Language-Team: Spanish (https://app.transifex.com/odoo/teams/41243/es/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: es\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_model.py:0
 #, python-format
 msgid "%s (copy)"
 msgstr "%s (copia)"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
 #, python-format
 msgid "%s records have been merged"
 msgstr "%s registros han sido fusionados"
@@ -53,8 +54,8 @@ msgstr ""
 
 #. module: data_merge
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_model_form
-msgid "<span class=\"mr-1\">Every</span>"
-msgstr "<span class=\"mr-1\">Cada</span>"
+msgid "<span class=\"me-1\">Every</span>"
+msgstr "<span class=\"me-1\">Cada</span>"
 
 #. module: data_merge
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_model_form
@@ -85,8 +86,8 @@ msgid "Archived"
 msgstr "Archivado"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
 #, python-format
 msgid ""
 "Are you sure that you want to merge the selected records in their respective"
@@ -96,8 +97,8 @@ msgstr ""
 "respectivos grupos?"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
 #, python-format
 msgid "Are you sure that you want to merge these records?"
 msgstr "¿Estás seguro que quieres fusionar estos registros?"
@@ -114,10 +115,16 @@ msgid "Can Be Merged"
 msgstr "Se puede fusionar"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_rule.py:0
 #, python-format
 msgid "Case/Accent Insensitive Match"
 msgstr "Coincidencia que no distingue mayúsculas-minúsculas ni acentos."
+
+#. module: data_merge
+#: model:ir.model.fields,field_description:data_merge.field_data_merge_record__company_id
+msgid "Company"
+msgstr "Compañía"
 
 #. module: data_merge
 #: model_terms:ir.actions.act_window,help:data_merge.action_data_merge_record
@@ -177,14 +184,12 @@ msgstr "Método de fusión personalizado"
 #. module: data_merge
 #: model:ir.actions.server,name:data_merge.ir_cron_cleanup_ir_actions_server
 #: model:ir.cron,cron_name:data_merge.ir_cron_cleanup
-#: model:ir.cron,name:data_merge.ir_cron_cleanup
 msgid "Data Merge: Cleanup Records"
 msgstr "Fusión de datos: registros limpios"
 
 #. module: data_merge
 #: model:ir.actions.server,name:data_merge.ir_cron_find_duplicates_ir_actions_server
 #: model:ir.cron,cron_name:data_merge.ir_cron_find_duplicates
-#: model:ir.cron,name:data_merge.ir_cron_find_duplicates
 msgid "Data Merge: Find Duplicate Records"
 msgstr "Fusión de datos: encontrar registros duplicados"
 
@@ -194,6 +199,7 @@ msgid "Days"
 msgstr "Días"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_model_form
 #, python-format
@@ -237,9 +243,16 @@ msgid "Deduplication Rules"
 msgstr "Reglas de deduplicación"
 
 #. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_model.py:0
+#, python-format
+msgid "Deduplication is forbidden on the model: %s"
+msgstr ""
+
+#. module: data_merge
 #: model:ir.model.fields.selection,name:data_merge.selection__data_merge_model__removal_mode__delete
 msgid "Delete"
-msgstr "Eliminar"
+msgstr "Suprimir"
 
 #. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_record__differences
@@ -310,6 +323,7 @@ msgid "Enable Merge"
 msgstr "Habilitar fusión"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_rule.py:0
 #, python-format
 msgid "Exact Match"
@@ -422,27 +436,36 @@ msgstr ""
 "Lista de usuarios a notificar cuando hay nuevos registros por fusionar"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/xml/data_merge_list_views.xml:0
-#, python-format
-msgid "Main actions"
-msgstr "Acciones principales"
-
-#. module: data_merge
 #: model:ir.model.fields.selection,name:data_merge.selection__data_merge_model__merge_mode__manual
 msgid "Manual"
 msgstr "Manual"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
 msgid "Manual Selection - %s"
 msgstr "Selección manual - %s"
 
 #. module: data_merge
-#. openerp-web
+#. odoo-javascript
+#. odoo-python
 #: code:addons/data_merge/models/ir_model.py:0
-#: code:addons/data_merge/static/src/xml/data_merge_list_views.xml:0
+#: code:addons/data_merge/static/src/views/data_merge_list_view.xml:0
+#: model:ir.actions.server,name:data_merge.merge_action_crm_lost_reason
+#: model:ir.actions.server,name:data_merge.merge_action_crm_tag
+#: model:ir.actions.server,name:data_merge.merge_action_helpdesk_tag
+#: model:ir.actions.server,name:data_merge.merge_action_helpdesk_ticket
+#: model:ir.actions.server,name:data_merge.merge_action_project_tags
+#: model:ir.actions.server,name:data_merge.merge_action_project_task
+#: model:ir.actions.server,name:data_merge.merge_action_res_country
+#: model:ir.actions.server,name:data_merge.merge_action_res_country_state
+#: model:ir.actions.server,name:data_merge.merge_action_res_partner_category
+#: model:ir.actions.server,name:data_merge.merge_action_res_partner_industry
+#: model:ir.actions.server,name:data_merge.merge_action_res_partner_title
+#: model:ir.actions.server,name:data_merge.merge_action_utm_campaign
+#: model:ir.actions.server,name:data_merge.merge_action_utm_medium
+#: model:ir.actions.server,name:data_merge.merge_action_utm_source
 #: model_terms:ir.ui.view,arch_db:data_merge.view_data_merge_record_list
 #, python-format
 msgid "Merge"
@@ -479,6 +502,13 @@ msgid "Merge action attached"
 msgstr "Archivo adjunto de acción de fusión"
 
 #. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_model.py:0
+#, python-format
+msgid "Missing required PostgreSQL extension: unaccent"
+msgstr ""
+
+#. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_group__res_model_id
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_model__res_model_id
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_record__res_model_id
@@ -512,6 +542,7 @@ msgid "Name"
 msgstr "Nombre"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #: model_terms:ir.actions.act_window,help:data_merge.action_data_merge_record
 #: model_terms:ir.actions.act_window,help:data_merge.action_data_merge_record_notification
@@ -533,6 +564,14 @@ msgstr "Notificar periodo de frecuencia"
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_model__notify_user_ids
 msgid "Notify Users"
 msgstr "Notificar usuarios"
+
+#. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
+#: code:addons/data_merge/models/data_merge_record.py:0
+#, python-format
+msgid "Query Failed."
+msgstr ""
 
 #. module: data_merge
 #: model:ir.model.fields,field_description:data_merge.field_data_merge_group__record_ids
@@ -564,6 +603,13 @@ msgstr "Conteo de registros a fusionar"
 #: model:ir.model.fields,help:data_merge.field_data_merge_model__domain
 msgid "Records eligible for the deduplication process"
 msgstr "Registros elegibles para el proceso de deduplicación"
+
+#. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
+#, python-format
+msgid "Records must be of the same model"
+msgstr ""
 
 #. module: data_merge
 #: model:ir.model.fields,help:data_merge.field_data_merge_model__merge_threshold
@@ -624,17 +670,32 @@ msgid "The notification frequency should be greater than 0"
 msgstr "La frecuencia de notificación debe ser mayor a 0"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/js/data_merge_list_view.js:0
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
-msgid "The selected"
-msgstr "Los seleccionados"
+msgid "The referenced record does not exist"
+msgstr ""
 
 #. module: data_merge
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.js:0
+#, python-format
+msgid "The selected records have been merged"
+msgstr "Los registros seleccionados se fusionaron"
+
+#. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
 msgid "The target model does not exists."
 msgstr "El modelo objetivo no existe. "
+
+#. module: data_merge
+#. odoo-python
+#: code:addons/data_merge/models/data_merge_record.py:0
+#, python-format
+msgid "There is not referenced record"
+msgstr "No hay registro sin referencia"
 
 #. module: data_merge
 #: model:ir.model.constraint,message:data_merge.constraint_data_merge_model_uniq_name
@@ -647,8 +708,8 @@ msgid "Unique ID Field"
 msgstr "Campo de ID único"
 
 #. module: data_merge
-#. openerp-web
-#: code:addons/data_merge/static/src/xml/data_merge_list_views.xml:0
+#. odoo-javascript
+#: code:addons/data_merge/static/src/views/data_merge_list_view.xml:0
 #, python-format
 msgid "Unselect"
 msgstr "Deseleccionar"
@@ -679,6 +740,7 @@ msgid "When enabled, duplicates across different companies will be suggested"
 msgstr "Cuando esté habilitado, se sugerirán duplicados en distintas empresas"
 
 #. module: data_merge
+#. odoo-python
 #: code:addons/data_merge/models/data_merge_record.py:0
 #, python-format
 msgid "You must select at least two %s in order to merge them."

@@ -99,7 +99,7 @@ class DataMergeModel(models.Model):
             self.rule_ids = [(5, 0, 0)]
 
     def _compute_records_to_merge_count(self):
-        count_data = self.env['data_merge.record'].read_group([('model_id', 'in', self.ids)], ['model_id'], ['model_id'])
+        count_data = self.env['data_merge.record'].with_context(data_merge_model_ids=tuple(self.ids))._read_group([('model_id', 'in', self.ids)], ['model_id'], ['model_id'])
         counts = {cd['model_id'][0]:cd['model_id_count'] for cd in count_data}
         for dm_model in self:
             dm_model.records_to_merge_count = counts[dm_model.id] if dm_model.id in counts else 0
@@ -149,13 +149,19 @@ class DataMergeModel(models.Model):
         ])
         if num_records:
             partner_ids = self.notify_user_ids.partner_id.ids
-            template = self.env.ref('data_merge.data_merge_duplicate')
-            menu_id = self.env.ref('data_cleaning.menu_data_cleaning_root').id
-            kwargs = {
-                'body': template._render(dict(num_records=num_records, res_model_label=self.res_model_id.name, model_id=self.id, menu_id=menu_id)),
-                'partner_ids': partner_ids,
-            }
-            self.env['mail.thread'].with_context(mail_notify_author=True).sudo().message_notify(**kwargs)
+            menu_id = self.env.ref('data_recycle.menu_data_cleaning_root').id
+            self.env['mail.thread'].with_context(mail_notify_author=True).sudo().message_notify(
+                body=self.env['ir.qweb']._render(
+                    'data_merge.data_merge_duplicate',
+                    dict(num_records=num_records,
+                         res_model_label=self.res_model_id.name,
+                         model_id=self.id,
+                         menu_id=menu_id)
+                    ),
+                partner_ids=partner_ids,
+                model='data_merge.model',
+                res_id=self.id,
+            )
 
     def _cron_find_duplicates(self):
         """
@@ -171,7 +177,7 @@ class DataMergeModel(models.Model):
         :param bool batch_commits: If set, will automatically commit every X records
         """
         unaccent = get_unaccent_wrapper(self.env.cr)
-        self.flush()
+        self.env.flush_all()
         for dm_model in self:
             t1 = timeit.default_timer()
             ids = []
@@ -225,7 +231,7 @@ class DataMergeModel(models.Model):
                     self._cr.execute(query, where_clause_params)
                 except ProgrammingError as e:
                     if e.pgcode == errorcodes.UNDEFINED_FUNCTION:
-                        raise UserError('Missing required PostgreSQL extension: unaccent')
+                        raise UserError(_('Missing required PostgreSQL extension: unaccent'))
                     raise
 
                 rows = self._cr.fetchall()
@@ -295,7 +301,7 @@ class DataMergeModel(models.Model):
         models = set(self.env['ir.model'].browse(self.res_model_id.ids).mapped('model'))
         for model_name in models:
             if model_name and hasattr(self.env[model_name], '_prevent_merge') and self.env[model_name]._prevent_merge:
-                raise ValidationError('Deduplication is forbidden on the model: %s' % model_name)
+                raise ValidationError(_('Deduplication is forbidden on the model: %s', model_name))
 
     def copy(self, default=None):
         self.ensure_one()

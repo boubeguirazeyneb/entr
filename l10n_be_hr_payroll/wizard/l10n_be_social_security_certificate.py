@@ -80,15 +80,20 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
             student_slips = aggregate_payslips.filtered(lambda p: p.struct_id == student_pay)
 
             code_list = [
-                'BASIC', 'COMMISSION', 'ATN.INT', 'ATN.MOB', 'ATN.LAP', 'BASIC', 'BASIC', 'BASIC',
-                'D.P', 'EU.LEAVE.DEDUC', 'ATN.CAR', 'PAY_SIMPLE', 'PAY DOUBLE',
-                'PAY DOUBLE COMPLEMENTARY', 'SALARY', 'SALARY', 'ONSSTOTAL', 'ONSSTOTAL', 'ONSS1',
+                'BASIC', 'HolPayRecN', 'HolPayRecN1', 'COMMISSION', 'AFTERPUB', 'HIRINGBONUS',
+                'ADDITIONALGROSS', 'SIMPLE.DECEMBER', 'ATN.INT', 'ATN.MOB', 'ATN.LAP', 'BASIC',
+                'D.P', 'EU.LEAVE.DEDUC', 'ATN.CAR', 'PAY_SIMPLE', 'PAY DOUBLE', 'PUB.TRANS',
+                'PAY DOUBLE COMPLEMENTARY', 'SALARY', 'SALARY', 'ONSSTOTAL', 'ONSSEMPLOYER', 'ONSS1',
                 'ONSS2', 'ONSS', 'ONSS', 'ONSS', 'REP.FEES', 'REP.FEES.VOLATILE', 'CAR.PRIV', 'P.P', 'M.ONSS',
                 'ATTACH_SALARY', 'ATN.CAR.2', 'ATN.MOB.2', 'ATN.INT.2', 'ATN.LAP.2', 'MEAL_V_EMP',
-                'IMPULSION25', 'IMPULSION12', 'ASSIG_SALARY', 'ADVANCE', 'NET', 'P.P.DED']
+                'IMPULSION25', 'IMPULSION12', 'ASSIG_SALARY', 'ADVANCE', 'NET', 'P.P.DED',
+                'ONSSEMPLOYERBASIC', 'ONSSEMPLOYERFFE', 'ONSSEMPLOYERMFFE', 'ONSSEMPLOYERCPAE',
+                'ONSSEMPLOYERRESTREINT', 'ONSSEMPLOYERUNEMP', 'CYCLE', 'CANTEEN']
             all_values = aggregate_payslips._get_line_values(code_list, vals_list=['total', 'quantity'])
 
-            gross_before_onss = _get_total(monthly_slips, all_values, ['BASIC', 'COMMISSION'])
+            gross_before_onss = _get_total(monthly_slips, all_values, [
+                'BASIC', 'HolPayRecN', 'HolPayRecN1', 'COMMISSION', 'AFTERPUB', 'HIRINGBONUS',
+                'ADDITIONALGROSS', 'SIMPLE.DECEMBER'])
             atn = _get_total(monthly_slips, all_values, ['ATN.INT', 'ATN.MOB', 'ATN.LAP'])
             termination_fees = _get_total(termination_slips, all_values, ['BASIC'])
             student = _get_total(student_slips, all_values, ['BASIC'])
@@ -101,7 +106,7 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
             other_exempted_amount = _get_total(holiday_slips, all_values, ['PAY DOUBLE COMPLEMENTARY'])
             thirteen_month_gross = _get_total(thirteen_slips, all_values, ['SALARY'])
             double_gross = _get_total(double_slips, all_values, ['SALARY'])
-            subtotal_gross = total_gross_before_onss + atn_without_onss + early_holiday_pay + holiday_pay_supplement + other_exempted_amount + student + thirteen_month_gross + double_gross
+            subtotal_gross = total_gross_before_onss + atn_without_onss + early_holiday_pay + holiday_pay_supplement + other_exempted_amount + double_gross
             onss_cotisation = _get_total(monthly_slips, all_values, ['ONSSTOTAL'])
             onss_cotisation_termination_fees = _get_total(termination_slips, all_values, ['ONSSTOTAL'])
             anticipated_holiday_pay_retenue = _get_total(holiday_slips, all_values, ['ONSS1'])
@@ -111,6 +116,9 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
             onss_student = _get_total(student_slips, all_values, ['ONSS'])
             representation_fees = _get_total(monthly_slips, all_values, ['REP.FEES', 'REP.FEES.VOLATILE'])
             private_car = _get_total(monthly_slips + student_slips, all_values, ['CAR.PRIV'])
+            public_transport = _get_total(monthly_slips + student_slips, all_values, ['PUB.TRANS'])
+            cycle_allowance = _get_total(monthly_slips + student_slips, all_values, ['CYCLE'])
+            canteen_costs = _get_total(monthly_slips, all_values, ['CANTEEN'])
             atn_car = atn_without_onss
             withholding_taxes = _get_total(aggregate_payslips, all_values, ['P.P'])
             misc_onss = _get_total(aggregate_payslips, all_values, ['M.ONSS'])
@@ -123,17 +131,12 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
             net = _get_total(aggregate_payslips, all_values, ['NET'])
             total_net = net + salary_advance
 
-            basis_termination = _get_total(termination_slips, all_values, ['BASIC'])
-            basis = _get_total(monthly_slips + thirteen_slips, all_values, ['SALARY']) \
-                  + _get_total(holiday_slips, all_values, ['PAY_SIMPLE']) \
-
-            ffe_rate = self.company_id._get_ffe_contribution_rate(worker_count) + 0.0014
             # Cotisation patronnale de base =
-            # FFE + Special FFE + CPAE + Modération Salariale + Chomage temporaire
-            global_rate = 0.3810 + 0.0023 + (0.0169 if worker_count >= 10 else 0) + 0.0010
-            emp_onss = basis * global_rate
-            emp_termination_onss = basis_termination * global_rate
-            closure_fund = (basis + basis_termination) * ffe_rate
+            # Global Rate (without employee part) + FFE + Special FFE + CPAE + Modération Salariale + Chomage temporaire
+            # global_rate = 0.3810 + 0.0023 + (0.0169 if worker_count >= 10 else 0) + 0.0010 - 0.1307
+            emp_onss = _get_total(monthly_slips + thirteen_slips + holiday_slips, all_values, ['ONSSEMPLOYER'])
+            emp_termination_onss = _get_total(termination_slips, all_values, ['ONSSEMPLOYER'])
+            closure_fund = _get_total(termination_slips + monthly_slips + thirteen_slips + holiday_slips, all_values, ['ONSSEMPLOYERFFE', 'ONSSEMPLOYERMFFE'])
             charges_redistribution = 0
 
             if 'vehicle_id' in self.env['hr.payslip']:
@@ -154,7 +157,9 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
                 employee_ids = aggregate_payslips.employee_id.ids
                 wizard_274.with_context(wizard_274xx_force_employee_ids=employee_ids)._compute_line_ids()
 
-            withholding_taxes_exemption = wizard_274.deducted_amount_32 + wizard_274.deducted_amount_33 + wizard_274.deducted_amount_34
+            withholding_taxes_exemption_32 = wizard_274.deducted_amount_32
+            withholding_taxes_exemption_33 = wizard_274.deducted_amount_33
+            withholding_taxes_exemption_34 = wizard_274.deducted_amount_34
             withholding_taxes_capping = -wizard_274.capped_amount_34
 
             # YTI TODO: Include double holiday - 13th month
@@ -185,7 +190,10 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
                 'gift_in_kind': 0,
                 'representation_fees': representation_fees,
                 'private_car': private_car,
+                'public_transport': public_transport,
+                'cycle_allowance': cycle_allowance,
                 'atn_car': atn_car,
+                'canteen_costs': canteen_costs,
                 'withholding_taxes': withholding_taxes,
                 'misc_onss': misc_onss,
                 'salary_attachment': salary_attachment,
@@ -206,13 +214,16 @@ class L10nBeSocialSecurityCertificate(models.TransientModel):
                 'withholding_taxes_deduction': withholding_taxes_deduction,
                 'total_employer_cost': total_employer_cost,
                 'holiday_pay_provision': holiday_pay_provision,
-                'withholding_taxes_exemption': withholding_taxes_exemption,
+                'withholding_taxes_exemption_32': withholding_taxes_exemption_32,
+                'withholding_taxes_exemption_33': withholding_taxes_exemption_33,
+                'withholding_taxes_exemption_34': withholding_taxes_exemption_34,
                 'withholding_taxes_capping': withholding_taxes_capping,
             }
             report_data.append((aggregate_name, aggregate_data))
 
         filename = 'SocialBalance-%s-%s.pdf' % (self.date_from.strftime("%d%B%Y"), self.date_to.strftime("%d%B%Y"))
-        export_274_sheet_pdf, dummy = self.env.ref('l10n_be_hr_payroll.action_report_social_security_certificate').sudo()._render_qweb_pdf(
+        export_274_sheet_pdf, dummy = self.env["ir.actions.report"].sudo()._render_qweb_pdf(
+            self.env.ref('l10n_be_hr_payroll.action_report_social_security_certificate').id,
             res_ids=self.ids, data={'report_data': report_data})
 
         self.social_security_filename = filename

@@ -3,15 +3,17 @@
 
 from odoo import api, fields, models, _
 from odoo.tools import pycompat, float_repr
-from odoo.exceptions import UserError
+from odoo.exceptions import ValidationError
 from odoo.tools.sql import column_exists, create_column
 
 from datetime import datetime
-from collections import namedtuple, defaultdict
-import json
+from collections import namedtuple
+import tempfile
 import zipfile
 import time
 import io
+import re
+import os
 
 BalanceKey = namedtuple('BalanceKey', ['from_code', 'to_code', 'partner_id', 'tax_id'])
 
@@ -36,17 +38,22 @@ class ResPartner(models.Model):
 
     @api.constrains('l10n_de_datev_identifier')
     def _check_datev_identifier(self):
-        for partner in self.filtered(lambda p: p.l10n_de_datev_identifier != 0):
-            if self.search([('id', '!=', partner.id),
-                            ('l10n_de_datev_identifier', '=', partner.l10n_de_datev_identifier)], limit=1):
-                raise UserError(_('You have already defined a partner with the same Datev identifier. '))
+        self.flush_model(['l10n_de_datev_identifier'])
+        self.env.cr.execute("""
+            SELECT COUNT(id), l10n_de_datev_identifier FROM res_partner
+            WHERE l10n_de_datev_identifier != 0
+            GROUP BY l10n_de_datev_identifier
+            HAVING COUNT(id) > 1
+        """)
+
+        if self.env.cr.dictfetchone():
+            raise ValidationError(_('You have already defined a partner with the same Datev identifier. '))
 
 
 class AccountMoveL10NDe(models.Model):
     _inherit = 'account.move'
 
-    l10n_de_datev_main_account_id = fields.Many2one('account.account', compute='_get_datev_account',
-        help='Technical field needed for datev export', store=True)
+    l10n_de_datev_main_account_id = fields.Many2one('account.account', compute='_get_datev_account', store=True)
 
     def _auto_init(self):
         if column_exists(self.env.cr, "account_move", "l10n_de_datev_main_account_id"):
@@ -67,10 +74,8 @@ class AccountMoveL10NDe(models.Model):
                               ON m.id = l.move_id
                             JOIN account_account a
                               ON a.id = l.account_id
-                            JOIN account_account_type t
-                              ON t.id = a.user_type_id
                            WHERE m.move_type in ('out_invoice', 'out_refund', 'in_refund', 'in_invoice', 'out_receipt', 'in_receipt')
-                             AND t.type in ('receivable', 'payable')
+                             AND a.account_type in ('asset_receivable', 'liability_payable')
                        ) r
                 WHERE id = r.mid
             """)
@@ -146,7 +151,7 @@ class AccountMoveL10NDe(models.Model):
             # If move has an invoice, return invoice's account_id
             if move.is_invoice(include_receipts=True):
                 payment_term_lines = move.line_ids.filtered(
-                    lambda line: line.account_id.user_type_id.type in ('receivable', 'payable'))
+                    lambda line: line.account_id.account_type in ('asset_receivable', 'liability_payable'))
                 if payment_term_lines:
                     move.l10n_de_datev_main_account_id = payment_term_lines[0].account_id
                 continue
@@ -170,72 +175,109 @@ class AccountMoveL10NDe(models.Model):
                     aml_debit += aml
                 if aml.credit > 0:
                     aml_credit += aml
-            if len(aml_debit) == 1:
-                value = aml_debit[0].account_id
-            elif len(aml_credit) == 1:
-                value = aml_credit[0].account_id
+            if len(aml_debit.account_id) == 1:
+                value = aml_debit.account_id
+            elif len(aml_credit.account_id) == 1:
+                value = aml_credit.account_id
             else:
-                aml_debit_wo_tax = [a for a in aml_debit if not a.tax_line_id]
-                aml_credit_wo_tax = [a for a in aml_credit if not a.tax_line_id]
-                if len(aml_debit_wo_tax) == 1:
-                    value = aml_debit_wo_tax[0].account_id
-                elif len(aml_credit_wo_tax) == 1:
-                    value = aml_credit_wo_tax[0].account_id
+                aml_debit_wo_tax_accounts = [a.account_id for a in aml_debit if not a.tax_line_id]
+                aml_credit_wo_tax_accounts = [a.account_id for a in aml_credit if not a.tax_line_id]
+                if len(aml_debit_wo_tax_accounts) == 1:
+                    value = aml_debit_wo_tax_accounts[0]
+                elif len(aml_credit_wo_tax_accounts) == 1:
+                    value = aml_credit_wo_tax_accounts[0]
             move.l10n_de_datev_main_account_id = value
 
 
-class DatevExportCSV(models.AbstractModel):
-    _inherit = 'account.general.ledger'
+class GeneralLedgerCustomHandler(models.AbstractModel):
+    _inherit = 'account.general.ledger.report.handler'
 
-    def _get_reports_buttons(self, options):
-        buttons = super(DatevExportCSV, self)._get_reports_buttons(options)
-        buttons += [{'name': _('Datev (zip)'), 'sequence': 3, 'action': 'print_zip', 'file_export_type': _('Datev zip')}]
-        return buttons
+    def _custom_options_initializer(self, report, options, previous_options=None):
+        """
+        Add the invoice lines search domain that common for all countries.
+        :param dict options: Report options
+        :param dict previous_options: Previous report options
+        """
+        super()._custom_options_initializer(report, options, previous_options)
+        if self.env.company.country_code in ('DE', 'CH', 'AT'):
+            options.setdefault('buttons', []).extend((
+                {
+                    'name': _('Datev (zip)'),
+                    'sequence': 30,
+                    'action': 'export_file',
+                    'action_param': 'l10n_de_datev_export_to_zip',
+                    'file_export_type': _('Datev zip'),
+                },
+                {
+                    'name': _('Datev + ATCH (zip)'),
+                    'sequence': 40,
+                    'action': 'export_file',
+                    'action_param': 'l10_de_datev_export_to_zip_and_attach',
+                    'file_export_type': _('Datev + batch zip'),
+                },
+            ))
 
-    # This will be removed in master as export CSV is not needed anymore
-    # Can't remove it in version 11 in order to not break the stable policy
-    def print_csv(self, options):
+    def l10_de_datev_export_to_zip_and_attach(self, options):
+        options['add_attachments'] = True
+        return self.l10n_de_datev_export_to_zip(options)
+
+    def l10n_de_datev_export_to_zip(self, options):
+        """
+        Check ir_attachment for method _get_path
+        create a sha and replace 2 first letters by something not hexadecimal
+        Return full_path as 2nd args, use it as name for Zipfile
+        Don't need to unlink as it will be done automatically by garbage collector
+        of attachment cron
+        """
+        report = self.env['account.report'].browse(options['report_id'])
+        with tempfile.NamedTemporaryFile(mode='w+b', delete=True) as buf:
+            with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED, allowZip64=False) as zf:
+                move_line_ids = []
+                for line in report._get_lines({**options, 'unfold_all': True}):
+                    model, model_id = report._get_model_info_from_id(line['id'])
+                    if model == 'account.move.line':
+                        move_line_ids.append(model_id)
+
+                domain = [
+                    ('line_ids', 'in', move_line_ids),
+                    ('company_id', 'in', report.get_report_company_ids(options)),
+                ]
+                if options.get('all_entries'):
+                    domain += [('state', '!=', 'cancel')]
+                else:
+                    domain += [('state', '=', 'posted')]
+                if options.get('date'):
+                    domain += [('date', '<=', options['date']['date_to'])]
+                    # cannot set date_from on move as domain depends on the move line account if "strict_range" is False
+                domain += report._get_options_journals_domain(options)
+                moves = self.env['account.move'].search(domain)
+                zf.writestr('EXTF_accounting_entries.csv', self._l10n_de_datev_get_csv(options, moves))
+                zf.writestr('EXTF_customer_accounts.csv', self._l10n_de_datev_get_partner_list(options, customer=True))
+                zf.writestr('EXTF_vendor_accounts.csv', self._l10n_de_datev_get_partner_list(options, customer=False))
+                if options.get('add_attachments'):
+                    # add all moves attachments in zip file, this is not part of DATEV specs
+                    slash_re = re.compile('[\\/]')
+                    for move in moves:
+                        # rename files by move name + sequence number (if more than 1 file)
+                        # '\' is not allowed in file name, replace by '-'
+                        base_name = slash_re.sub('-', move.name)
+                        if len(move.attachment_ids) > 1:
+                            name_pattern = f'%(base)s-%(index)0.{len(str(len(move.attachment_ids)))}d%(extension)s'
+                        else:
+                            name_pattern = '%(base)s%(extension)s'
+                        for i, attachment in enumerate(move.attachment_ids.sorted('id'), 1):
+                            extension = os.path.splitext(attachment.name)[1]
+                            name = name_pattern % {'base': base_name, 'index': i, 'extension': extension}
+                            zf.writestr(name, attachment.raw)
+            buf.seek(0)
+            content = buf.read()
         return {
-            'type': 'ir_actions_account_report_download',
-            'data': {
-                'model': self.env.context.get('model'),
-                'options': json.dumps(options),
-                'output_format': 'csv',
-            }
+            'file_name': report.get_default_report_filename('ZIP'),
+            'file_content': content,
+            'file_type': 'zip'
         }
 
-    def print_zip(self, options):
-        return {
-            'type': 'ir_actions_account_report_download',
-            'data': {'model': self.env.context.get('model'),
-                     'options': json.dumps(options),
-                     'output_format': 'zip',
-                     }
-        }
-
-    def _get_zip(self, options):
-        # Check ir_attachment for method _get_path
-        # create a sha and replace 2 first letters by something not hexadecimal
-        # Return full_path as 2nd args, use it as name for Zipfile
-        # Don't need to unlink as it will be done automatically by bgarbage collector
-        # of attachment cron
-        # This create a zip file that we store as an ir_attachment. To prevent overwritting
-        # an existing ir_attachement, we store it in a folder called ww (all others attachments
-        # are inside folders that only has hexadecimal value as name)
-        # This is done so that we can send the zip directly to client without putting it
-        # in memory. After having created the file, we also have to call _file_delete
-        # Otherwise the folder ww won't be garbage collected by the cron
-        ir_attachment = self.env['ir.attachment']
-        sha = ir_attachment._compute_checksum(str(time.time()).encode('utf-8'))
-        fname, full_path = ir_attachment._get_path(False, 'ww' + sha[2:])
-        with zipfile.ZipFile(full_path, 'w', False) as zf:
-            zf.writestr('EXTF_accounting_entries.csv', self.get_csv(options))
-            zf.writestr('EXTF_customer_accounts.csv', self._get_partner_list(options, customer=True))
-            zf.writestr('EXTF_vendor_accounts.csv', self._get_partner_list(options, customer=False))
-        ir_attachment._file_delete(fname)
-        return open(full_path, 'rb')
-
-    def _get_datev_client_number(self):
+    def _l10n_de_datev_get_client_number(self):
         consultant_number = self.env.company.l10n_de_datev_consultant_number
         client_number = self.env.company.l10n_de_datev_client_number
         if not consultant_number:
@@ -244,25 +286,27 @@ class DatevExportCSV(models.AbstractModel):
             client_number = 999
         return [consultant_number, client_number]
 
-    def _get_partner_list(self, options, customer=True):
-        date_from = fields.Date.from_string(options.get('date').get('date_from'))
+    def _l10n_de_datev_get_partner_list(self, options, customer=True):
         date_to = fields.Date.from_string(options.get('date').get('date_to'))
         fy = self.env.company.compute_fiscalyear_dates(date_to)
 
-        date_from = datetime.strftime(date_from, '%Y%m%d')
-        date_to = datetime.strftime(date_to, '%Y%m%d')
         fy = datetime.strftime(fy.get('date_from'), '%Y%m%d')
-        datev_info = self._get_datev_client_number()
+        datev_info = self._l10n_de_datev_get_client_number()
+        account_length = self._l10n_de_datev_get_account_length()
 
         output = io.BytesIO()
         writer = pycompat.csv_writer(output, delimiter=';', quotechar='"', quoting=2)
-        preheader = ['EXTF', 510, 16, 'Debitoren/Kreditoren', 4, None, None, '', '', '', datev_info[0], datev_info[1], fy, 8,
+        preheader = ['EXTF', 510, 16, 'Debitoren/Kreditoren', 4, None, None, '', '', '', datev_info[0], datev_info[1], fy, account_length,
             '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
         header = ['Konto', 'Name (AdressatentypUnternehmen)', 'Name (Adressatentypnatürl. Person)', '', '', '', 'Adressatentyp']
-
-        # if we do _get_lines with some unfolded lines, only those will be returned, but we want all of them
-        move_line_ids = self.with_context(self._set_context(options), print_mode=True, aml_only=True)._get_lines({**options, 'unfolded_lines': []})
         lines = [preheader, header]
+
+        move_line_ids = set()
+        report = self.env['account.report'].browse(options['report_id'])
+        for line in report._get_lines({**options, 'unfold_all': True}):
+            model, model_id = report._parse_line_id(line['id'])[-1][-2:]
+            if model == 'account.move.line':
+                move_line_ids.add(str(model_id))
 
         if len(move_line_ids):
             if customer:
@@ -282,9 +326,9 @@ class DatevExportCSV(models.AbstractModel):
         partners = self.env['res.partner'].browse([p.get('partner_id') for p in self.env.cr.dictfetchall()])
         for partner in partners:
             if customer:
-                code = self._find_partner_account(partner.property_account_receivable_id, partner)
+                code = self._l10n_de_datev_find_partner_account(partner.property_account_receivable_id, partner)
             else:
-                code = self._find_partner_account(partner.property_account_payable_id, partner)
+                code = self._l10n_de_datev_find_partner_account(partner.property_account_payable_id, partner)
             line_value = {
                 'code': code,
                 'company_name': partner.name if partner.is_company else '',
@@ -302,8 +346,16 @@ class DatevExportCSV(models.AbstractModel):
         writer.writerows(lines)
         return output.getvalue()
 
-    def _find_partner_account(self, account, partner):
-        if (account.internal_type in ('receivable', 'payable') and partner):
+    def _l10n_de_datev_get_account_length(self):
+        param_start = self.env['ir.config_parameter'].sudo().get_param('l10n_de.datev_start_count', "100000000")[:9]
+        param_start_vendors = self.env['ir.config_parameter'].sudo().get_param('l10n_de.datev_start_count_vendors', "700000000")[:9]
+
+        # The gegenkonto should be 1 length higher than the account length, so we have to substract 1 to the params length
+        return max(param_start.isdigit() and len(param_start) or 9, param_start_vendors.isdigit() and len(param_start_vendors) or 9, 5) - 1
+
+    def _l10n_de_datev_find_partner_account(self, account, partner):
+        len_param = self._l10n_de_datev_get_account_length() + 1
+        if (account.account_type in ('asset_receivable', 'liability_payable') and partner):
             # Check if we have a property as receivable/payable on the partner
             # We use the property because in datev and in germany, partner can be of 2 types
             # important partner which have a specific account number or a virtual partner
@@ -311,22 +363,28 @@ class DatevExportCSV(models.AbstractModel):
             # explicitely has a receivable/payable account set, we use that account, otherwise
             # we assume it is not an important partner and his datev virtual id will be the
             # l10n_de_datev_identifier set or the id + the start count parameter.
-            account = partner.property_account_receivable_id if account.internal_type == 'receivable' else partner.property_account_payable_id
-            fname   = "property_account_receivable_id"       if account.internal_type == "receivable" else "property_account_payable_id"
+            account = partner.property_account_receivable_id if account.account_type == 'asset_receivable' else partner.property_account_payable_id
+            fname = "property_account_receivable_id"         if account.account_type == 'asset_receivable' else "property_account_payable_id"
             prop = self.env['ir.property']._get(fname, "res.partner", partner.id)
-            if prop == account:
-                return str(account.code).ljust(8, '0')
-            if account.internal_type == 'receivable':
-                param_start = self.env['ir.config_parameter'].sudo().get_param('l10n_de.datev_start_count')
-                start_count = param_start and param_start.isdigit() and int(param_start) or 100000000
-            else:
-                param_start = self.env['ir.config_parameter'].sudo().get_param('l10n_de.datev_start_count_vendors')
-                start_count = param_start and param_start.isdigit() and int(param_start) or 700000000
-            return partner.l10n_de_datev_identifier or start_count + partner.id
-        return str(account.code).ljust(8, '0')
+            force_datev_id = self.env['ir.config_parameter'].sudo().get_param('l10n_de.force_datev_id', False)
+            if not force_datev_id and prop == account:
+                return str(account.code).ljust(len_param - 1, '0') if account else ''
+            return self._l10n_de_datev_get_account_identifier(account, partner)
+        return str(account.code).ljust(len_param - 1, '0') if account else ''
+
+    def _l10n_de_datev_get_account_identifier(self, account, partner):
+        len_param = self._l10n_de_datev_get_account_length() + 1
+        if account.account_type == 'asset_receivable':
+            param_start = self.env['ir.config_parameter'].sudo().get_param('l10n_de.datev_start_count', "100000000")[:9]
+            start_count = param_start.isdigit() and int(param_start) or 100000000
+        else:
+            param_start_vendors = self.env['ir.config_parameter'].sudo().get_param('l10n_de.datev_start_count_vendors', "700000000")[:9]
+            start_count = param_start_vendors.isdigit() and int(param_start_vendors) or 700000000
+        start_count = int(str(start_count).ljust(len_param, '0'))
+        return partner.l10n_de_datev_identifier or start_count + partner.id
 
     # Source: http://www.datev.de/dnlexom/client/app/index.html#/document/1036228/D103622800029
-    def get_csv(self, options):
+    def _l10n_de_datev_get_csv(self, options, moves):
         # last 2 element of preheader should be filled by "consultant number" and "client number"
         date_from = fields.Date.from_string(options.get('date').get('date_from'))
         date_to = fields.Date.from_string(options.get('date').get('date_to'))
@@ -335,27 +393,28 @@ class DatevExportCSV(models.AbstractModel):
         date_from = datetime.strftime(date_from, '%Y%m%d')
         date_to = datetime.strftime(date_to, '%Y%m%d')
         fy = datetime.strftime(fy.get('date_from'), '%Y%m%d')
-        datev_info = self._get_datev_client_number()
+        datev_info = self._l10n_de_datev_get_client_number()
+        account_length = self._l10n_de_datev_get_account_length()
 
         output = io.BytesIO()
         writer = pycompat.csv_writer(output, delimiter=';', quotechar='"', quoting=2)
-        preheader = ['EXTF', 510, 21, 'Buchungsstapel', 7, '', '', '', '', '', datev_info[0], datev_info[1], fy, 8,
+        preheader = ['EXTF', 510, 21, 'Buchungsstapel', 7, '', '', '', '', '', datev_info[0], datev_info[1], fy, account_length,
             date_from, date_to, '', '', '', '', 0, 'EUR', '', '', '', '', '', '', '', '', '']
         header = ['Umsatz (ohne Soll/Haben-Kz)', 'Soll/Haben-Kennzeichen', 'WKZ Umsatz', 'Kurs', 'Basis-Umsatz', 'WKZ Basis-Umsatz', 'Konto', 'Gegenkonto (ohne BU-Schlüssel)', 'BU-Schlüssel', 'Belegdatum', 'Belegfeld 1', 'Belegfeld 2', 'Skonto', 'Buchungstext']
 
         # if we do _get_lines with some unfolded lines, only those will be returned, but we want all of them
-        move_line_ids = self.with_context(self._set_context(options), print_mode=True, aml_only=True)._get_lines({**options, 'unfolded_lines': []})
+        move_line_ids = []
+        report = self.env['account.report'].browse(options['report_id'])
+        for line in report._get_lines({**options, 'unfold_all': True}):
+            model, model_id = report._parse_line_id(line['id'])[-1][-2:]
+            if model == 'account.move.line':
+                move_line_ids.append(int(model_id))
+
         lines = [preheader, header]
 
-        moves = move_line_ids
-        # find all account_move
-        if len(move_line_ids):
-            self.env.cr.execute("""SELECT distinct(move_id) FROM account_move_line WHERE id IN %s""", (tuple(move_line_ids),))
-            move_ids = [l.get('move_id') for l in self.env.cr.dictfetchall()]
-            moves = self.env['account.move'].browse(move_ids)
         for m in moves:
             line_values = {}  # key: BalanceKey
-
+            move_currencies = {}
             payment_account = 0  # Used for non-reconciled payments
 
             for aml in m.line_ids:
@@ -370,27 +429,19 @@ class DatevExportCSV(models.AbstractModel):
                 if aml.tax_line_id:
                     continue
 
-                if aml.price_total != 0:
-                    line_amount = aml.price_total
-                else:
-                    line_amount = aml.balance
+                aml_taxes = aml.tax_ids.compute_all(aml.balance, aml.company_id.currency_id, partner=aml.partner_id, handle_price_include=False)
+                line_amount = aml_taxes['total_included']
 
                 code_correction = ''
-                if aml.move_id.is_inbound():
-                    letter = 'h'
-                elif aml.move_id.is_outbound():
-                    letter = 's'
-                else:
-                    letter = 's'
                 if aml.tax_ids:
                     codes = set(aml.tax_ids.mapped('l10n_de_datev_code'))
                     if len(codes) == 1:
                         # there should only be one max, else skip code
-                        code_correction = codes.pop()
+                        code_correction = codes.pop() or ''
 
                 # account and counterpart account
-                to_account_code = str(self._find_partner_account(aml.move_id.l10n_de_datev_main_account_id, aml.partner_id))
-                account_code = u'{code}'.format(code=self._find_partner_account(aml.account_id, aml.partner_id))
+                to_account_code = str(self._l10n_de_datev_find_partner_account(aml.move_id.l10n_de_datev_main_account_id, aml.partner_id))
+                account_code = u'{code}'.format(code=self._l10n_de_datev_find_partner_account(aml.account_id, aml.partner_id))
 
                 # We don't want to have lines with our outstanding payment/receipt as they don't represent real moves
                 # So if payment skip one move line to write, while keeping the account
@@ -410,6 +461,8 @@ class DatevExportCSV(models.AbstractModel):
                 if match_key in line_values:
                     # values already in line_values
                     line_values[match_key]['line_amount'] += line_amount
+                    line_values[match_key]['line_base_amount'] += aml.price_total
+                    move_currencies[match_key].add(aml.currency_id)
                     continue
 
                 # reference
@@ -422,17 +475,19 @@ class DatevExportCSV(models.AbstractModel):
                 if to_account_code == account_code and aml.date_maturity:
                     receipt2 = aml.date
 
+                move_currencies[match_key] = set([aml.currency_id])
                 currency = aml.company_id.currency_id
                 line_values[match_key] = {
                     'waehrung': currency.name,
-                    'sollhaben': letter,
+                    'line_base_amount': aml.price_total,
+                    'line_base_currency': aml.currency_id.name,
                     'buschluessel': code_correction,
                     'gegenkonto': to_account_code,
                     'belegfeld1': receipt1[-36:],
                     'belegfeld2': receipt2,
                     'datum': datetime.strftime(aml.move_id.date, '%-d%m'),
-                    'konto': account_code or '',
-                    'kurs': str(currency.rate).replace('.', ','),
+                    'konto': account_code,
+                    'kurs': str(aml.currency_id.rate).replace('.', ','),
                     'buchungstext': receipt1,
                     'line_amount': line_amount
                 }
@@ -440,19 +495,18 @@ class DatevExportCSV(models.AbstractModel):
             for match_key, line_value in line_values.items():
                 # For DateV, we can't have negative amount on a line, so we need to inverse the amount and inverse the
                 # credit/debit symbol.
-                if line_value['line_amount'] < 0:
-                    line_value['line_amount'] = -line_value['line_amount']
-                    if line_value['sollhaben'] == 'h':
-                        line_value['sollhaben'] = 's'
-                    else:
-                        line_value['sollhaben'] = 'h'
-
+                line_value['sollhaben'] = 'h' if line_value['line_amount'] < 0 else 's'
+                line_value['line_amount'] = abs(line_value['line_amount'])
                 # Idiotic program needs to have a line with 116 elements ordered in a given fashion as it
                 # does not take into account the header and non mandatory fields
                 array = ['' for x in range(116)]
                 array[0] = float_repr(line_value['line_amount'], aml.company_id.currency_id.decimal_places).replace('.', ',')
                 array[1] = line_value.get('sollhaben')
                 array[2] = line_value.get('waehrung')
+                if (len(move_currencies[match_key]) == 1) and line_value.get('line_base_currency') != line_value.get('waehrung'):
+                    array[3] = line_value.get('kurs')
+                    array[4] = float_repr(line_value['line_base_amount'], aml.currency_id.decimal_places).replace('.', ',')
+                    array[5] = line_value.get('line_base_currency')
                 array[6] = line_value.get('konto')
                 array[7] = line_value.get('gegenkonto')
                 array[8] = line_value.get('buschluessel')
@@ -464,13 +518,3 @@ class DatevExportCSV(models.AbstractModel):
 
         writer.writerows(lines)
         return output.getvalue()
-
-
-class report_account_coa(models.AbstractModel):
-    _inherit = "account.coa.report"
-
-    def _get_reports_buttons(self, options):
-        buttons = super(report_account_coa, self)._get_reports_buttons(options)
-        # It doesn't make sense to print the DATEV on anything else than the
-        # proper general ledger
-        return [b for b in buttons if b.get('action') != 'print_zip']

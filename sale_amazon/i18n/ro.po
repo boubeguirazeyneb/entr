@@ -3,20 +3,20 @@
 # 	* sale_amazon
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Dorin Hongu <dhongu@gmail.com>, 2021
-# Cozmin Candea <office@terrabit.ro>, 2021
-# Dan Stoica <danila@terrabit.ro>, 2021
-# Foldi Robert <foldirobert@nexterp.ro>, 2021
+# Cozmin Candea <office@terrabit.ro>, 2022
+# Dorin Hongu <dhongu@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Foldi Robert <foldirobert@nexterp.ro>, 2022
+# Claudia Baisan, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-10-05 11:16+0000\n"
-"PO-Revision-Date: 2021-09-14 12:42+0000\n"
-"Last-Translator: Foldi Robert <foldirobert@nexterp.ro>, 2021\n"
-"Language-Team: Romanian (https://www.transifex.com/odoo/teams/41243/ro/)\n"
+"POT-Creation-Date: 2022-12-15 13:28+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Claudia Baisan, 2023\n"
+"Language-Team: Romanian (https://app.transifex.com/odoo/teams/41243/ro/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -44,14 +44,24 @@ msgid ""
 msgstr ""
 
 #. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_account__name
-msgid "A user-defined name for the account"
-msgstr "Un nume definit pentru utilizator cont"
-
-#. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__api_ref
 msgid "API Identifier"
 msgstr "Identificator API"
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__aws_access_key
+msgid "AWS Access Key"
+msgstr "Cheie de acces AWS"
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__aws_secret_key
+msgid "AWS Secret Key"
+msgstr "Cheie secretă AWS"
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__aws_session_token
+msgid "AWS Session Token"
+msgstr "Token de sesiune AWS"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_offer__account_id
@@ -101,6 +111,11 @@ msgid "Amazon Email"
 msgstr "Email Amazon"
 
 #. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_sale_order_line__amazon_item_ref
+msgid "Amazon Item Ref"
+msgstr "Referință element Amazon"
+
+#. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_stock_location__amazon_location
 msgid "Amazon Location"
 msgstr "Locație Amazon"
@@ -135,13 +150,11 @@ msgid "Amazon Order Ref"
 msgstr "Comandă  Amazon Ref"
 
 #. module: sale_amazon
-#: model:product.product,name:sale_amazon.default_product
 #: model:product.template,name:sale_amazon.default_product_product_template
 msgid "Amazon Sale"
 msgstr "Vânzare Amazon"
 
 #. module: sale_amazon
-#: model:product.product,name:sale_amazon.shipping_product
 #: model:product.template,name:sale_amazon.shipping_product_product_template
 msgid "Amazon Shipping"
 msgstr "Livrare Amazon"
@@ -162,18 +175,21 @@ msgid "Amazon accounts correspond to Amazon Seller Central accounts."
 msgstr "Conturile Amazon corespund conturilor Amazon Seller Central."
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_marketplace.py:0
 #, python-format
 msgid "Amazon marketplaces cannot be deleted."
 msgstr "Piețele Amazon nu pot fi șterse."
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid "Amazon move : %s"
 msgstr "Mutare Amazon : %s"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/stock_picking.py:0
 #, python-format
 msgid ""
@@ -181,73 +197,152 @@ msgid ""
 "Since the current carrier doesn't automatically provide a tracking "
 "reference, you need to set one manually."
 msgstr ""
+"Amazon necesită ca o referință de urmărire să fie furnizată cu fiecare "
+"livrare. Deoarece curierul curent nu furnizează automat o referință de "
+"urmărire, trebuie să o setați manual."
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/stock_picking.py:0
 #, python-format
 msgid ""
 "Amazon requires that a tracking reference is provided with each delivery. "
 "You need to assign a carrier to this delivery."
 msgstr ""
+"Amazon necesită ca o referință de urmărire să fie furnizată cu fiecare "
+"livrare. Trebuie să atribuiți un curier acestei livrări."
 
 #. module: sale_amazon
-#: model:ir.model.fields,field_description:sale_amazon.field_sale_order_line__amazon_item_ref
-msgid "Amazon-defined item reference"
-msgstr "Referință pentru articol definită de Amazon"
+#: model:amazon.marketplace,name:sale_amazon.marketplace_AE
+msgid "Amazon.ae"
+msgstr "Amazon.ae"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_CA
+msgid "Amazon.ca"
+msgstr "Amazon.ca"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_JP
+msgid "Amazon.co.jp"
+msgstr "Amazon.co.jp"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_UK
+msgid "Amazon.co.uk"
+msgstr "Amazon.co.uk"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_US
+msgid "Amazon.com"
+msgstr "Amazon.com"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_AU
+msgid "Amazon.com.au"
+msgstr "Amazon.com.au"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_BE
+msgid "Amazon.com.be"
+msgstr "Amazon.com.be"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_BR
+msgid "Amazon.com.br"
+msgstr "Amazon.com.br"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_MX
+msgid "Amazon.com.mx"
+msgstr "Amazon.com.mx"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_TR
+msgid "Amazon.com.tr"
+msgstr "Amazon.com.tr"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_DE
+msgid "Amazon.de"
+msgstr "Amazon.de"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_EG
+msgid "Amazon.eg"
+msgstr "Amazon.eg"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_ES
+msgid "Amazon.es"
+msgstr "Amazon.es"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_FR
+msgid "Amazon.fr"
+msgstr "Amazon.fr"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_IN
+msgid "Amazon.in"
+msgstr "Amazon.in"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_IT
+msgid "Amazon.it"
+msgstr "Amazon.it"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_NL
+msgid "Amazon.nl"
+msgstr "Amazon.nl"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_PL
+msgid "Amazon.pl"
+msgstr "Amazon.pl"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_SA
+msgid "Amazon.sa"
+msgstr "Amazon.sa"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_SE
+msgid "Amazon.se"
+msgstr "Amazon.se"
+
+#. module: sale_amazon
+#: model:amazon.marketplace,name:sale_amazon.marketplace_SG
+msgid "Amazon.sg"
+msgstr "Amazon.sg"
 
 #. module: sale_amazon
 #: model:mail.template,name:sale_amazon.order_sync_failure
 msgid "Amazon: Order Synchronization Failure"
-msgstr ""
+msgstr "Amazon: Eșec sincronizare comandă"
 
 #. module: sale_amazon
 #: model:ir.actions.server,name:sale_amazon.ir_cron_sync_amazon_orders_ir_actions_server
 #: model:ir.cron,cron_name:sale_amazon.ir_cron_sync_amazon_orders
-#: model:ir.cron,name:sale_amazon.ir_cron_sync_amazon_orders
 msgid "Amazon: sync orders"
 msgstr "Amazon: sincronizare comenzi"
 
 #. module: sale_amazon
 #: model:ir.actions.server,name:sale_amazon.ir_cron_sync_amazon_pickings_ir_actions_server
 #: model:ir.cron,cron_name:sale_amazon.ir_cron_sync_amazon_pickings
-#: model:ir.cron,name:sale_amazon.ir_cron_sync_amazon_pickings
 msgid "Amazon: sync pickings"
 msgstr "Amazon: preluare sincronizare"
 
 #. module: sale_amazon
-#: code:addons/sale_amazon/models/stock_picking.py:0
-#, python-format
-msgid ""
-"An error was encountered when confirming shipping of the order with amazon "
-"id %s."
-msgstr ""
-"A apărut o eroare la confirmarea expedierii comenzii cu ID-ul amazon%s."
+#: model_terms:ir.ui.view,arch_db:sale_amazon.authorization_error
+msgid "An error occurred"
+msgstr "A fost generată o eroare"
 
 #. module: sale_amazon
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#: code:addons/sale_amazon/models/stock_picking.py:0
-#, python-format
-msgid "An error was encountered when preparing the connection to Amazon."
-msgstr "A apărut o eroare la pregătirea conexiunii la Amazon."
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#, python-format
-msgid "An error was encountered when synchronizing Amazon order items."
-msgstr "A apărut o eroare la sincronizarea articolelor de comandă Amazon."
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#, python-format
-msgid "An error was encountered when synchronizing Amazon orders."
-msgstr "A apărut o eroare la sincronizarea comenzilor Amazon."
-
-#. module: sale_amazon
-#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__auth_token
-msgid "Authorization Token"
-msgstr "Token autorizare"
+#: model_terms:ir.ui.view,arch_db:sale_amazon.authorization_error
+msgid "An error occurred while linking your account with Amazon."
+msgstr "A fost generată o eroare în timpul legăturii contului cu Amazon."
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__available_marketplace_ids
@@ -255,14 +350,9 @@ msgid "Available Marketplaces"
 msgstr "Piețe disponibile"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_CA
-msgid "Canada"
-msgstr "Canada"
-
-#. module: sale_amazon
-#: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__code
-msgid "Code"
-msgstr "Cod"
+#: model_terms:ir.ui.view,arch_db:sale_amazon.authorization_error
+msgid "Back to my account"
+msgstr "Înapoi la contul meu"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__company_id
@@ -279,6 +369,34 @@ msgstr "Setări de configurare"
 #: model:ir.model,name:sale_amazon.model_res_partner
 msgid "Contact"
 msgstr "Contact"
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
+#, python-format
+msgid "Could not establish the connection to the API."
+msgstr "Nu s-a putut stabili conexiunea cu API-ul."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
+#, python-format
+msgid "Could not establish the connection to the feed URL."
+msgstr "Nu s-a putut stabili conexiunea cu URL-ul feed-ului."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
+#, python-format
+msgid "Could not establish the connection to the proxy."
+msgstr "Nu s-a putut stabili conexiunea cu proxy-ul."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/controllers/onboarding.py:0
+#, python-format
+msgid "Could not find Amazon account with id %s"
+msgstr "Nu s-a putut găsi contul Amazon cu id-ul %s"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__create_uid
@@ -300,6 +418,7 @@ msgid "Credentials"
 msgstr "Date autentificare"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/res_config_settings.py:0
 #: model_terms:ir.ui.view,arch_db:sale_amazon.res_config_settings_view_form
 #, python-format
@@ -314,21 +433,21 @@ msgid "Display Name"
 msgstr "Nume afișat"
 
 #. module: sale_amazon
-#: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__domain
-#: model:ir.model.fields,field_description:sale_amazon.field_amazon_offer__domain
-msgid "Domain"
-msgstr "Domeniu"
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/amazon_account.py:0
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
 #, python-format
-msgid "Everything is correctly set up !"
-msgstr "Totul este configurat corect!"
+msgid "Error code: %s; description: %s"
+msgstr "Cod eroare: %s; descriere: %s"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_FR
-msgid "France"
-msgstr "Franța"
+#: model:ir.model.fields.selection,name:sale_amazon.selection__amazon_marketplace__region__eu-west-1
+msgid "Europe"
+msgstr "Europa"
+
+#. module: sale_amazon
+#: model:ir.model.fields.selection,name:sale_amazon.selection__amazon_marketplace__region__us-west-2
+msgid "Far East"
+msgstr "Estul îndepărtat"
 
 #. module: sale_amazon
 #: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_order_view_form
@@ -353,14 +472,10 @@ msgstr "Împlinire de Amazon"
 #. module: sale_amazon
 #: model:ir.model.fields.selection,name:sale_amazon.selection__sale_order__amazon_channel__fbm
 msgid "Fulfillment by Merchant"
-msgstr ""
+msgstr "Împlinire de Comerciant"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_DE
-msgid "Germany"
-msgstr "Germania"
-
-#. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid ""
@@ -380,10 +495,11 @@ msgstr "ID"
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__active
 msgid ""
-"If made inactive, this account will no longer be synchronized with Amazon"
-msgstr "Dacă este inactiv, acest cont nu va mai fi sincronizat cu Amazon"
+"If made inactive, this account will no longer be synchronized with Amazon."
+msgstr "Dacă este dezactivat, acest cont nu va mai fi sincronizat cu Amazon."
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid ""
@@ -419,14 +535,14 @@ msgid "Is Follow Up Displayed"
 msgstr "Este afișat Urmărirea"
 
 #. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_stock_picking__amazon_sync_pending
-msgid "Is True if the picking must be notified to Amazon"
-msgstr "Este Adevărat dacă picking-ul trebuie notificat Amazon"
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__access_token
+msgid "LWA Access Token"
+msgstr "Acces Token LWA"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_IT
-msgid "Italy"
-msgstr "Italia"
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__refresh_token
+msgid "LWA Refresh Token"
+msgstr "Refresh Token LWA"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account____last_update
@@ -455,6 +571,20 @@ msgid "Last Updated on"
 msgstr "Ultima actualizare pe"
 
 #. module: sale_amazon
+#: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
+msgid "Link with Amazon"
+msgstr "Legătură cu Amazon"
+
+#. module: sale_amazon
+#: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
+msgid ""
+"Link your Amazon account with Odoo to start synchronizing your\n"
+"                                Amazon orders."
+msgstr ""
+"Conectați-vă contul Amazon cu Odoo pentru a începe sincronizarea\n"
+"                                comenzilor Amazon."
+
+#. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_offer__marketplace_id
 msgid "Marketplace"
 msgstr "Piață"
@@ -465,20 +595,15 @@ msgid "Marketplaces"
 msgstr "Piețe"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_MX
-msgid "Mexico"
-msgstr "Mexic"
-
-#. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__name
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__name
 msgid "Name"
 msgstr "Nume"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_NL
-msgid "Netherlands"
-msgstr "Olanda"
+#: model:ir.model.fields.selection,name:sale_amazon.selection__amazon_marketplace__region__us-east-1
+msgid "North America"
+msgstr "America de Nord"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__offer_count
@@ -488,9 +613,10 @@ msgid "Offer Count"
 msgstr "Nr. Oferte"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
-#: code:addons/sale_amazon/models/product.py:0
-#: code:addons/sale_amazon/models/product.py:0
+#: code:addons/sale_amazon/models/product_product.py:0
+#: code:addons/sale_amazon/models/product_template.py:0
 #: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
 #: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_product_product_view_form
 #: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_product_template_view_form
@@ -499,6 +625,7 @@ msgid "Offers"
 msgstr "Oferte"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid "Only available marketplaces can be selected"
@@ -515,6 +642,7 @@ msgid "Order Follow-up"
 msgstr "Urmărire comandă"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
 #, python-format
@@ -522,18 +650,23 @@ msgid "Orders"
 msgstr "Comenzi"
 
 #. module: sale_amazon
-#: model:ir.model,name:sale_amazon.model_product_product
+#: model:ir.model,name:sale_amazon.model_product_template
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_offer__product_id
 msgid "Product"
 msgstr "Produs"
 
 #. module: sale_amazon
-#: model:ir.model,name:sale_amazon.model_product_template
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_offer__product_template_id
 msgid "Product Template"
 msgstr "Șablon produs"
 
 #. module: sale_amazon
+#: model:ir.model,name:sale_amazon.model_product_product
+msgid "Product Variant"
+msgstr "Variantă produs"
+
+#. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/stock_picking.py:0
 #, python-format
 msgid ""
@@ -541,6 +674,14 @@ msgid ""
 "the same package. Operations related to the product %s were not all "
 "confirmed at once."
 msgstr ""
+"Produsele livrate clienților Amazon trebuie să aibă părțile lor respective "
+"în aceeași pachet. Operațiunile legate de produsul %s nu au fost toate "
+"confirmate odată."
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__region
+msgid "Region"
+msgstr "Regiune"
 
 #. module: sale_amazon
 #: model_terms:ir.actions.act_window,help:sale_amazon.list_amazon_account_action
@@ -552,6 +693,11 @@ msgstr "Înregistrează-ți contul Amazon"
 msgid "Register yours to start synchronizing your orders into Odoo."
 msgstr ""
 "Înregistrează-ți al tău pentru a începe sincronizarea comenzilor cu Odoo."
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__restricted_data_token
+msgid "Restricted Data Token"
+msgstr "Token date restricționate"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_offer__sku
@@ -594,9 +740,14 @@ msgstr ""
 "                                                contul de vânzător"
 
 #. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__seller_central_url
+msgid "Seller Central URL"
+msgstr "Vânzător Central URL"
+
+#. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__seller_key
-msgid "Seller ID"
-msgstr "ID vânzător"
+msgid "Seller Key"
+msgstr "Cheie vânzător"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__base_marketplace_id
@@ -604,20 +755,16 @@ msgid "Sign-up Marketplace"
 msgstr "Inscrie-re piață"
 
 #. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_ES
-msgid "Spain"
-msgstr "Spania"
-
-#. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__location_id
 msgid "Stock Location"
 msgstr "Locație stoc"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
-msgid "Successfully updated the marketplaces available to this account !"
-msgstr "Actualizați cu succes piețele disponibile pentru acest cont!"
+msgid "Successfully updated the marketplaces available to this account!"
+msgstr "Actualizat cu succes piața disponibilă pentru acest cont!"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__active_marketplace_ids
@@ -640,6 +787,7 @@ msgstr "Sincronizare Ridicări"
 msgid ""
 "Synchronization of Amazon order {{ ctx.get('amazon_order_ref') }} has failed"
 msgstr ""
+"Sincronizarea comenzii Amazon {{ ctx.get('amazon_order_ref') }} a eșuat"
 
 #. module: sale_amazon
 #: model:ir.model.fields,field_description:sale_amazon.field_amazon_marketplace__tax_included
@@ -647,49 +795,28 @@ msgid "Tax Included"
 msgstr "Taxe incluse"
 
 #. module: sale_amazon
-#: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
-msgid "Test Credentials"
-msgstr "Testare Acreditări"
+#: model:ir.model.fields,help:sale_amazon.field_amazon_marketplace__region
+msgid ""
+"The Amazon region of the marketplace. Please refer to the Selling Partner "
+"API documentation to find the correct region."
+msgstr ""
+"Regiunea Amazon a pieței. Vă rugăm să consultați documentația Selling "
+"Partner API pentru a găsi regiunea corectă."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_sale_order_line__amazon_item_ref
+msgid "The Amazon-defined item reference."
+msgstr "Referința elementului definită de Amazon."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_marketplace__api_ref
-msgid "The Amazon-defined marketplace reference"
-msgstr "Referința de piață definită de Amazon"
+msgid "The Amazon-defined marketplace reference."
+msgstr "Referința pieței definite de Amazon."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_sale_order__amazon_order_ref
-msgid "The Amazon-defined order reference"
-msgstr "Referința de comandă definită de Amazon"
-
-#. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_account__auth_token
-msgid ""
-"The MWS Authorization Token of the Amazon Seller Central account for Odoo"
-msgstr ""
-"Token-ul de autorizare MWS pentru contul Odoo la Amazon Seller Central"
-
-#. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_account__seller_key
-msgid "The Merchant ID of the Amazon Seller Central account"
-msgstr "ID-ul comerciant cont Amazon Seller Central"
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/mws_connector.py:0
-#, python-format
-msgid "The Odoo proxy encountered an internal server error."
-msgstr "Proxy-ul Odoo a generat o eroare interna"
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/mws_connector.py:0
-#, python-format
-msgid "The Odoo proxy encountered an unhandled error."
-msgstr "Proxy-ul Odoo a generat o eroare necunoscuta"
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/mws_connector.py:0
-#, python-format
-msgid "The Odoo proxy received a malformed request."
-msgstr "Proxy-ul Odoo a primit o cerere cu formatul eronat"
+msgid "The Amazon-defined order reference."
+msgstr "Referința comenzii definite de Amazon."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__team_id
@@ -698,44 +825,32 @@ msgstr "Echipa de vânzări alocată comenzilor Amazon pentru raportare"
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_offer__sku
-msgid "The Stock Keeping Unit"
-msgstr "Unitatea de păstrare a stocurilor"
+msgid "The Stock Keeping Unit."
+msgstr "Unitatea de stocare."
 
 #. module: sale_amazon
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#: code:addons/sale_amazon/models/amazon_account.py:0
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
+#, python-format
+msgid "The communication with the API failed."
+msgstr "Comunicarea cu API a eșuat."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
 #, python-format
 msgid ""
-"The authentication to the Amazon Marketplace Web Service failed. Please "
-"verify your credentials."
+"The communication with the API failed.\n"
+"Error code: %s; description: %s"
 msgstr ""
-"Autentificarea la Serviciul Web Amazon Marketplace a eșuat. Verificați-vă "
-"datele de acreditare."
-
-#. module: sale_amazon
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#: code:addons/sale_amazon/models/amazon_account.py:0
-#, python-format
-msgid "The communication with Amazon is overloaded, please try again later."
-msgstr ""
-"Comunicarea cu Amazon este supraîncărcată. Vă rugăm să încercați mai târziu."
-
-#. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_marketplace__code
-msgid "The country code in ISO 3166-1 format"
-msgstr "Codul țării în format ISO 3166-1"
-
-#. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_marketplace__domain
-#: model:ir.model.fields,help:sale_amazon.field_amazon_offer__domain
-msgid "The domain name associated with the marketplace"
-msgstr "Numele de domeniu asociat cu piața"
+"Comunicarea cu API a eșuat.\n"
+"Cod eroare: %s; descriere: %s"
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_res_partner__amazon_email
 #: model:ir.model.fields,help:sale_amazon.field_res_users__amazon_email
-msgid "The encrypted email of the customer. Does not forward mails"
-msgstr "E-mailul criptat al clientului. Nu înaintează e-mailuri"
+msgid "The encrypted email of the customer. Does not forward mails."
+msgstr "Emailul criptat al clienților. Nu trimite mesaje."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__last_orders_sync
@@ -752,35 +867,60 @@ msgstr ""
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__location_id
 msgid ""
 "The location of the stock managed by Amazon under the Amazon Fulfillment "
-"program"
+"program."
 msgstr ""
 "Locația stocului gestionat de Amazon în cadrul programului Amazon "
-"Fulfillment"
+"Fulfillment."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__refresh_token
+msgid "The long-lived token that can be exchanged for a new access token."
+msgstr ""
+"Tokenul de durată lungă care poate fi schimbat cu un nou token de acces."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_offer__marketplace_id
-msgid "The marketplace of this offer"
-msgstr "Piața acestei oferte"
+msgid "The marketplace of this offer."
+msgstr "Piața acestei oferte."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__available_marketplace_ids
-msgid "The marketplaces this account has access to"
-msgstr "Piețele pe care acest cont le are acces"
+msgid "The marketplaces this account has access to."
+msgstr "Piața la care acest cont are acces."
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__active_marketplace_ids
 #: model:ir.model.fields,help:sale_amazon.field_amazon_offer__active_marketplace_ids
-msgid "The marketplaces this account sells on"
-msgstr "Piețele pe care acest cont le vinde"
+msgid "The marketplaces this account sells on."
+msgstr "Piața pe care acest cont o vinde."
 
 #. module: sale_amazon
-#: code:addons/sale_amazon/models/sale.py:0
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__aws_credentials_expiry
+msgid "The moment at which the AWS credentials become invalid."
+msgstr "Momentul la care credențialele AWS devin invalide."
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__restricted_data_token_expiry
+msgid "The moment at which the Restricted Data Token becomes invalid."
+msgstr "Momentul la care tokenul Restricted Data devine invalid."
+
+#. module: sale_amazon
+#: model:ir.model.fields,field_description:sale_amazon.field_amazon_account__access_token_expiry
+msgid "The moment at which the token becomes invalid."
+msgstr "Momentul la care tokenul devine invalid."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/models/sale_order.py:0
 #, python-format
 msgid ""
-"The order has been canceled by the Amazon customer while some products have "
+"The order has been canceled by the Amazon customer while someproducts have "
 "already been delivered. Please create a return for this order to adjust the "
 "stock."
 msgstr ""
+"Comanda a fost anulată de către clientul Amazon în timp ce unele produse au "
+"fost deja livrate. Vă rugăm să creați un retur pentru această comandă pentru"
+" "
 
 #. module: sale_amazon
 #: model:ir.model.fields,help:sale_amazon.field_amazon_account__base_marketplace_id
@@ -792,14 +932,55 @@ msgstr ""
 "autentificare."
 
 #. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_marketplace__tax_included
-msgid "The price includes the tax amount"
-msgstr "Prețul include valoare taxă"
+#: model:ir.model.fields,help:sale_amazon.field_amazon_offer__account_id
+msgid "The seller account used to manage this product."
+msgstr "Contul vânzătorului folosit pentru a gestiona acest produs."
 
 #. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_amazon_offer__account_id
-msgid "The seller account used to manage this product"
-msgstr "Contul de vânzător folosit pentru gestionarea acestui produs"
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__aws_access_key
+msgid "The short-lived key used to identify the assumed ARN role on AWS."
+msgstr ""
+"Cheia de durată scurtă folosită pentru a identifica rolul ARN presupus pe "
+"AWS."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__aws_secret_key
+msgid ""
+"The short-lived key used to verify the access to the assumed ARN role on "
+"AWS."
+msgstr ""
+"Cheia de durată scurtă folosită pentru a verifica accesul la rolul ARN "
+"presupus pe AWS."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__restricted_data_token
+msgid ""
+"The short-lived token used instead of the LWA Access Token to access "
+"restricted data"
+msgstr ""
+"Tokenul de durată scurtă folosit în locul tokenului de acces LWA pentru a "
+"accesa datele restricționate"
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__access_token
+msgid "The short-lived token used to query Amazon API on behalf of a seller."
+msgstr ""
+"Tokenul de durată scurtă folosit pentru a interoga API-ul Amazon în numele "
+"unui vânzător."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__aws_session_token
+msgid ""
+"The short-lived token used to query the SP-API with the assumed ARN role on "
+"AWS."
+msgstr ""
+"Tokenul de durată scurtă folosit pentru a interoga SP-API cu rolul ARN "
+"presupus pe AWS."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_account__name
+msgid "The user-defined name of the account."
+msgstr "Numele definit de utilizator al contului."
 
 #. module: sale_amazon
 #: model:ir.model.constraint,message:sale_amazon.constraint_amazon_marketplace_unique_api_ref
@@ -823,42 +1004,22 @@ msgstr ""
 "articolului Amazon."
 
 #. module: sale_amazon
+#: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
+msgid ""
+"This action will disconnect your account with Amazon and"
+"                                          cannot be undone. Are you sure you"
+" want to proceed?"
+msgstr ""
+
+#. module: sale_amazon
 #: model:ir.model,name:sale_amazon.model_stock_picking
 msgid "Transfer"
 msgstr "Transfer"
 
 #. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_stock_location__amazon_location
-msgid ""
-"True if this location represents the stock of a seller managed by Amazon "
-"under the Amazon Fulfillment program"
-msgstr ""
-"Este adevărat dacă această locație reprezintă stocul unui vânzător gestionat"
-" de Amazon în cadrul programului Amazon Fulfillment"
-
-#. module: sale_amazon
-#: model:ir.model.fields,help:sale_amazon.field_crm_team__amazon_team
-msgid "True if this sales team is associated with Amazon orders"
-msgstr ""
-"Este adevărat dacă această echipă de vânzări este asociată cu comenzi Amazon"
-
-#. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_UK
-msgid "United Kingdom"
-msgstr "Marea Britanie"
-
-#. module: sale_amazon
-#: model:amazon.marketplace,name:sale_amazon.marketplace_US
-msgid "United States of America"
-msgstr "Statele Unite ale Americii"
-
-#. module: sale_amazon
-#: model:product.product,uom_name:sale_amazon.default_product
-#: model:product.product,uom_name:sale_amazon.shipping_product
-#: model:product.template,uom_name:sale_amazon.default_product_product_template
-#: model:product.template,uom_name:sale_amazon.shipping_product_product_template
-msgid "Units"
-msgstr "buc"
+#: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
+msgid "Unlink account"
+msgstr "Deconectați-vă contul"
 
 #. module: sale_amazon
 #: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
@@ -871,20 +1032,73 @@ msgid "View on Seller Central"
 msgstr "Vizualizare în Seller Central"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid "Warning"
 msgstr "Atenție"
 
 #. module: sale_amazon
-#: code:addons/sale_amazon/models/mws_connector.py:0
-#, python-format
-msgid "You don't have an active subscription. Please buy one here: %s"
-msgstr ""
-"Nu aveți un abonament/subscripție activă. Vă rugăm să achiziționați una "
-"aici:%s"
+#: model:ir.model.fields,help:sale_amazon.field_stock_picking__amazon_sync_pending
+msgid "Whether the picking must be notified to Amazon or not."
+msgstr "Dacă ridicare trebuie să fie notificat Amazon sau nu."
 
 #. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_amazon_marketplace__tax_included
+msgid "Whether the price includes the tax amount or not."
+msgstr "Dacă prețul include suma taxei sau nu."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_stock_location__amazon_location
+msgid ""
+"Whether this location represents the stock of a seller managed by Amazon "
+"under the Amazon Fulfillment program or not."
+msgstr ""
+"Dacă această locație reprezintă stocul unui vânzător gestionat de Amazon sub"
+" programul Amazon Fulfillment sau nu."
+
+#. module: sale_amazon
+#: model:ir.model.fields,help:sale_amazon.field_crm_team__amazon_team
+msgid "Whether this sales team is associated with Amazon orders or not."
+msgstr ""
+"Dacă această echipă de vânzări este asociată cu comenzile Amazon sau nu."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
+#, python-format
+msgid "You first need to authorize the Amazon account %s."
+msgstr "În primul rând, trebuie să autorizați contul Amazon %s."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/utils.py:0
+#, python-format
+msgid ""
+"You first need to set the marketplaces to synchronize for the Amazon account"
+" %s."
+msgstr ""
+"În primul rând, trebuie să setați piețele pentru a sincroniza pentru contul "
+"Amazon %s."
+
+#. module: sale_amazon
+#. odoo-python
+#: code:addons/sale_amazon/models/amazon_account.py:0
+#, python-format
+msgid ""
+"You reached the maximum number of requests for this operation; please try "
+"again later."
+msgstr ""
+"Ați atins numărul maxim de cereri pentru această operațiune; vă rugăm să "
+"încercați din nou mai târziu."
+
+#. module: sale_amazon
+#: model_terms:ir.ui.view,arch_db:sale_amazon.amazon_account_view_form
+msgid "Your Amazon account is linked with Odoo."
+msgstr "Contul dvs. Amazon este conectat cu Odoo."
+
+#. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid ""
@@ -895,12 +1109,14 @@ msgstr ""
 "Stare: %s - %s"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid "[%s] Delivery Charges for %s"
 msgstr "[%s] Taxe Livrare Pentru %s"
 
 #. module: sale_amazon
+#. odoo-python
 #: code:addons/sale_amazon/models/amazon_account.py:0
 #, python-format
 msgid "[%s] Gift Wrapping Charges for %s"

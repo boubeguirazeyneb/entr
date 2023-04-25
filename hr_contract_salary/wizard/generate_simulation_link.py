@@ -3,9 +3,8 @@
 
 import uuid
 
-from odoo import api, fields, models, _
+from odoo import api, fields, models
 from odoo.fields import Date
-from odoo.exceptions import ValidationError
 
 from werkzeug.urls import url_encode
 
@@ -23,12 +22,11 @@ class GenerateSimulationLink(models.TransientModel):
         if model == 'hr.contract':
             contract_id = self.env.context.get('active_id')
             contract = self.env['hr.contract'].sudo().browse(contract_id)
-            if not contract.employee_id:
-                result['contract_id'] = contract_id
-            else:
+            result['employee_job_id'] = contract.job_id or contract.default_contract_id.job_id
+            result['contract_id'] = contract_id
+            if contract.employee_id:
                 result['employee_id'] = contract.employee_id.id
-                result['employee_contract_id'] = contract.id
-                result['contract_id'] = contract.id
+                result['employee_contract_id'] = contract_id
         elif model == 'hr.applicant':
             applicant_id = self.env.context.get('active_id')
             applicant = self.env['hr.applicant'].sudo().browse(applicant_id)
@@ -39,11 +37,8 @@ class GenerateSimulationLink(models.TransientModel):
             contract = applicant.job_id.default_contract_id
             result['contract_id'] = applicant.job_id.default_contract_id.id
             if applicant.job_id:
+                result['employee_job_id'] = applicant.job_id
                 result['job_title'] = applicant.job_id.name
-        if not result.get('applicant_id') and not contract.contract_update_template_id or result.get('applicant_id') and not contract.sign_template_id:
-            raise ValidationError(_('No signature template defined on the contract.'))
-        if not contract.hr_responsible_id:
-            raise ValidationError(_('No HR responsible defined on the contract.'))
         return result
 
     def get_contract_domain(self):
@@ -53,7 +48,8 @@ class GenerateSimulationLink(models.TransientModel):
             ('employee_id', '=', self.employee_contract_id.employee_id.id)]
 
     contract_id = fields.Many2one(
-        'hr.contract', string="Offer Template", required=True, store=True,
+        'hr.contract', string="Offer Template", required=True,
+        compute='_compute_from_job', store=True, readonly=False,
         domain="['|', ('employee_id', '=', False), ('employee_id', '=', employee_contract_employee_id)]")
     employee_contract_id = fields.Many2one('hr.contract')
     employee_contract_employee_id = fields.Many2one(related='employee_contract_id.employee_id', string="contract employee")
@@ -63,11 +59,24 @@ class GenerateSimulationLink(models.TransientModel):
         compute='_compute_from_contract_id', readonly=False, store=True)
     currency_id = fields.Many2one(related='contract_id.currency_id')
     applicant_id = fields.Many2one('hr.applicant')
-    job_title = fields.Char("Job Title", compute='_compute_from_contract_id', store=True, readonly=False)
+    job_title = fields.Char("Job Title", compute='_compute_from_job', store=True, readonly=False)
+    company_id = fields.Many2one(related="contract_id.company_id")
+    employee_job_id = fields.Many2one(
+        'hr.job', string="Job Position",
+        store=True,
+        readonly=False,
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+    department_id = fields.Many2one(
+        'hr.department', string="Department",
+        compute='_compute_from_job',
+        store=True,
+        readonly=False,
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
     contract_start_date = fields.Date("Contract Start Date", default=fields.Date.context_today)
 
     email_to = fields.Char('Email To', compute='_compute_email_to', store=True, readonly=False)
     url = fields.Char('Offer link', compute='_compute_url')
+    display_warning_message = fields.Boolean(compute='_compute_warning_message', compute_sudo=True)
 
     @api.depends('employee_id.address_home_id.email', 'applicant_id.email_from')
     def _compute_email_to(self):
@@ -78,7 +87,7 @@ class GenerateSimulationLink(models.TransientModel):
                 wizard.email_to = wizard.applicant_id.email_from
 
     def _get_url_triggers(self):
-        return ['applicant_id', 'final_yearly_costs', 'employee_contract_id', 'job_title', 'contract_start_date']
+        return ['applicant_id', 'final_yearly_costs', 'employee_contract_id', 'job_title', 'employee_job_id', 'department_id', 'contract_start_date']
 
     @api.depends(lambda self: [key for key in self._fields.keys()])
     def _compute_url(self):
@@ -100,8 +109,33 @@ class GenerateSimulationLink(models.TransientModel):
     def _compute_from_contract_id(self):
         for wizard in self:
             wizard.final_yearly_costs = wizard.contract_id.final_yearly_costs
-            if not wizard.job_title or (wizard.applicant_id and wizard.applicant_id.job_id and wizard.job_title != wizard.applicant_id.job_id.name):
-                wizard.job_title = wizard.contract_id.employee_id.job_title or wizard.contract_id.job_id.name
+
+    @api.depends('employee_job_id')
+    def _compute_warning_message(self):
+        for wizard in self:
+            current_job = wizard.employee_contract_id.job_id
+            new_job = wizard.employee_job_id
+
+            if (not current_job or current_job.id != new_job.id) and not new_job.default_contract_id:
+                wizard.display_warning_message = True
+            else:
+                wizard.display_warning_message = False
+
+    @api.depends('employee_job_id')
+    def _compute_from_job(self):
+        for wizard in self:
+            wizard.job_title = wizard.employee_job_id.name
+            if wizard.employee_job_id.department_id:
+                wizard.department_id = wizard.employee_job_id.department_id
+
+            model = self.env.context.get('active_model')
+            if model == 'hr.contract':
+                if wizard.employee_job_id != wizard.employee_contract_id.job_id:
+                    wizard.contract_id = wizard.employee_job_id.default_contract_id or wizard.employee_contract_id
+                else:
+                    wizard.contract_id = wizard.employee_contract_id or wizard.employee_contract_id.default_contract_id
+            elif model == 'hr.applicant':
+                wizard.contract_id = wizard.employee_job_id.default_contract_id
 
     def name_get(self):
         return [(w.id, w.employee_id.name or w.applicant_id.partner_name) for w in self]
@@ -116,10 +150,9 @@ class GenerateSimulationLink(models.TransientModel):
         except ValueError:
             template_applicant_id = False
         partner_to = False
+        email_to = False
         if self.employee_id:
-            partner_to = self.employee_id.address_home_id
-            if not partner_to:
-                raise ValidationError(_("No private address defined on the employee!"))
+            email_to = self.employee_id.work_email
         elif self.applicant_id:
             partner_to = self.applicant_id.partner_id
             if not partner_to:
@@ -155,8 +188,9 @@ class GenerateSimulationLink(models.TransientModel):
             'default_template_id': default_template_id,
             'default_composition_mode': 'comment',
             'salary_package_url': self.url,
-            'custom_layout': "mail.mail_notification_light",
+            'default_email_layout_xmlid': "mail.mail_notification_light",
             'partner_to': partner_to and partner_to.id or False,
+            'email_to': email_to or False,
             'mail_post_autofollow': False,
         }
         return {

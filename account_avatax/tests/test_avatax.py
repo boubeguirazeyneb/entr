@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import tagged
+from odoo.modules.neutralize import get_neutralization_queries
 from .common import TestAccountAvataxCommon
 
 
@@ -143,6 +144,29 @@ class TestAccountAvalaraInternal(TestAccountAvataxCommon):
             # This entry contains some tax from an unallowed country. Please check its fiscal position and your tax configuration.
             invoice.button_update_avatax()
 
+    def test_posted_invoice(self):
+        invoice, _ = self._create_invoice_01_and_expected_response()
+
+        with self._capture_request(return_value={'lines': [], 'summary': []}):
+            invoice.action_post()
+
+        with self._capture_request(return_value={'lines': [], 'summary': []}) as capture:
+            invoice.button_update_avatax()
+
+        self.assertIsNone(capture.val, "Should not update taxes of posted invoices.")
+
+    def test_check_address_constraint(self):
+        invoice, _ = self._create_invoice_01_and_expected_response()
+        partner_no_zip = self.env["res.partner"].create({
+            "name": "Test no zip",
+            "state_id": self.env.ref("base.state_us_5").id,
+            "country_id": self.env.ref("base.us").id,
+            "zip": False,
+            "property_account_position_id": self.fp_avatax.id,
+        })
+
+        with self.assertRaises(ValidationError):
+            invoice.partner_id = partner_no_zip
 
 @tagged("-at_install", "post_install")
 class TestAccountAvalaraSalesTaxAdministration(TestAccountAvataxCommon):
@@ -172,6 +196,13 @@ class TestAccountAvalaraSalesTaxAdministration(TestAccountAvataxCommon):
         independent of any other Avalara product or service.
         """
         self.fp_avatax.is_avatax = False
+        with patch('odoo.addons.account_avatax.lib.avatax_client.AvataxClient.request') as mocked_request:
+            self._create_invoice()
+            mocked_request.assert_not_called()
+
+    def test_disable_avatax_neutralize(self):
+        """ORM's neutralization feature works."""
+        self.cr.execute(next(get_neutralization_queries(['account_avatax'])))
         with patch('odoo.addons.account_avatax.lib.avatax_client.AvataxClient.request') as mocked_request:
             self._create_invoice()
             mocked_request.assert_not_called()

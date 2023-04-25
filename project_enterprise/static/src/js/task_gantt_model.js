@@ -6,7 +6,7 @@ import GanttModel from 'web_gantt.GanttModel';
 import { _t } from 'web.core';
 
 
-const TaskGanttModel = GanttModel.extend({
+export default GanttModel.extend({
     mapMany2manyFields: [{
         many2many_field: 'personal_stage_type_ids',
         many2one_field: 'personal_stage_type_id',
@@ -80,9 +80,19 @@ const TaskGanttModel = GanttModel.extend({
             }
         }
         const rows = this._super(params);
-        // always move an empty row to the head
-        if (groupedBy && groupedBy.length && rows.length > 1 && rows[0].resId) {
-            this._reorderEmptyRow(rows);
+
+        // Sort rows alphabetically, except when grouping by stage or personal stage
+        if (!['stage_id', 'personal_stage_type_ids'].includes(rows[0].groupedByField)) {
+            rows.sort((a, b) => {
+                if (a.resId && !b.resId) return 1;
+                if (!a.resId && b.resId) return -1;
+                return a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1;
+            });
+        } else {
+            // When not sorting, move empty rows to the top
+            if (groupedBy && groupedBy.length && rows.length > 1 && rows[0].resId) {
+                this._reorderEmptyRow(rows);
+            }
         }
         return rows;
     },
@@ -140,6 +150,35 @@ const TaskGanttModel = GanttModel.extend({
         }
         return data;
     },
-});
 
-export default TaskGanttModel;
+    /**
+     * @override
+     */
+    reschedule(ids, schedule, isUTC, callback) {
+        if (!schedule.smart_task_scheduling) {
+            return this._super(...arguments);
+        }
+
+        if (!(ids instanceof Array)) {
+            ids = [ids];
+        }
+
+        const data = this.rescheduleData(schedule, isUTC);
+        const end_date = moment(data.planned_date_end).endOf(this.get().scale);
+        if (data.hasOwnProperty('name')){
+            delete data.name;
+        }
+        return this.mutex.exec(() => {
+            return this._rpc({
+                model: this.modelName,
+                method: 'schedule_tasks',
+                args: [ids, data],
+                context: Object.assign({}, this.context, {'last_date_view': this.convertToServerTime(end_date)}),
+            }).then((result) => {
+                if (callback) {
+                    callback(result);
+                }
+            });
+        });
+    },
+});

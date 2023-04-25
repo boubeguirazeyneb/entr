@@ -4,10 +4,12 @@ odoo.define('web_studio.reportNewComponents', function (require) {
 var config = require('web.config');
 var core = require('web.core');
 var Dialog = require('web.Dialog');
-var weWidgets = require('wysiwyg.widgets');
 
 var Abstract = require('web_studio.AbstractReportComponent');
 var NewFieldDialog = require('web_studio.NewFieldDialog');
+
+const { MediaDialogWrapper } = require('@web_editor/components/media_dialog/media_dialog');
+const { ComponentWrapper } = require('web.OwlCompatibility');
 
 var _t = core._t;
 var _lt = core._lt;
@@ -666,30 +668,26 @@ var Image = AbstractNewBuildingBlock.extend({
         var self = this;
         return this._super.apply(this, arguments).then(function () {
             var def = new Promise(function (resolve, reject) {
-                var $image = $("<img/>");
-                var dialog = new weWidgets.MediaDialog(self, {
+                const dialog = new ComponentWrapper(this, MediaDialogWrapper, {
                     onlyImages: true,
-                }, $image[0]).open();
-                var value;
-                dialog.on("save", self, function (el) {
-                    // el is a vanilla JS element
-                    // Javascript Element.src returns the full url (including protocol)
-                    // But we want only a relative path
-                    // https://www.w3schools.com/jsref/prop_img_src.asp
-                    // We indeed expect only one image at this point
-                    value = el.attributes.src.value;
-                });
-                dialog.on('closed', self, function () {
-                    if (value) {
+                    save: el => {
+                        // el is a vanilla JS element
+                        // Javascript Element.src returns the full url (including protocol)
+                        // But we want only a relative path
+                        // https://www.w3schools.com/jsref/prop_img_src.asp
+                        // We indeed expect only one image at this point
+                        const value = el.attributes.src && el.attributes.src.value;
                         resolve({
                             inheritance: self._createContent({
                                 content: '<img class="img-fluid" src="' + value + '"/>',
                             })
                         });
-                    } else {
+                    },
+                    close: () => {
                         reject();
                     }
                 });
+                dialog.mount(self.el);
             });
             return def;
         });
@@ -856,6 +854,7 @@ var TableBlockTotal = AbstractNewBuildingBlock.extend({
     add: function () {
         var self = this;
         var callersArguments = arguments;
+        const validRelations = ['account.move', 'sale.order', 'purchase.order'];
         return new Promise(function (resolve, reject) {
             self._super.apply(self, callersArguments).then(function () {
                 var field = {
@@ -866,8 +865,7 @@ var TableBlockTotal = AbstractNewBuildingBlock.extend({
                         return field.type === 'many2one';
                     },
                     followRelations: function (field) {
-                        return field.type === 'many2one' &&
-                            field.relation !== 'account.move' && field.relation !== 'sale.order' && field.relation !== 'purchase.order';
+                        return field.type === 'many2one' && !validRelations.includes(field.relation);
                     },
                 };
                 var availableKeys = self._getContextKeys(self.node);
@@ -879,6 +877,10 @@ var TableBlockTotal = AbstractNewBuildingBlock.extend({
                 }
                 var dialog = new NewFieldDialog(self, 'record_fake_model', field, availableKeys, fieldChain).open();
                 dialog.on('field_default_values_saved', self, function (values) {
+                    if (!validRelations.includes(values.relation)) {
+                        Dialog.alert(self, _t('Subtotal & Total can only be used in these models: ' + validRelations.join(", ")));
+                        dialog.close();
+                    }
                     resolve({
                         inheritance: self._dataInheritance(values),
                     });
@@ -893,16 +895,16 @@ var TableBlockTotal = AbstractNewBuildingBlock.extend({
     _dataInheritance: function (values) {
         var data = this._dataInheritanceValues(values);
         return this._createContent({
-            contentInStructure: 
+            contentInStructure:
                 '<table class="table table-sm">' +
-                    `<t t-set="tax_totals" t-value="json.loads(${data.tax_totals_json})"/>` +
+                    `<t t-set="tax_totals" t-value="${data.tax_totals}"/>` +
                     '<t t-call="account.document_tax_totals"/>' +
                 '</table>'
         });
     },
     _dataInheritanceValues: function (values) {
-        const tax_totals_json = `${values.related}.tax_totals_json`;
-        return { tax_totals_json };
+        const tax_totals = `${values.related}.tax_totals`;
+        return { tax_totals };
     },
 });
 

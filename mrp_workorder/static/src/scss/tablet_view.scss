@@ -1,10 +1,10 @@
-.o_web_client.o_fullscreen {
+.o_web_client {
     $o-wo-tablet-padding: $o-horizontal-padding;
     $o-wo-tablet-btn-margin: 2px;
     $o-wo-tablet-bg: #404040; // emulate the pdf reader
-    $o-wo-tablet-text: o-get-most-contrast($o-wo-tablet-bg, $body-color, #FFF);
+    $o-wo-tablet-text: color-contrast($o-wo-tablet-bg, $body-color, #FFF);
 
-    .o_form_view.o_workorder_tablet {
+    .o_legacy_form_view.o_workorder_tablet {
         display: flex;
         flex-flow: column nowrap;
         padding: 0;
@@ -13,6 +13,7 @@
         background-repeat: repeat;
         color: $o-wo-tablet-text;
         height: auto;
+        overflow: auto;
 
         font-size: 16px;
 
@@ -53,7 +54,7 @@
                 font-size: 0.8em;
                 margin-top: -1em;
 
-                &.float-right {
+                &.float-end {
                     margin-top: 0.5em;
                 }
             }
@@ -80,7 +81,7 @@
                 flex-shrink: 1;
             }
 
-            @include media-breakpoint-down(sm) {
+            @include media-breakpoint-down(md) {
                 justify-content: flex-start;
                 &.workorder_bar_left {
                     flex-flow: wrap;
@@ -89,7 +90,7 @@
 
             &.o_workorder_bar_content_right {
                 justify-content: flex-end;
-                @include media-breakpoint-down(sm) {
+                @include media-breakpoint-down(md) {
                     justify-content: flex-start;
                     .o_actions {
                         display: flex;
@@ -112,7 +113,7 @@
             flex-flow: row wrap;
             padding: $o-wo-tablet-padding*0.5 $o-wo-tablet-padding;
             padding-left: $o-wo-tablet-padding - $o-wo-tablet-btn-margin;
-            @include media-breakpoint-down(sm) {
+            @include media-breakpoint-down(md) {
                 flex-flow: column;
             }
         }
@@ -121,7 +122,7 @@
         .workorder_actions {
             display: flex;
             flex-flow: row nowrap;
-            @include media-breakpoint-down(sm) {
+            @include media-breakpoint-down(md) {
                 flex-flow: column;
             }
             padding: $o-wo-tablet-padding*0.5 $o-wo-tablet-padding - $o-wo-tablet-btn-margin $o-wo-tablet-padding;
@@ -135,6 +136,7 @@
 
         // Step's info block
         .o_workorder_data {
+            background-color: $o-wo-tablet-bg;
             padding: $o-wo-tablet-padding*0.5 $o-wo-tablet-padding 0;
             font-size: 0.9em;
 
@@ -147,7 +149,7 @@
             .o_workorder_form {
                 padding-bottom: $o-wo-tablet-padding*0.5;
                 justify-content: space-between;
-                @include media-breakpoint-down(sm) {
+                @include media-breakpoint-down(md) {
                     flex-flow: column;
                     align-items: flex-start;
                 }
@@ -188,17 +190,12 @@
         }
     }
 
-    .o_view_controller {
-        display: flex;
-        flex-flow: column nowrap;
-    }
-
     // PDF Viewer block
     .workorder_pdf {
         display: flex;
         flex: 1 0 auto;
 
-        div.o_field_pdfviewer, span.o_embed_url_viewer {
+        div.o_field_pdfviewer, div.o_field_pdf_viewer, span.o_embed_url_viewer {
             margin: 0;
             @include media-breakpoint-up(md) {
                 height: auto;

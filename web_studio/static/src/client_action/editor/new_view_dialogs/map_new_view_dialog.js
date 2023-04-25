@@ -7,7 +7,9 @@ export class MapNewViewDialog extends NewViewDialog {
     setup() {
         super.setup();
         this.dialog = useService("dialog");
-        this.bodyTemplate = "web_studio.MapNewViewFieldsSelector";
+        this.fieldsChoice = {
+            res_partner: null,
+        };
     }
 
     get viewType() {
@@ -23,10 +25,14 @@ export class MapNewViewDialog extends NewViewDialog {
                 body: this.env._t("Contact Field Required"),
                 contentClass: "o_web_studio_preserve_space",
             });
-            this.close();
+            this.props.close();
+        } else {
+            this.fieldsChoice.res_partner = this.partnerFields[0].name;
         }
     }
 }
-MapNewViewDialog.props = Object.assign(Object.create(NewViewDialog.props), {
-    viewType: { type: String, optional: true },
-});
+MapNewViewDialog.template = "web_studio.MapNewViewDialog";
+MapNewViewDialog.props = {
+    ...NewViewDialog.props,
+};
+delete MapNewViewDialog.props.viewType;

@@ -12,10 +12,10 @@ _logger = logging.getLogger(__name__)
 
 class res_company(models.Model):
     _inherit = 'res.company'
-    l10n_au_kp_enable = fields.Boolean(string='Enable KeyPay Integration', groups='account.group_account_manager')
-    l10n_au_kp_identifier = fields.Char(string='Business Id', groups='account.group_account_manager')
-    l10n_au_kp_lock_date = fields.Date(string='Fetch Payrun After', help="Import payruns paied after this date. This date cannot be prior to Lock Date)", groups='account.group_account_manager')
-    l10n_au_kp_journal_id = fields.Many2one('account.journal', string='Payroll Journal', groups='account.group_account_manager')
+    l10n_au_kp_enable = fields.Boolean(string='Enable KeyPay Integration')
+    l10n_au_kp_identifier = fields.Char(string='Business Id')
+    l10n_au_kp_lock_date = fields.Date(string='Fetch Payrun After', help="Import payruns paied after this date. This date cannot be prior to Lock Date)")
+    l10n_au_kp_journal_id = fields.Many2one('account.journal', string='Payroll Journal')
 
     @api.onchange('fiscalyear_lock_date', 'l10n_au_kp_lock_date')
     def _onchange_exclude_before(self):
@@ -69,7 +69,7 @@ class res_company(models.Model):
             raise UserError(_("Company %s does not have the apikey, business_id or the journal_id set") % (self.name))
 
         from_formated_datetime = self.l10n_au_kp_lock_date and datetime.combine(self.l10n_au_kp_lock_date, datetime.min.time()).replace(hour=23, minute=59, second=59)
-        from_formated_datetime = format_datetime(self.env, from_formated_datetime, dt_format="yyyy-MM-dd'T'HH:mm:ss")
+        from_formated_datetime = format_datetime(self.env, from_formated_datetime, dt_format="yyyy-MM-dd'T'HH:mm:ss", tz='UTC')
         filter = "$filter=DatePaid gt datetime'%s'&" % (from_formated_datetime) if from_formated_datetime else ''
         skip = 0
         top = 100

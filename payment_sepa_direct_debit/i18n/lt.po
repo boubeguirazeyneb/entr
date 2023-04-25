@@ -3,23 +3,22 @@
 # 	* payment_sepa_direct_debit
 # 
 # Translators:
-# Silvija Butko <silvija.butko@gmail.com>, 2022
-# Vytautas Stanaitis <vytautas@basas.lt>, 2022
-# Antanas Muliuolis <an.muliuolis@gmail.com>, 2022
 # grupoda2 <dmitrijus.ivanovas@gmail.com>, 2022
+# Antanas Muliuolis <an.muliuolis@gmail.com>, 2022
+# Vytautas Stanaitis <vytautas@basas.lt>, 2022
+# Aleksandr Jadov <a.jadov@tata.lt>, 2022
 # Martin Trigaux, 2022
 # Jonas Zinkevicius <jozi@odoo.com>, 2022
-# Aleksandr Jadov <a.jadov@tata.lt>, 2022
 # Linas Versada <linaskrisiukenas@gmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-10-05 11:18+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
+"POT-Creation-Date: 2023-04-14 06:19+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
 "Last-Translator: Linas Versada <linaskrisiukenas@gmail.com>, 2022\n"
-"Language-Team: Lithuanian (https://www.transifex.com/odoo/teams/41243/lt/)\n"
+"Language-Team: Lithuanian (https://app.transifex.com/odoo/teams/41243/lt/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -28,12 +27,7 @@ msgstr ""
 
 #. module: payment_sepa_direct_debit
 #: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.inline_form
-msgid ""
-"<small class=\"text-muted form-text\">\n"
-"                            A copy of the mandate will be sent by email to\n"
-"                            <span name=\"o_sdd_partner_email\"/>\n"
-"                            upon validation.\n"
-"                        </small>"
+msgid "+32123456789"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
@@ -91,7 +85,7 @@ msgid ""
 "\n"
 "                    A SEPA Direct Debit payment request amounting <t t-out=\"format_amount(object.amount, object.currency_id) or ''\">$ 10.00</t> will be sent to your bank.<br/>\n"
 "\n"
-"                    Your account <t t-out=\"ctx.get('iban') or ''\">LU 28 001 94006447500003﻿</t> will be debited in up to two calendar days or shortly after, please make sure you have the requested funds.<br/><br/>\n"
+"                    Your account ending in <t t-out=\"ctx.get('iban_last_4') or ''\">1234</t> will be debited in up to two calendar days or shortly after, please make sure you have the requested funds.<br/><br/>\n"
 "\n"
 "                    <t t-if=\"ctx.get('creditor_identifier') or ctx.get('mandate_ref')\">\n"
 "                        Merchant data:<br/>\n"
@@ -228,15 +222,26 @@ msgid ""
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.inline_form
+msgid "A copy of the mandate will be sent by email to"
+msgstr ""
+
+#. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "Both the phone number and the verification code are required."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.payment_acquirer_form
+#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.payment_provider_form
 msgid "Buy credits"
 msgstr "Įsigyti kreditų"
+
+#. module: payment_sepa_direct_debit
+#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_provider__code
+msgid "Code"
+msgstr "Kodas"
 
 #. module: payment_sepa_direct_debit
 #: model:ir.model,name:payment_sepa_direct_debit.model_res_partner
@@ -244,21 +249,10 @@ msgid "Contact"
 msgstr "Kontaktas"
 
 #. module: payment_sepa_direct_debit
-#. openerp-web
+#. odoo-javascript
 #: code:addons/payment_sepa_direct_debit/static/src/js/payment_form.js:0
 #, python-format
 msgid "Could not send the verification code."
-msgstr ""
-
-#. module: payment_sepa_direct_debit
-#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_acquirer__currency_id
-msgid "Currency"
-msgstr "Valiuta"
-
-#. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_acquirer.py:0
-#, python-format
-msgid "Direct Debit: %s"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
@@ -272,41 +266,40 @@ msgid "IBAN"
 msgstr "IBAN"
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
 msgid "Incorrect phone number."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model,name:payment_sepa_direct_debit.model_account_move_line
-msgid "Journal Item"
-msgstr "Žurnalo įrašas"
-
-#. module: payment_sepa_direct_debit
-#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.inline_form
-msgid "Missing Signature. Please fill your name and signature."
-msgstr ""
-
-#. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
 msgid "Missing or invalid IBAN."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_acquirer__sdd_signature_required
-msgid "Online Signature"
-msgstr "Internetinis pasirašymas"
+#. odoo-python
+#: code:addons/payment_sepa_direct_debit/models/payment_transaction.py:0
+#, python-format
+msgid "No transaction found matching reference %s."
+msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model,name:payment_sepa_direct_debit.model_payment_acquirer
-msgid "Payment Acquirer"
-msgstr "Mokėjimo surinkėjas"
+#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_provider__sdd_signature_required
+msgid "Online Signature"
+msgstr "Internetinis pasirašymas"
 
 #. module: payment_sepa_direct_debit
 #: model:ir.model,name:payment_sepa_direct_debit.model_account_payment_method
 msgid "Payment Methods"
 msgstr "Mokėjimo būdai"
+
+#. module: payment_sepa_direct_debit
+#: model:ir.model,name:payment_sepa_direct_debit.model_payment_provider
+msgid "Payment Provider"
+msgstr ""
 
 #. module: payment_sepa_direct_debit
 #: model:ir.model,name:payment_sepa_direct_debit.model_payment_token
@@ -325,24 +318,20 @@ msgid "Phone Number"
 msgstr "Telefono numeris"
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_acquirer__sdd_sms_verification_required
+#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_provider__sdd_sms_verification_required
 msgid "Phone Verification"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_acquirer__provider
-msgid "Provider"
-msgstr "Tiekėjas"
-
-#. module: payment_sepa_direct_debit
-#. openerp-web
+#. odoo-javascript
 #: code:addons/payment_sepa_direct_debit/static/src/js/payment_form.js:0
 #, python-format
 msgid "Re-send SMS"
-msgstr ""
+msgstr "Persiųsti SMS žinutę"
 
 #. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_acquirer.py:0
+#. odoo-python
+#: code:addons/payment_sepa_direct_debit/models/payment_provider.py:0
 #, python-format
 msgid "Restricted to countries in the SEPA zone. Forbidden countries: %s"
 msgstr ""
@@ -353,13 +342,13 @@ msgid "SDD Mandate"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields.selection,name:payment_sepa_direct_debit.selection__payment_acquirer__provider__sepa_direct_debit
+#: model:ir.model.fields.selection,name:payment_sepa_direct_debit.selection__payment_provider__code__sepa_direct_debit
 msgid "SEPA Direct Debit"
 msgstr "SEPA Tiesigoinis Debitas"
 
 #. module: payment_sepa_direct_debit
 #: model:account.payment.method,name:payment_sepa_direct_debit.payment_method_sepa_direct_debit
-msgid "SEPA Direct Debit (acquirer)"
+msgid "SEPA Direct Debit (provider)"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
@@ -379,33 +368,29 @@ msgid "SEPA Direct Debit: Validation Notification"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_acquirer__sdd_sms_credits
+#: model:ir.model.fields,field_description:payment_sepa_direct_debit.field_payment_provider__sdd_sms_credits
 msgid "SMS Credits"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#. openerp-web
+#. odoo-javascript
 #: code:addons/payment_sepa_direct_debit/static/src/js/payment_form.js:0
 #, python-format
 msgid "SMS Sent"
-msgstr ""
+msgstr "SMS išsiųstas"
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
 msgid "SMS could not be sent due to insufficient credit."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
 msgid "SMS verification is disabled."
-msgstr ""
-
-#. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_token.py:0
-#, python-format
-msgid "Saved payment methods cannot be restored once they have been archived."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
@@ -414,7 +399,18 @@ msgid "Send SMS"
 msgstr "Siųsti SMS"
 
 #. module: payment_sepa_direct_debit
-#. openerp-web
+#: model:mail.template,description:payment_sepa_direct_debit.mail_template_sepa_notify_validation
+msgid ""
+"Send the SEPA mandate in attachement, to partners who signed a new mandate"
+msgstr ""
+
+#. module: payment_sepa_direct_debit
+#: model:mail.template,description:payment_sepa_direct_debit.mail_template_sepa_notify_debit
+msgid "Sent to the customer to indicate their account will be charged"
+msgstr ""
+
+#. module: payment_sepa_direct_debit
+#. odoo-javascript
 #: code:addons/payment_sepa_direct_debit/static/src/js/payment_form.js:0
 #: code:addons/payment_sepa_direct_debit/static/src/js/payment_form.js:0
 #, python-format
@@ -443,12 +439,8 @@ msgid "Signed online on"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,help:payment_sepa_direct_debit.field_payment_acquirer__provider
-msgid "The Payment Service Provider to use with this acquirer"
-msgstr ""
-
-#. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_acquirer.py:0
+#. odoo-python
+#: code:addons/payment_sepa_direct_debit/models/payment_provider.py:0
 #, python-format
 msgid "The bank account of the journal is not a valid IBAN."
 msgstr ""
@@ -459,39 +451,35 @@ msgid "The date of the signature"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_acquirer.py:0
-#, python-format
-msgid ""
-"The mandate could not be created. Please verify your IBAN and that you have "
-"not already created an account with this bank number. If that is the case, "
-"log in under that account."
-msgstr ""
-
-#. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/payment_transaction.py:0
 #, python-format
 msgid "The mandate is invalid."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_acquirer.py:0
+#. odoo-python
+#: code:addons/payment_sepa_direct_debit/models/payment_provider.py:0
 #, python-format
 msgid "The mandate owner and customer do not match."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "The mandate was signed by %s."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "The mandate was verified with phone number %s."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
 msgid "The name and signature must be provided."
@@ -503,18 +491,21 @@ msgid "The name of the signer"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "The phone number does not match."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
 msgid "The phone number must be provided and verified."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
@@ -527,30 +518,40 @@ msgid "The phone number used for verification by SMS code"
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#: model:ir.model.fields,help:payment_sepa_direct_debit.field_payment_provider__code
+msgid "The technical code of this payment provider."
+msgstr ""
+
+#. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/payment_transaction.py:0
 #, python-format
 msgid "The token is not linked to a mandate."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/payment_transaction.py:0
 #, python-format
 msgid "The transaction is not linked to a token."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "The verification code does not match."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "This mandate has already been verified."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #: code:addons/payment_sepa_direct_debit/controllers/main.py:0
 #, python-format
@@ -569,24 +570,24 @@ msgid "Verified"
 msgstr "Patvirtintas"
 
 #. module: payment_sepa_direct_debit
-#. openerp-web
+#. odoo-javascript
 #: code:addons/payment_sepa_direct_debit/static/src/js/payment_form.js:0
 #, python-format
 msgid "We are not able to process your payment."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,help:payment_sepa_direct_debit.field_payment_acquirer__sdd_signature_required
+#: model:ir.model.fields,help:payment_sepa_direct_debit.field_payment_provider__sdd_signature_required
 msgid "Whether a signature is required to create a new mandate."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model:ir.model.fields,help:payment_sepa_direct_debit.field_payment_acquirer__sdd_sms_verification_required
+#: model:ir.model.fields,help:payment_sepa_direct_debit.field_payment_provider__sdd_sms_verification_required
 msgid "Whether phone numbers must be verified by an SMS code."
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.payment_acquirer_form
+#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.payment_provider_form
 msgid ""
 "You don't have enough credit to send SMS. You can buy new credits here:"
 msgstr ""
@@ -599,7 +600,8 @@ msgid ""
 msgstr ""
 
 #. module: payment_sepa_direct_debit
-#: code:addons/payment_sepa_direct_debit/models/payment_acquirer.py:0
+#. odoo-python
+#: code:addons/payment_sepa_direct_debit/models/payment_provider.py:0
 #, python-format
 msgid ""
 "Your company must have a creditor identifier in order to issue a SEPA Direct"
@@ -607,9 +609,15 @@ msgid ""
 msgstr ""
 
 #. module: payment_sepa_direct_debit
+#. odoo-python
 #: code:addons/payment_sepa_direct_debit/models/sdd_mandate.py:0
 #, python-format
 msgid "Your confirmation code is %s"
+msgstr ""
+
+#. module: payment_sepa_direct_debit
+#: model_terms:ir.ui.view,arch_db:payment_sepa_direct_debit.inline_form
+msgid "upon validation."
 msgstr ""
 
 #. module: payment_sepa_direct_debit

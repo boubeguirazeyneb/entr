@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import time
@@ -6,7 +5,6 @@ import time
 from markupsafe import Markup
 
 from odoo import api, fields, models, _
-from odoo.tools.misc import clean_context
 
 
 class VoipPhonecall(models.Model):
@@ -41,10 +39,10 @@ class VoipPhonecall(models.Model):
         help='The status is set to To Do, when a call is created.\n'
              'When the call is over, the status is set to Held.\n'
              'If the call is not applicable anymore, the status can be set to Cancelled.')
-    phonecall_type = fields.Selection([
+    direction = fields.Selection([
         ('incoming', 'Incoming'),
         ('outgoing', 'Outgoing')
-    ], string='Type', default='outgoing')
+    ], default='outgoing')
 
     def init_call(self):
         self.ensure_one()
@@ -215,10 +213,10 @@ class VoipPhonecall(models.Model):
     def create_from_missed_call(self, number, partner_id=False):
         self.ensure_one()
         vals = {
+            'direction': 'incoming',
             'name': _('Missed Call from %s', number),
             'phone': number,
             'state': 'missed',
-            'phonecall_type': 'incoming',
             'partner_id': partner_id,
         }
         return self._update_and_init(vals)
@@ -226,9 +224,9 @@ class VoipPhonecall(models.Model):
     def create_from_rejected_call(self, number, partner_id=False):
         self.ensure_one()
         vals = {
+            'direction': 'incoming',
             'name': _('Rejected Incoming Call from %s', number),
             'phone': number,
-            'phonecall_type': 'incoming',
             'state': 'rejected',
             'partner_id': partner_id,
         }
@@ -237,10 +235,10 @@ class VoipPhonecall(models.Model):
     def create_from_incoming_call_accepted(self, number, partner_id=False):
         self.ensure_one()
         vals = {
+            'direction': 'incoming',
             'name': _('Incoming call from %s', number),
             'phone': number,
             'state': 'done',
-            'phonecall_type': 'incoming',
             'partner_id': partner_id,
         }
         return self._update_and_init(vals)
@@ -252,35 +250,12 @@ class VoipPhonecall(models.Model):
         else:
             name = _('Incoming call from %s', number)
         vals = {
+            'direction': 'incoming',
             'name': name,
             'phone': number,
-            'phonecall_type': 'incoming',
             'partner_id': partner_id,
         }
         return self._create_and_init(vals)
-
-    @api.model
-    def create_from_activity(self, activity):
-        record = self.env[activity.res_model].browse(activity.res_id)
-        partner_id = False
-        if record._name == 'res.partner':
-            partner_id = record.id
-        elif 'partner_id' in record:
-            partner_id = record.partner_id.id
-        #clean context to remove default_type
-        #maybe move this in create_call_in_queue
-        ctx = clean_context(self.env.context)
-        return self.with_context(ctx).create({
-            'name': activity.res_name,
-            'user_id': activity.user_id.id,
-            'partner_id': partner_id,
-            'activity_id': activity.id,
-            'date_deadline': activity.date_deadline,
-            'state': 'open',
-            'phone': activity.phone,
-            'mobile': activity.mobile,
-            'note': activity.note,
-        })
 
     @api.model
     def create_from_phone_widget(self, model, res_id, number):

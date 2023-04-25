@@ -16,7 +16,8 @@ class DocumentShare(models.Model):
     _inherit = ['mail.thread', 'mail.alias.mixin']
     _description = 'Documents Share'
 
-    folder_id = fields.Many2one('documents.folder', string="Workspace", required=True)
+    folder_id = fields.Many2one('documents.folder', string="Workspace", required=True, ondelete='cascade')
+    include_sub_folders = fields.Boolean()
     name = fields.Char(string="Name")
 
     access_token = fields.Char(required=True, default=lambda x: str(uuid.uuid4()), groups="documents.group_documents_user")
@@ -40,11 +41,11 @@ class DocumentShare(models.Model):
     action = fields.Selection([
         ('download', "Download"),
         ('downloadupload', "Download and Upload"),
-    ], default='download', string="Allows to")
+    ], default='download', string="Allows to", inverse="_inverse_action")
     tag_ids = fields.Many2many('documents.tag', string="Shared Tags")
     partner_id = fields.Many2one('res.partner', string="Contact")
-    owner_id = fields.Many2one('res.users', string="Document Owner")
-    email_drop = fields.Boolean(string='Upload by Email')
+    owner_id = fields.Many2one('res.users', string="Document Owner", default=lambda self: self.env.uid)
+    email_drop = fields.Boolean(compute='_compute_email_drop', string='Upload by Email', store=True, readonly=False)
 
     # Activity
     activity_option = fields.Boolean(string='Create a new activity')
@@ -73,7 +74,10 @@ class DocumentShare(models.Model):
         """
             Allows overriding the domain in customizations for modifying the search() domain
         """
-        return [[('folder_id', '=', self.folder_id.id)]]
+        if self.include_sub_folders:
+            return [[('folder_id', 'child_of', self.folder_id.id)]]
+        else:
+            return [[('folder_id', '=', self.folder_id.id)]]
 
     def _get_documents(self, document_ids=None):
         """
@@ -174,10 +178,21 @@ class DocumentShare(models.Model):
                 if diff_time <= 0:
                     record.state = 'expired'
 
-    @api.onchange('access_token')
+    @api.depends('action', 'alias_name')
+    def _compute_email_drop(self):
+        for record in self:
+            record.email_drop = record.action == 'downloadupload' and bool(record.alias_name)
+
+    @api.depends('access_token')
     def _compute_full_url(self):
         for record in self:
             record.full_url = "%s/document/share/%s/%s" % (record.get_base_url(), record.id, record.access_token)
+
+    def _inverse_action(self):
+        # Prevent the alias from existing if the option is removed
+        for record in self:
+            if record.action != 'downloadupload' and record.alias_name:
+                record.alias_name = False
 
     def _alias_get_creation_values(self):
         values = super(DocumentShare, self)._alias_get_creation_values()
@@ -198,7 +213,7 @@ class DocumentShare(models.Model):
             'context': context,
             'res_model': 'documents.share',
             'target': 'new',
-            'name': _('Share selected records') if vals.get('type') == 'ids' else _('Share domain'),
+            'name': _('Share selected files') if vals.get('type') == 'ids' else _('Share selected workspace'),
             'res_id': self.id if self else False,
             'type': 'ir.actions.act_window',
             'views': [[view_id, 'form']], 
@@ -211,19 +226,13 @@ class DocumentShare(models.Model):
             request_template.send_mail(self.id)
 
     @api.model
-    def create(self, vals):
-        if not vals.get('owner_id'):
-            vals['owner_id'] = self.env.uid
-        share = super(DocumentShare, self).create(vals)
-        return share
-
-    @api.model
     def open_share_popup(self, vals):
         """
         returns a view.
         :return: a form action that opens the share window to display the settings.
         """
         new_context = dict(self.env.context)
+        # TOOD: since the share is created directly do we really need to set the context?
         new_context.update({
             'default_owner_id': self.env.uid,
             'default_folder_id': vals.get('folder_id'),
@@ -232,11 +241,14 @@ class DocumentShare(models.Model):
             'default_domain': vals.get('domain') if vals.get('type', 'domain') == 'domain' else False,
             'default_document_ids': vals.get('document_ids', False),
         })
-        return self._get_share_popup(new_context, vals)
+        return self.create(vals)._get_share_popup(new_context, vals)
+
+    @api.model
+    def action_get_share_url(self, vals):
+        """
+        Creates a new share directly and return it's url
+        """
+        return self.create(vals).full_url
 
     def action_delete_shares(self):
         self.unlink()
-
-    def action_generate_url(self):
-        #Reload the wizard view to display the generated full url.
-        return self._get_share_popup(self.env.context, {'type': self.type})

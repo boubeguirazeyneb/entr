@@ -6,14 +6,16 @@
         <field name="model">planning.slot</field>
         <field name="arch" type="xml">
             <tree string="Shift List" multi_edit="1" sample="1" editable="top">
-                <field name="resource_id" groups="planning.group_planning_user" widget="many2one_avatar" optional="show"
-                    attrs="{'readonly': ['|', ('start_datetime', '=', False), ('end_datetime', '=', False)]}"/>
-                <field name="role_id" optional="show"/>
+                <field name="resource_id" groups="planning.group_planning_user" widget="many2one_avatar_resource" optional="show"
+                    attrs="{'readonly': ['|', ('start_datetime', '=', False), ('end_datetime', '=', False)]}" context="{'show_job_title': True}"/>
+                <field name="resource_type" invisible="1"/>
+                <field name="role_id" optional="show" attrs="{'invisible': [('resource_type', '=', 'material')]}" placeholder="e.g. Bartender"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide" readonly="1"/>
+                <field name="company_id" invisible="1"/>
                 <field name="start_datetime" widget="daterange" options="{'related_end_date': 'end_datetime'}"/>
                 <field name="end_datetime" widget="daterange" options="{'related_start_date': 'start_datetime'}"/>
-                <field name="company_id" groups="base.group_multi_company" optional="hide" readonly="1"/>
                 <field name="allocated_hours" widget="float_time" readonly="1" decoration-danger="allocated_percentage &gt; 100"/>
-                <field name="allocated_percentage" readonly="1" optional="hide" decoration-danger="allocated_percentage &gt; 100"/>
+                <field name="allocated_percentage" readonly="1" optional="hide" decoration-danger="allocated_percentage &gt; 100" attrs="{'invisible': [('resource_type', '=', 'material')]}"/>
                 <field name="name" optional="hide" />
                 <field name="state" decoration-success="state == 'published'" widget="badge" optional="hide" groups="planning.group_planning_manager" readonly="1"/>
             </tree>
@@ -24,35 +26,34 @@
         <field name="name">planning.slot.form</field>
         <field name="model">planning.slot</field>
         <field name="arch" type="xml">
-            <form>
+            <form js_class="planning_form">
                 <header>
                     <button string="Publish &amp; Send" type="object" name="action_send" class="btn btn-primary"
-                        close="1" attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager"/>
+                        close="1" attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager" data-hotkey="q" invisible="context.get('search_default_my_shifts')"/>
                     <button string="Publish" type="object" name="action_publish" class="btn btn-primary"
-                        close="1" groups="planning.group_planning_manager" attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}"/>
-                    <button name="action_self_assign" class="btn btn-primary" type="object" string="I Take It"
-                        attrs="{'invisible': ['|', '|', ('resource_id', '!=', False), ('start_datetime', '=', False), ('end_datetime', '=', False)]}" close="1"/>
+                        close="1" groups="planning.group_planning_manager" attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}" data-hotkey="w" invisible="context.get('search_default_my_shifts')"/>
+                    <button name="action_self_assign" class="btn btn-secondary" type="object" string="I Take It"
+                        attrs="{'invisible': ['|', '|', '|', ('resource_id', '!=', False), ('start_datetime', '=', False), ('end_datetime', '=', False), ('is_past', '=', True)]}" close="1" invisible="context.get('search_default_my_shifts')"/>
                     <button name="action_self_unassign" class="btn btn-secondary" type="object" string="I Am Unavailable"
                         attrs="{'invisible': ['|', '|', '|', '|', ('is_assigned_to_me', '=', False), ('allow_self_unassign', '=', False),
                         ('is_past', '=', True), ('is_unassign_deadline_passed', '=', True), ('resource_type', '=', 'material')]}"/>
                     <button string="Send" type="object" name="action_send" class="btn btn-secondary" close="1"
-                        attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager"/>
+                        attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager" data-hotkey="v" invisible="context.get('search_default_my_shifts')"/>
                     <button string="Reset to Draft" type="object" name="action_unpublish"
                         class="btn btn-secondary" close="1" groups="planning.group_planning_manager"
-                        attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}"/>
-                    <field name="state" widget="statusbar" groups="planning.group_planning_manager"/>
+                        attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}" data-hotkey="q"/>
+                    <field name="state" widget="statusbar" groups="planning.group_planning_manager" invisible="context.get('search_default_my_shifts')"/>
                 </header>
                 <field name="is_past" invisible="1"/>
                 <field name="is_unassign_deadline_passed" invisible="1"/>
                 <field name="work_email" invisible="1" />
-                <field name="resource_type" invisible="1" />
                 <field name="previous_template_id" invisible="1" />
                 <field name="template_reset" invisible="1" />
                 <field name="employee_id" invisible="1"/>
                 <field name="resource_id" invisible="1"/>
                 <field name="resource_type" invisible="1"/>
                 <div role="alert" class="alert alert-warning mb-0 p-3 text-center" attrs="{'invisible': [('overlap_slot_count', '=', 0)]}">
-                    <button name="action_see_overlaping_slots" type="object" class="btn-link" attrs="{'invisible': [('overlap_slot_count', '=', 0)]}">
+                    <button name="action_see_overlaping_slots" type="object" class="btn-link pe-1" attrs="{'invisible': [('overlap_slot_count', '=', 0)]}">
                         <field name="overlap_slot_count"/> other shift(s)
                     </button>
                     <span class="align-middle" attrs="{'invisible': [('overlap_slot_count', '=', 0)]}">for this resource at the same time.</span>
@@ -64,55 +65,57 @@
                     </div>
                     <field name="is_assigned_to_me" invisible="1"/>
                     <field name="allow_self_unassign" invisible="1"/>
-                    <group attrs="{'invisible': [('template_autocomplete_ids', '=', []), ('template_id', '=', False)]}"
-                        groups="planning.group_planning_manager" name="shift_templates" class="oe_edit_only">
-                        <label for="template_id"/>
-                        <field name="template_id" nolabel="1" class="text-break flex-wrap"
-                            domain="[['id', 'in', template_autocomplete_ids]]"
-                            widget="selection_badge" options="{'horizontal': true}"
-                        />
-                    </group>
+                    <field name="template_id"
+                        domain="[['id', 'in', template_autocomplete_ids]]"
+                        widget="selection_badge" options="{'horizontal': true}"
+                        groups="planning.group_planning_manager"
+                        attrs="{'invisible': [('template_autocomplete_ids', '=', []), ('template_id', '=', False)]}"
+                    />
                     <field name="template_autocomplete_ids" invisible="1"/>
                     <field name="recurrency_id" invisible='1'/>
                     <group>
                         <group>
-                            <field name="resource_id" context="{'from_planning': True}" options="{'no_create_edit': True}"
-                                attrs="{'readonly': ['|', ('start_datetime', '=', False), ('end_datetime', '=', False)]}"/>
-                            <field name="role_id" attrs="{'invisible': [('resource_type', '=', 'material')]}"/>
+                            <field name="resource_id" context="{'from_planning': True, 'show_job_title': True}" options="{'no_create_edit': True}"
+                                attrs="{'readonly': ['|', ('start_datetime', '=', False), ('end_datetime', '=', False)]}" widget="many2one_avatar_resource"/>
+                            <field name="role_id" placeholder="e.g. Bartender"/>
                             <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="company_id" invisible="1"/>
                         </group>
-                        <group>
+                        <!-- slot_info_right group is used in another module -->
+                        <group name="slot_info_right">
                             <label for="start_datetime" string="Date"/>
                             <div class="o_row">
                                 <field name="start_datetime" widget="daterange" options='{"related_end_date": "end_datetime"}'/>
                                 <i class="fa fa-long-arrow-right mx-1" aria-label="Arrow icon" title="Arrow"/>
                                 <field name="end_datetime" widget="daterange" options='{"related_start_date": "start_datetime"}'/>
                             </div>
-                            <field name="allocated_percentage" decoration-danger="allocated_percentage &gt; 100" attrs="{'invisible': [('resource_type', '=', 'material')]}"/>
-                            <field name="allocated_hours" widget="float_time" attrs="{'readonly': [('resource_type', '=', 'material')]}"/>
+                            <label for="allocated_hours"/>
+                            <div class="o_row">
+                                <field name="allocated_hours" widget="float_time" class="oe_inline" attrs="{'required': [('resource_type', '=', 'material')]}"/>
+                                <span attrs="{'invisible': [('resource_type', '=', 'material')]}">
+                                    (<field name="allocated_percentage" class="oe_inline" decoration-danger="allocated_percentage &gt; 100"/> %)
+                                </span>
+                            </div>
                         </group>
                     </group>
-                    <group groups="planning.group_planning_manager">
-                        <div colspan="2" class="o_checkbox_optional_field" groups="planning.group_planning_manager">
-                            <label for="repeat"/>
-                            <field name="repeat"/>
-                            <div attrs="{'invisible': [('repeat', '=', False)]}" class="d-flex flex-grow-1">
+                    <div class="my-4 d-block d-md-flex" groups="planning.group_planning_manager">
+                        <label for="repeat"/>
+                        <field name="repeat"/>
+                        <div class="o_checkbox_optional_field">
+                            <div attrs="{'invisible': [('repeat', '=', False)]}" class="d-flex">
                                 <label for="repeat_interval" string="Every"/>
-                                <field name="repeat_interval" class="col-2 col-lg-1"/>
-                                <span class="mr-3">Weeks</span>
-                                <field name="repeat_type" nolabel="1" attrs="{'required': [('repeat', '=', True)]}" class="col col-lg-1"/>
-                                <field name="repeat_until" attrs="{'invisible': [('repeat_type', '!=', 'until')], 'required': [('repeat_type', '=', 'until'), ('repeat', '=', True)]}" class="col-auto col-lg-2 flex-shrink-1" nolabel="1"/>
+                                <field name="repeat_interval" class="ms-2" style="max-width: 4rem;"/>
+                                <field name="repeat_unit" class="ms-2"/>
+                                <field name="repeat_type" nolabel="1" class="ms-2" attrs="{'required': [('repeat', '=', True)]}"/>
+                                <field name="repeat_until" class="ms-2" nolabel="1" attrs="{'invisible': [('repeat_type', '!=', 'until')], 'required': [('repeat_type', '=', 'until'), ('repeat', '=', True)]}"/>
+                                <field name="repeat_number" class="ms-2" attrs="{'invisible': [('repeat_type', '!=', 'x_times')], 'required': [('repeat_type', '=', 'x_times'), ('repeat', '=', True)]}" style="max-width: 4rem;"/>
                             </div>
                         </div>
-                        <field name="allow_template_creation" invisible="1"/>
-                        <div colspan="2" class="o_checkbox_optional_field" attrs="{'invisible': [('allow_template_creation', '=', False)]}" groups="planning.group_planning_manager">
-                            <label for="template_creation"/>
-                            <field name="template_creation"/>
-                        </div>
-                    </group>
-                    <group>
-                        <field name="name" string="" placeholder="Additional note" nolabel="1"/>
-                    </group>
+                    </div>
+                    <field name="allow_template_creation" invisible="1"/>
+                    <label for="template_creation" groups="planning.group_planning_manager"></label>
+                    <field name="template_creation" nolabel="1" groups="planning.group_planning_manager"/>
+                    <field name="name" nolabel="1" placeholder="Additional note sent to the employee"/>
                 </sheet>
             </form>
         </field>
@@ -122,10 +125,11 @@
         <field name="name">planning.slot.kanban</field>
         <field name="model">planning.slot</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_dashboard" sample="1">
+            <kanban class="o_kanban_dashboard" group_create="false" sample="1">
                 <field name="name"/>
                 <field name="employee_id"/>
                 <field name="resource_id"/>
+                <field name="resource_type"/>
                 <field name="role_id"/>
                 <field name="company_id" groups="base.group_multi_company"/>
                 <field name="start_datetime"/>
@@ -140,16 +144,32 @@
                                     <div class="o_kanban_record_title">
                                         <em>
                                             <i class="fa fa-clock-o" role="img" aria-label="Date" title="Date"/>
-                                            <field name="start_datetime"/>
-                                            -
-                                            <field name="end_datetime"/>
-                                            (<field name="allocated_hours" widget="float_time"/>)
-                                            (<field name="allocated_percentage"/>%)
+                                            <!-- To do: remove in master -->
+                                            <field name="start_datetime" invisible="1"/>
+                                            <field name="end_datetime" invisible="1"/>
+                                            <t t-if="record.start_datetime.raw_value and record.end_datetime.raw_value">
+                                                <field name="start_datetime"/>
+                                                -
+                                                <field name="end_datetime"/>
+                                            </t>
+                                            <span class="d-inline-block">
+                                                <!-- To do: remove in master -->
+                                                <field name="allocated_hours" widget="float_time" invisible="1"/>
+                                                <t t-if="record.start_datetime.raw_value and record.end_datetime.raw_value">
+                                                    (<field name="allocated_hours" widget="float_time"/>)
+                                                </t>
+                                                <t t-else="">
+                                                    <field name="allocated_hours" widget="float_time" class="ms-1"/>
+                                                </t>
+                                                <t t-if="record.resource_type.raw_value == 'user'">
+                                                    (<field name="allocated_percentage"/>%)
+                                                </t>
+                                            </span>
                                         </em>
                                     </div>
                                 </div>
                                 <div class="o_dropdown_kanban dropdown" groups="planning.group_planning_manager">
-                                    <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu">
+                                    <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu">
                                         <span class="fa fa-ellipsis-v"/>
                                     </a>
                                     <div class="dropdown-menu" role="menu">
@@ -159,7 +179,15 @@
                                 </div>
                             </div>
                             <div>
-                                <span name="role"><field name="role_id"/></span>
+                                <t t-if="record.resource_type.raw_value == 'user'">
+                                    <span name="role"><field name="role_id"/></span>
+                                </t>
+                                <t t-elif="record.resource_type.raw_value == 'material'">
+                                    <span name="resource"><field name="resource_id"/></span>
+                                </t>
+                                <t t-else="" name="role">
+                                    <span name="role"><field name="role_id"/></span>
+                                </t>
                             </div>
                             <div class="o_kanban_record_bottom">
                                 <div class="oe_kanban_bottom_left"/>
@@ -168,6 +196,9 @@
                                         options="{'classes': {'draft': 'default', 'published': 'success'}}" groups="planning.group_planning_manager"/>
                                     <t t-if="record.employee_id.value">
                                         <field name="employee_id" widget="many2one_avatar_employee"/>
+                                    </t>
+                                    <t t-if="record.resource_type.value == 'Material'">
+                                        <field name="resource_id" widget="many2one_avatar_resource"/>
                                     </t>
                                 </div>
                             </div>
@@ -196,38 +227,27 @@
         <field name="inherit_id" ref="planning_view_form_inherit"/>
         <field name="mode">primary</field>
         <field name="arch" type="xml">
-            <xpath expr="//group[@name='shift_templates']" position="replace">
-                <group attrs="{'invisible': [('template_autocomplete_ids', '=', []), ('template_id', '=', False)]}" class="oe_edit_only">
-                    <label for="template_id" class="oe_edit_only"/>
-                    <div class="o_row">
-                        <field name="template_id" nolabel="1" class="text-break flex-wrap"
-                            domain="[['id', 'in', template_autocomplete_ids]]"
-                            widget="selection_badge" options="{'horizontal': true}"
-                        />
-                    </div>
-                </group>
-            </xpath>
             <xpath expr="//sheet" position="after">
                 <footer class="d-flex flex-wrap">
                     <field name="publication_warning" invisible="1"/>
                     <field name="is_past" invisible="1"/>
                     <field name="confirm_delete" invisible="1"/>
                     <field name="is_unassign_deadline_passed" invisible="1"/>
-                    <button string="Save" special="save" data-hotkey="v" class="btn btn-primary ml-1" close="1" groups="planning.group_planning_manager" attrs="{'invisible': [('confirm_delete', '=', True)]}"/>
-                    <button string="Save" special="save" data-hotkey="v" class="btn btn-primary ml-1" close="1" groups="planning.group_planning_manager" attrs="{'invisible': [('confirm_delete', '=', False)]}" confirm="All subsequent shifts will be deleted. Are you sure you want to continue?" />
+                    <button string="Save" special="save" data-hotkey="v" class="btn btn-primary ms-1" close="1" groups="planning.group_planning_manager" attrs="{'invisible': [('confirm_delete', '=', True)]}"/>
+                    <button string="Save" special="save" data-hotkey="v" class="btn btn-primary ms-1" close="1" groups="planning.group_planning_manager" attrs="{'invisible': [('confirm_delete', '=', False)]}" confirm="All subsequent shifts will be deleted. Are you sure you want to continue?" />
                     <button string="Publish &amp; Send" type="object" name="action_send" class="btn btn-primary" close="1"
-                        attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager"/>
+                        attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager" data-hotkey="q" invisible="context.get('search_default_my_shifts')"/>
                     <button string="Send" type="object" name="action_send" class="btn btn-secondary" close="1"
-                        attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager"/>
+                        attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}" groups="planning.group_planning_manager" data-hotkey="s" invisible="context.get('search_default_my_shifts')"/>
                     <button string="Publish" type="object" name="action_publish" class="btn btn-primary" close="1"
-                        groups="planning.group_planning_manager" attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}"/>
+                        groups="planning.group_planning_manager" attrs="{'invisible': ['|', ('state', '=', 'published'), ('resource_type', '=', 'material')]}" data-hotkey="w" invisible="context.get('search_default_my_shifts')"/>
                     <button string="Reset to Draft" type="object" name="action_unpublish" class="btn btn-secondary" close="1"
-                        groups="planning.group_planning_manager" attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}"/>
-                    <button string="Discard" special="cancel" data-hotkey="z" class="btn-secondary" close="1" fullscreen="True" groups="planning.group_planning_manager"/>
-
-                    <button name="action_self_assign" class="btn btn-primary ml-md-auto" type="object" string="I Take It" attrs="{'invisible': ['|', '|', '|', ('resource_type', '=', 'material'), ('employee_id', '!=', False), ('start_datetime', '=', False), ('end_datetime', '=', False)]}" close="1" data-hotkey="q"/>
-                    <button name="action_self_unassign" class="btn btn-secondary float-right" type="object" string="I Am Unavailable" attrs="{'invisible': ['|', '|', '|', ('is_assigned_to_me', '=', False), ('allow_self_unassign', '=', False), ('is_past', '=', True), ('is_unassign_deadline_passed', '=', True)]}" close="1" data-hotkey="w"/>
-                    <button name="unlink" type="object" icon="fa-trash" class="btn-secondary float-right" close="1" attrs="{'invisible': [('id', '=', False)]}" groups="planning.group_planning_manager"/>
+                        groups="planning.group_planning_manager" attrs="{'invisible': ['|', ('state', '=', 'draft'), ('resource_type', '=', 'material')]}" data-hotkey="q" invisible="context.get('search_default_my_shifts')"/>
+                    
+                    <button name="action_self_assign" class="btn btn-secondary float-end" type="object" string="I Take It" attrs="{'invisible': ['|', '|', '|', ('employee_id', '!=', False), ('start_datetime', '=', False), ('end_datetime', '=', False), ('is_past', '=', True)]}" close="1" data-hotkey="q"/>
+                    <button name="action_self_unassign" class="btn btn-secondary float-end" type="object" string="I Am Unavailable" attrs="{'invisible': ['|', '|', '|', ('is_assigned_to_me', '=', False), ('allow_self_unassign', '=', False), ('is_past', '=', True), ('is_unassign_deadline_passed', '=', True)]}" close="1" data-hotkey="w"/>
+                    <button string="Discard" special="cancel" data-hotkey="z" class="btn-secondary float-end" close="1" fullscreen="True" groups="planning.group_planning_manager"/>
+                    <button name="unlink" type="object" icon="fa-trash" title="Remove" class="btn-secondary float-end d-none d-md-inline" close="1" attrs="{'invisible': [('id', '=', False)]}" groups="planning.group_planning_manager" data-hotkey="d"/>
                 </footer>
             </xpath>
         </field>
@@ -238,31 +258,67 @@
         <field name="model">planning.slot</field>
         <field name="arch" type="xml">
             <search>
-                <field name="role_id" groups="planning.group_planning_user"/>
-                <field name="department_id" groups="planning.group_planning_user"/>
                 <field name="resource_id" groups="planning.group_planning_user"/>
+                <field name="role_id" groups="planning.group_planning_user"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="department_id" groups="planning.group_planning_user"/>
                 <field name="manager_id" groups="planning.group_planning_user"/>
                 <field name="job_title" groups="planning.group_planning_user"/>
+                <field name="name" groups="planning.group_planning_user"/>
                 <filter name="open_shifts" string="Open Shifts" domain="[('resource_id', '=', False)]" />
-                <filter name="open_shifts_my_role" string="Open Shifts for my Roles" domain="[('resource_id', '=', False), ('role_id.employee_ids.user_id', 'in', [uid])]" />
                 <filter name="my_shifts" string="My Shifts" domain="[('user_id', '=', uid)]" />
                 <filter name="my_team_shifts" string="My Team" domain="[('manager_id.user_id', '=', uid)]" help="Shifts of Your Team Member" groups="planning.group_planning_user"/>
+                <filter name="my_department_shifts" string="My Department" domain="[('employee_id.member_of_department', '=', True)]" help="Shifts of Your Department Member" groups="planning.group_planning_user"/>
                 <separator/>
-                <filter string="Human" name="human" domain="[('resource_type','=', 'user')]"/>
-                <filter string="Material" name="material" domain="[('resource_type','=', 'material')]"/>
+                <filter string="My Roles" name="my_role" domain="[('role_id.resource_ids.user_id','=', uid)]" groups="planning.group_planning_user"/>
                 <separator/>
+                <filter name="conflict_shifts" string="Shifts in Conflict" domain="[('overlap_slot_count', '>', 0)]" groups="planning.group_planning_user"/>
+                <separator/>
+                <filter string="Human" name="human" domain="[('resource_type','=', 'user')]" groups="planning.group_planning_user"/>
+                <filter string="Material" name="material" domain="[('resource_type','=', 'material')]" groups="planning.group_planning_user"/>
+                <separator/>
+                <filter name="unpublished_shifts" string="Draft" domain="[('state', '=', 'draft')]" groups="planning.group_planning_manager"/>
                 <filter name="published_shifts" string="Published" domain="[('state', '=', 'published')]" groups="planning.group_planning_manager"/>
-                <filter name="unpublished_shifts" string="Unpublished" domain="[('state', '=', 'draft')]" groups="planning.group_planning_manager"/>
+                <filter name="publication_warning" string="To Resend" domain="[('publication_warning', '=', True), ('overlap_slot_count', '=', 0)]" groups="planning.group_planning_manager"/>
                 <separator groups="planning.group_planning_manager"/>
-                <filter name="future" string="Future" domain="[('start_datetime', '>=', time.strftime('%%Y-%%m-%%d 00:00:00'))]" />
-                <filter name="past" string="Past" domain="[('start_datetime', '&lt;=', time.strftime('%%Y-%%m-%%d 23:59:59'))]" />
-                <separator/>
-                <filter name="conflict_shifts" string="Shifts in Conflict" domain="[('overlap_slot_count', '>', 0)]"/>
+                <filter name="future" string="Future" domain="[
+                    ('start_datetime', '&gt;=', (context_today() + relativedelta(days=1)).strftime('%Y-%m-%d 00:00:00'))
+                ]"/>
+                <filter name="next_week" string="Next Week" domain="[
+                    ('start_datetime', '&lt;', (context_today() + relativedelta(weeks=1, weekday=6)).strftime('%Y-%m-%d 00:00:00')),
+                    ('end_datetime', '&gt;', (context_today() + relativedelta(weeks=0, weekday=6)).strftime('%Y-%m-%d 00:00:00')),
+                ]"/>
+                <filter name="this_week" string="This Week" domain="[
+                    ('start_datetime', '&lt;', (context_today() + relativedelta(weeks=0, weekday=6)).strftime('%Y-%m-%d 00:00:00')),
+                    ('end_datetime', '&gt;', (context_today() + relativedelta(weeks=-1, weekday=6)).strftime('%Y-%m-%d 00:00:00')),
+                ]"/>
+                <filter name="tomorrow" string="Tomorrow" domain="[
+                    ('start_datetime', '&lt;', (context_today() + relativedelta(days=2)).strftime('%Y-%m-%d 00:00:00')),
+                    ('end_datetime', '&gt;', (context_today() + relativedelta(days=1)).strftime('%Y-%m-%d 00:00:00')),
+                ]"/>
+                <filter name="today" string="Today"  domain="[
+                    ('start_datetime', '&lt;', (context_today() + relativedelta(days=1)).strftime('%Y-%m-%d 00:00:00')),
+                    ('end_datetime', '&gt;', context_today().strftime('%Y-%m-%d 00:00:00')),
+                ]"/>
+                <filter name="yesterday" string="Yesterday" domain="[
+                    ('start_datetime', '&lt;', context_today().strftime('%Y-%m-%d 00:00:00')),
+                    ('end_datetime', '&gt;', (context_today() + relativedelta(days=-1)).strftime('%Y-%m-%d 00:00:00')),
+                ]"/>
+                <filter name="last_week" string="Last Week" domain="[
+                    ('start_datetime', '&lt;', (context_today() + relativedelta(weeks=-1, weekday=6)).strftime('%Y-%m-%d 00:00:00')),
+                    ('end_datetime', '&gt;', (context_today() + relativedelta(weeks=-2, weekday=6)).strftime('%Y-%m-%d 00:00:00')),
+                ]"/>
+                <filter name="past" string="Past" domain="[
+                    ('end_datetime', '&lt;', context_today().strftime('%Y-%m-%d 00:00:00'))
+                ]"/>
                 <group string="Group By">
                     <filter name="group_by_department" string="Department" context="{'group_by': 'department_id'}" groups="planning.group_planning_user"/>
+                    <filter name="group_by_manager" string="Manager" context="{'group_by': 'manager_id'}" groups="planning.group_planning_user"/>
                     <filter name="group_by_resource" string="Resource" context="{'group_by': 'resource_id'}" groups="planning.group_planning_user"/>
                     <filter name="group_by_role" string="Role" context="{'group_by': 'role_id'}"/>
+                    <filter name="group_by_company" string="Company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
                     <filter name="group_by_start_datetime" string="Start Date" context="{'group_by':'start_datetime:day'}"/>
+                    <filter name="group_by_end_datetime" string="End Date" context="{'group_by':'end_datetime:day'}"/>
                 </group>
             </search>
         </field>
@@ -273,13 +329,39 @@
         <field name="model">planning.slot</field>
         <field name="arch" type="xml">
             <calendar string="Planning" date_start="start_datetime" date_stop="end_datetime" color="color" form_view_id="%(planning_view_form_inherit)d" event_open_popup="true" quick_add="False" js_class="planning_calendar" mode="month" show_unusual_days="True">
-                <field name="resource_id" avatar_field="avatar_128"/>
+                <field name="resource_id" avatar_field="avatar_128" widget="many2one_avatar_resource"/>
+                <field name="resource_type" invisible="1"/>
                 <field name="is_hatched" invisible="1" />
-                <field name="role_id" filters="1" color="color"/>
+                <field name="resource_type" invisible="1"/>
+                <field name="role_id" filters="1" color="color" attrs="{'invisible': [('resource_type', '=', 'material')]}"/>
                 <field name="allocated_hours" invisible="1"/>
                 <field name="allocated_percentage" invisible="1"/>
-                <field name="state" groups="planning.group_planning_manager"/>
+                <field name="state" invisible="1"/>
             </calendar>
+        </field>
+    </record>
+
+    <record id="planning_view_pivot" model="ir.ui.view">
+        <field name="name">planning.slot.pivot</field>
+        <field name="model">planning.slot</field>
+        <field name="arch" type="xml">
+            <pivot string="Planning" sample="1">
+                <field name="start_datetime" interval="week" type="row"/>
+                <field name="resource_id" type="col"/>
+                <field name="allocated_hours" type="measure" widget="float_time"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="planning_view_graph" model="ir.ui.view">
+        <field name="name">planning.slot.graph</field>
+        <field name="model">planning.slot</field>
+        <field name="arch" type="xml">
+            <graph string="Planning" sample="1">
+                <field name="start_datetime" interval="week"/>
+                <field name="resource_id"/>
+                <field name="allocated_hours" type="measure"/>
+            </graph>
         </field>
     </record>
 
@@ -290,11 +372,12 @@
         <field name="arch" type="xml">
             <calendar string="Planning" date_start="start_datetime" date_stop="end_datetime" color="color" form_view_id="%(planning_view_form_inherit)d" event_open_popup="true" show_unusual_days="True" quick_add="False" js_class="planning_calendar" mode="month">
                 <field name="name"/>
-                <field name="resource_id" avatar_field="avatar_128"/>
-                <field name="role_id" filters="1" color="color"/>
+                <field name="resource_id" avatar_field="avatar_128" widget="many2one_avatar_resource"/>
+                <field name="resource_type" invisible="1"/>
+                <field name="role_id" filters="1" color="color" attrs="{'invisible': [('resource_type', '=', 'material')]}"/>
                 <field name="allocated_hours" invisible="1"/>
                 <field name="allocated_percentage" invisible="1"/>
-                <field name="state" groups="planning.group_planning_manager"/>
+                <field name="state" invisible="1"/>
             </calendar>
         </field>
     </record>
@@ -320,7 +403,9 @@
                 decoration-warning="publication_warning"
                 decoration-danger="overlap_slot_count > 0"
                 display_unavailability="1"
-                sample="1">
+                sample="1"
+                progress_bar="resource_id"
+                pill_label="True">
 
                 <field name="allocated_hours"/>
                 <field name="recurrency_id" />
@@ -328,12 +413,13 @@
                 <field name="publication_warning"/>
                 <field name="employee_id"/>
                 <field name="resource_id"/>
+                <field name="resource_type"/>
                 <field name="overlap_slot_count"/>
                 <field name="allocated_percentage"/>
                 <field name="name"/>
                 <templates>
                     <div t-name="gantt-popover">
-                        <div id="allocated_hours"><strong>Allocated Hours — </strong> <t t-esc="allocatedHoursFormatted"/> (<t t-esc="allocatedPercentageFormatted"/>%)</div>
+                        <div id="allocated_hours"><strong>Allocated Time — </strong> <t t-esc="allocatedHoursFormatted"/> <t t-if="resource_type == 'user'"> (<t t-esc="allocatedPercentageFormatted"/>%)</t></div>
                         <div><t t-esc="userTimezoneStartDate.format('l LT ')"/><i class="fa fa-long-arrow-right" title="Arrow"/><t t-esc="userTimezoneStopDate.format(' l LT')"/></div>
                         <p class="mt-2 mb-0" t-if="name"><t t-esc="name.slice(0, 200) + (name.length > 200?'…':'')" /></p>
                         <p t-if="publication_warning and !overlap_slot_count" class="text-warning mt-2 mb-0">
@@ -348,29 +434,16 @@
         </field>
     </record>
 
-    <record id="planning_view_pivot" model="ir.ui.view">
-        <field name="name">planning.slot.pivot</field>
+    <record id="planning_view_gantt_group_by_role" model="ir.ui.view">
+        <field name="name">planning.slot.gantt.inherit.group.role</field>
+        <field name="inherit_id" ref="planning.planning_view_gantt"/>
         <field name="model">planning.slot</field>
+        <field name="mode">primary</field>
         <field name="arch" type="xml">
-            <pivot string="Planning Analysis" sample="1">
-                <field name="start_datetime" interval="week" type="col"/>
-                <field name="allocated_hours" type="measure"/>
-                <field name="allocated_percentage" type="measure"/>
-            </pivot>
+            <gantt position="attributes">
+                <attribute name="default_group_by">role_id,resource_id</attribute>
+            </gantt>
         </field>
-    </record>
-
-    <record id="planning_view_graph" model="ir.ui.view">
-        <field name="name">planning.slot.graph</field>
-        <field name="model">planning.slot</field>
-        <field name="arch" type="xml">
-            <graph string="Planning Analysis" sample="1">
-                <field name="role_id"/>
-                <field name="resource_id"/>
-                <field name="allocated_hours" type="measure"/>
-                <field name="allocated_percentage" type="measure"/>
-             </graph>
-         </field>
     </record>
 
     <!-- planning.role views -->
@@ -378,10 +451,10 @@
         <field name="name">planning.role.tree</field>
         <field name="model">planning.role</field>
         <field name="arch" type="xml">
-            <tree string="Planning Role List" editable="bottom" multi_edit="1" sample="1">
+            <tree string="Planning Role List" editable="bottom" multi_edit="1" js_class="legacy_list">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="employee_ids" widget="many2many_avatar_employee" optional="show"/>
+                <field name="resource_ids" widget="many2many_tags" optional="show" context="{'form_view_ref': 'planning.resource_resource_form_tags_view_inherit', 'show_job_title': True}"/>
                 <field name="color" widget="color_picker" optional="show"/>
             </tree>
         </field>
@@ -397,7 +470,7 @@
                     <group>
                         <field name="active" invisible="1" />
                         <field name="name"/>
-                        <field name="employee_ids" widget="many2many_avatar_employee"/>
+                        <field name="resource_ids" widget="many2many_tags" context="{'show_job_title': True}"/>
                         <field name="color" widget="color_picker"/>
                         <field name="sequence" groups="base.group_no_one"/>
                     </group>
@@ -410,7 +483,7 @@
         <field name="name">planning.role.view.kanban</field>
         <field name="model">planning.role</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_dashboard" sample="1">
+            <kanban class="o_kanban_dashboard">
                 <field name="color"/>
                 <templates>
                     <t t-name="kanban-box">
@@ -419,6 +492,11 @@
                                 <div class="o_kanban_card_header_title">
                                     <div class="o_primary">
                                         <field name="name" />
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col o_kanban_primary_left">
+                                        <field name="resource_ids" widget="many2many_tags"/>
                                     </div>
                                 </div>
                                 <div class="o_kanban_manage_button_section o_dropdown_kanban">
@@ -440,7 +518,6 @@
                                     <ul class="oe_kanban_colorpicker" data-field="color" role="popup"/>
                                 </div>
                             </div>
-                            <field name="employee_ids" widget="many2many_tags" />
                         </div>
                     </t>
                 </templates>
@@ -454,8 +531,15 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name" />
-                <field name="employee_ids"/>
+                <field name="resource_ids"/>
+                <filter name="my_roles" string="My Roles" domain="[('resource_ids.user_id', '=', uid)]"/>
+                <filter name="my_team" string="My Team" domain="[('resource_ids.employee_id.parent_id.user_id', '=', uid)]"/>
+                <filter name="my_department" string="My Department" domain="[('resource_ids.employee_id.member_of_department', '=', True)]"/>
+                <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group string="Group By">
+                    <filter name="group_by_resource" string="Resources" context="{'group_by': 'resource_ids'}"/>
+                </group>
             </search>
         </field>
     </record>
@@ -478,21 +562,57 @@
     <record id="planning_action_my_calendar" model="ir.actions.act_window">
         <field name="name">My Planning</field>
         <field name="res_model">planning.slot</field>
-        <field name="view_mode">calendar,gantt,tree,form,kanban</field>
-         <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'gantt'}),
-            (0, 0, {'view_mode': 'calendar', 'view_id': ref('planning_view_my_calendar')}),
-            (0, 0, {'view_mode': 'tree'}),
-            (0, 0, {'view_mode': 'form'})]"/>
+        <field name="view_mode">calendar,gantt,tree,form,kanban,pivot,graph</field>
         <field name="context">{'search_default_my_shifts': 1, 'search_default_open_shifts': 1, 'planning_expand_resource': 1, 'planning_expand_role': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No shifts found. Let's create one!
             </p><p>
-                Shifts are periods allocated to your employees for a specific role. Together, they constitute your employees' planning.
+                Find here your planning. Assign yourself open shifts that match your roles, or indicate your unavailability.
             </p>
         </field>
     </record>
+
+        <record id="planning_action_my_calendar_view_gantt" model="ir.actions.act_window.view">
+            <field name="sequence" eval="1"/>
+            <field name="view_mode">gantt</field>
+            <field name="act_window_id" ref="planning_action_my_calendar"/>
+        </record>
+
+        <record id="planning_action_my_calendar_view_calendar" model="ir.actions.act_window.view">
+            <field name="sequence" eval="10"/>
+            <field name="view_mode">calendar</field>
+            <field name="view_id" ref="planning_view_my_calendar"/>
+            <field name="act_window_id" ref="planning_action_my_calendar"/>
+        </record>
+
+        <record id="planning_action_my_calendar_view_tree" model="ir.actions.act_window.view">
+            <field name="sequence" eval="20"/>
+            <field name="view_mode">tree</field>
+            <field name="view_id" ref="planning.planning_view_tree"/>
+            <field name="act_window_id" ref="planning_action_my_calendar"/>
+        </record>
+
+        <record id="planning_action_my_calendar_view_kanban" model="ir.actions.act_window.view">
+            <field name="sequence" eval="30"/>
+            <field name="view_mode">kanban</field>
+            <field name="view_id" ref="planning.planning_view_kanban"/>
+            <field name="act_window_id" ref="planning_action_my_calendar"/>
+        </record>
+
+        <record id="planning_action_my_planning_view_pivot" model="ir.actions.act_window.view">
+            <field name="sequence" eval="40"/>
+            <field name="view_mode">pivot</field>
+            <field name="view_id" ref="planning_view_pivot"/>
+            <field name="act_window_id" ref="planning_action_my_calendar"/>
+        </record>
+
+        <record id="planning_action_my_planning_view_graph" model="ir.actions.act_window.view">
+            <field name="sequence" eval="50"/>
+            <field name="view_mode">graph</field>
+            <field name="view_id" ref="planning_view_graph"/>
+            <field name="act_window_id" ref="planning_action_my_calendar"/>
+        </record>
 
     <record id="planning_action_open_shift" model="ir.actions.act_window">
         <field name="name">My Planning</field>
@@ -508,17 +628,43 @@
             <field name="act_window_id" ref="planning_action_open_shift"/>
         </record>
 
+    <record id="planning_action_schedule_by_resource_view_pivot_inherit" model="ir.ui.view">
+        <field name="name">planning.action.schedule.resource.view.pivot.inherit</field>
+        <field name="inherit_id" ref="planning.planning_view_pivot"/>
+        <field name="model">planning.slot</field>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='resource_id']" position="attributes">
+                <attribute name="type">row</attribute>
+            </xpath>
+            <xpath expr="//field[@name='allocated_hours']" position="after">
+                <field name="working_days_count" type="measure"/>
+            </xpath>
+            <field name="start_datetime" position="replace"/>
+        </field>
+    </record>
+
+    <record id="planning_action_schedule_by_resource_view_graph_inherit" model="ir.ui.view">
+        <field name="name">planning.action.schedule.resource.view.graph.inherit</field>
+        <field name="inherit_id" ref="planning.planning_view_graph"/>
+        <field name="model">planning.slot</field>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <field name="start_datetime" position="replace"/>
+        </field>
+    </record>
+
     <record id="planning_action_schedule_by_resource" model="ir.actions.act_window">
         <field name="name">Schedule by Resource</field>
         <field name="res_model">planning.slot</field>
-        <field name="view_mode">gantt,calendar,tree,form,kanban</field>
-        <field name="context">{'search_default_group_by_resource': 1, 'planning_expand_resource': 1, 'planning_expand_role': 1}</field>
+        <field name="view_mode">gantt,calendar,tree,form,kanban,pivot,graph</field>
+        <field name="context">{'planning_expand_resource': 1, 'planning_expand_role': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No shifts found. Let's create one!
             </p>
             <p>
-                Shifts are periods allocated to your employees for a specific role. Together, they constitute your employees' planning.
+                Schedule your human and material resources across roles, projects and sales orders.
             </p>
         </field>
     </record>
@@ -526,21 +672,62 @@
         <record id="planning_action_schedule_by_resource_view_gantt" model="ir.actions.act_window.view">
             <field name="sequence" eval="1"/>
             <field name="view_mode">gantt</field>
-            <field name="view_id" ref="planning_view_gantt_no_sample"/>
+            <field name="view_id" ref="planning_view_gantt"/>
             <field name="act_window_id" ref="planning_action_schedule_by_resource"/>
         </record>
+
+        <record id="planning_action_schedule_by_resource_view_pivot" model="ir.actions.act_window.view">
+            <field name="sequence" eval="1"/>
+            <field name="view_mode">pivot</field>
+            <field name="view_id" ref="planning_action_schedule_by_resource_view_pivot_inherit"/>
+            <field name="act_window_id" ref="planning_action_schedule_by_resource"/>
+        </record>
+
+        <record id="planning_action_schedule_by_resource_view_graph" model="ir.actions.act_window.view">
+            <field name="sequence" eval="1"/>
+            <field name="view_mode">graph</field>
+            <field name="view_id" ref="planning_action_schedule_by_resource_view_graph_inherit"/>
+            <field name="act_window_id" ref="planning_action_schedule_by_resource"/>
+        </record>
+
+    <record id="planning_action_schedule_by_role_view_pivot_inherit" model="ir.ui.view">
+        <field name="name">planning.action.schedule.role.view.pivot.inherit</field>
+        <field name="inherit_id" ref="planning.planning_view_pivot"/>
+        <field name="model">planning.slot</field>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='start_datetime']" position="replace">
+                <field name="role_id" type="row"/>
+            </xpath>
+            <xpath expr="//field[@name='resource_id']" position="attributes">
+                <attribute name="type">row</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="planning_action_schedule_by_role_view_graph_inherit" model="ir.ui.view">
+        <field name="name">planning.action.schedule.role.view.graph.inherit</field>
+        <field name="inherit_id" ref="planning_action_schedule_by_resource_view_graph_inherit"/>
+        <field name="model">planning.slot</field>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='resource_id']" position="before">
+                <field name="role_id"/>
+            </xpath>
+        </field>
+    </record>
 
     <record id="planning_action_schedule_by_role" model="ir.actions.act_window">
         <field name="name">Schedule by Role</field>
         <field name="res_model">planning.slot</field>
-        <field name="view_mode">gantt,calendar,tree,form,kanban</field>
-        <field name="context">{'search_default_group_by_role': 1, 'search_default_group_by_resource': 2, 'planning_groupby_role': True, 'planning_expand_resource': 1, 'planning_expand_role': 1}</field>
+        <field name="view_mode">gantt,calendar,tree,form,kanban,pivot,graph</field>
+        <field name="context">{'planning_groupby_role': True, 'planning_expand_resource': 1, 'planning_expand_role': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No shifts found. Let's create one!
             </p>
             <p>
-                Shifts are periods allocated to your employees for a specific role. Together, they constitute your employees' planning.
+                Schedule your human and material resources across roles, projects and sales orders.
             </p>
         </field>
     </record>
@@ -548,7 +735,19 @@
         <record id="planning_action_schedule_by_role_view_gantt" model="ir.actions.act_window.view">
             <field name="sequence" eval="1"/>
             <field name="view_mode">gantt</field>
-            <field name="view_id" ref="planning_view_gantt"/>
+            <field name="view_id" ref="planning_view_gantt_group_by_role"/>
+            <field name="act_window_id" ref="planning_action_schedule_by_role"/>
+        </record>
+
+        <record id="planning_action_schedule_by_role_view_pivot" model="ir.actions.act_window.view">
+            <field name="view_mode">pivot</field>
+            <field name="view_id" ref="planning_action_schedule_by_role_view_pivot_inherit"/>
+            <field name="act_window_id" ref="planning_action_schedule_by_role"/>
+        </record>
+
+        <record id="planning_action_schedule_by_role_view_graph" model="ir.actions.act_window.view">
+            <field name="view_mode">graph</field>
+            <field name="view_id" ref="planning_action_schedule_by_role_view_graph_inherit"/>
             <field name="act_window_id" ref="planning_action_schedule_by_role"/>
         </record>
 
@@ -565,11 +764,12 @@
         <field name="res_model">planning.role</field>
         <field name="view_mode">tree,kanban,form</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
+            <div class="d-none d-sm-block" style="margin-top:-25%"> <div class="o_gantt_view o_planning_gantt pe-none mb-5"> <div class="o_gantt_view_container container-fluid p-0"> <div class="row g-0 o_gantt_header_container position-sticky bg-white"> <div class="col-4 position-relative o_gantt_row_sidebar text-center"> <span class="fw-bold">Schedule</span> </div><div class="col position-relative o_gantt_header_slots"> <div class="row g-0"> <div class="col text-center p-2 fw-bold"> 28 August 2022 - 03 September 2022 </div></div><div class="row g-0 o_gantt_header_scale"> <div class="col position-relative o_gantt_header_cell text-center p-2 "> Monday, 29th </div><div class="col position-relative o_gantt_header_cell text-center p-2 "> Tuesday, 30th </div><div class="col position-relative o_gantt_header_cell text-center p-2 "> Wednesday, 31st </div></div></div></div><div class="row g-0"> <div class="col position-relative o_gantt_row_container"> <div id="o_gantt_containment"></div><div class="row g-0 o_gantt_row o_gantt_row_group open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[2,&quot;Bartender&quot;]}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 16px;"> <div class="o_gantt_row_title text-truncate pe-1" title="Bartender" style="false"> <i class="fa small fa-minus"></i> Role: Bartender </div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell " data-date="2022-08-29 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute o_gantt_consolidated_wrapper o_gantt_pill_wrapper_group" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill " title="12:00"> </div><span class="o_gantt_consolidated_pill_title position-relative text-truncate px-1">12:00</span> </div></div><div class="col position-relative o_gantt_cell " data-date="2022-08-30 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute o_gantt_consolidated_wrapper o_gantt_pill_wrapper_group" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill " title="8:00"> </div><span class="o_gantt_consolidated_pill_title position-relative text-truncate px-1">8:00</span> </div></div><div class="col position-relative o_gantt_cell " data-date="2022-08-31 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute o_gantt_consolidated_wrapper o_gantt_pill_wrapper_group" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill " title="04:00"> </div><span class="o_gantt_consolidated_pill_title position-relative text-truncate px-1">04:00</span> </div></div></div></div></div><div class="row g-0 o_gantt_row o_gantt_row_nogroup open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[2,&quot;Bartender&quot;]},{&quot;resource_id&quot;:false}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 32px;"> <div class="o_gantt_row_title text-truncate pe-1" title="Open Shifts" style="false"> Open Shifts </div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-29 00:00:00" style="height: 70px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="36" class="o_gantt_pill position-relative o_gantt_color_3" style="" title=""> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">8:00 AM - 12:00 PM (4h)</p></div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 37px; left: 0%;"> <div data-id="41" class="o_gantt_pill position-relative o_gantt_color_3" style="" title=""> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">1:00 PM - 5:00 PM (2h)</p></div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-30 00:00:00" style="height: 70px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-31 00:00:00" style="height: 70px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="36" class="o_gantt_pill position-relative o_gantt_color_3" style="" title=""> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">8:00 AM - 12:00 PM (4h)</p></div></div></div></div></div></div><div class="row g-0 o_gantt_row o_gantt_row_nogroup open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[2,&quot;Bartender&quot;]},{&quot;resource_id&quot;:[15,&quot;Doris Cole (Bartender)&quot;]}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 32px;"> <span class="position-absolute o_gantt_progressbar o_gantt_group_success" style="width: 10%;"> </span> <span class="position-absolute o_gantt_text_hoverable o_gantt_group_success"> <span class="o_gantt_group_hours px-1" style="line-height: 35px;"> 4 h / 40 h (10%) </span> </span> <div class="o_gantt_row_title text-truncate pe-1 " title="Doris Cole (Bartender)" style="text-overflow: clip"> <div class="o_gantt_row_employee_avatar d-inline-flex "> <div class="o_standalone_avatar_employee"> <div class="o_clickable_m2x_avatar o_field_many2one_avatar o_field_widget o_legacy_field_widget o_quick_editable" name="employee_id"> <div class="o_m2o_avatar"> <img src="/hr/static/img/employee_jep-image.jpg" alt="Doris Cole (Bartender)"/> <span>Doris Cole <span class="text-muted">(Bartender)</span></span> </div></div></div></div></div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-29 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-30 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="44" class="o_gantt_pill position-relative decoration-warning o_gantt_color_3" style="" title="Doris Cole"> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">8:00 AM - 12:00 PM (4h) - Doris Cole</p></div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-31 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div></div></div></div><div class="row g-0 o_gantt_row o_gantt_row_nogroup open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[2,&quot;Bartender&quot;]},{&quot;resource_id&quot;:[11,&quot;Jeffrey Kelly (Bartender)&quot;]}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 32px;"> <span class="position-absolute o_gantt_progressbar o_gantt_group_success" style="width: 15%;"> </span> <span class="position-absolute o_gantt_text_hoverable o_gantt_group_success"> <span class="o_gantt_group_hours px-1" style="line-height: 35px;"> 6 h / 40 h (15%) </span> </span> <div class="o_gantt_row_title text-truncate pe-1 " title="Jeffrey Kelly (Bartender)" style="text-overflow: clip"> <div class="o_gantt_row_employee_avatar d-inline-flex "> <div class="o_standalone_avatar_employee"> <div class="o_clickable_m2x_avatar o_field_many2one_avatar o_field_widget o_legacy_field_widget o_quick_editable" name="employee_id"> <div class="o_m2o_avatar"> <img src="/hr/static/img/employee_ngh-image.jpg" alt="Jeffrey Kelly (Bartender)"/> <span>Jeffrey Kelly <span class="text-muted">(Bartender)</span></span> </div></div></div></div></div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-29 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="38" class="o_gantt_pill position-relative decoration-warning o_gantt_color_3" style="" title="Jeffrey Kelly"> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">1:00 PM - 5:00 PM (4h) - Jeffrey Kelly</p></div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-30 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="46" class="o_gantt_pill position-relative decoration-warning o_gantt_color_3" style="" title="Jeffrey Kelly"> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">1:00 PM - 5:00 PM (2h) - Jeffrey Kelly</p></div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-31 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div></div></div></div><div class="row g-0 o_gantt_row o_gantt_row_group open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[1,&quot;Waiter&quot;]}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 16px;"> <div class="o_gantt_row_title text-truncate pe-1" title="Waiter" style="false"> <i class="fa small fa-minus"></i> Role: Waiter </div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell " data-date="2022-08-29 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute o_gantt_consolidated_wrapper o_gantt_pill_wrapper_group" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill " title="04:00"> </div><span class="o_gantt_consolidated_pill_title position-relative text-truncate px-1">04:00</span> </div></div><div class="col position-relative o_gantt_cell " data-date="2022-08-30 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute o_gantt_consolidated_wrapper o_gantt_pill_wrapper_group" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill " title="04:00"> </div><span class="o_gantt_consolidated_pill_title position-relative text-truncate px-1">04:00</span> </div></div><div class="col position-relative o_gantt_cell " data-date="2022-08-31 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute o_gantt_consolidated_wrapper o_gantt_pill_wrapper_group" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill " title="00:00"> </div><span class="o_gantt_consolidated_pill_title position-relative text-truncate px-1">00:00</span> </div></div></div></div></div><div class="row g-0 o_gantt_row o_gantt_row_nogroup open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[1,&quot;Waiter&quot;]},{&quot;resource_id&quot;:false}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 32px;"> <div class="o_gantt_row_title text-truncate pe-1" title="Open Shifts" style="false"> Open Shifts </div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-29 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-30 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="36" class="o_gantt_pill position-relative o_gantt_color_2" style="" title=""> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">8:00 AM - 12:00 PM (4h)</p></div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-31 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div></div></div></div><div class="row g-0 o_gantt_row o_gantt_row_nogroup open ui-droppable" data-from-server="true" data-row-id="[{&quot;role_id&quot;:[1,&quot;Waiter&quot;]},{&quot;resource_id&quot;:[7,&quot;Eli Lambert (Waiter)&quot;]}]"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 32px;"> <span class="position-absolute o_gantt_progressbar o_gantt_group_success" style="width: 32.5%;"> </span> <span class="position-absolute o_gantt_text_hoverable o_gantt_group_success"> <span class="o_gantt_group_hours px-1" style="line-height: 35px;"> 13 h / 40 h (32.5%) </span> </span> <div class="o_gantt_row_title text-truncate pe-1 " title="Eli Lambert (Waiter)" style="text-overflow: clip"> <div class="o_gantt_row_employee_avatar d-inline-flex "> <div class="o_standalone_avatar_employee"> <div class="o_clickable_m2x_avatar o_field_many2one_avatar o_field_widget o_legacy_field_widget o_quick_editable" name="employee_id"> <div class="o_m2o_avatar"> <img src="hr/static/img/employee_lur-image.jpg" alt="Eli Lambert (Waiter)"/> <span>Eli Lambert <span class="text-muted">(Waiter)</span></span> </div></div></div></div></div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-29 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div><div class="o_gantt_pill_wrapper position-absolute " style="width: calc(100% - 4px); margin-top: 2px; left: 0%;"> <div data-id="33" class="o_gantt_pill position-relative decoration-warning o_gantt_color_2" style="" title="Eli Lambert"> <p class="text-truncate position-relative mb-0 o_gantt_pill_title">8:00 AM - 12:00 PM (1h) - Eli Lambert</p></div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-30 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div><div class="col position-relative o_gantt_cell o_gantt_hoverable" data-date="2022-08-31 00:00:00" style="height: 35px;"> <div class="o_gantt_cell_buttons justify-content-center"> <div class="position-absolute d-flex"> <i title="Create" class="o_gantt_cell_add fa fa-plus d-flex justify-content-center "></i> </div></div></div></div></div></div></div></div><div class="row g-0 o_gantt_total position-relative"> <div class="col position-relative o_gantt_total_row_container"> <div class="row g-0 o_gantt_row o_gantt_row_total " data-row-id="__total_row__"> <div class="col-4 o_gantt_row_sidebar position-relative text-start" style="padding-left: 16px;"> <div class="o_gantt_row_title text-truncate pe-1 text-end pe-3 h4 my-0 fw-bold" title="Total" style="false"> Total </div></div><div class="o_gantt_slots_container col position-relative"> <div class="row g-0"> <div class="col position-relative o_gantt_cell " data-date="2022-08-29 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute d-flex justify-content-center" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill" title="16:00" style="height:66.6%;"></div><span class="o_gantt_consolidated_pill_title position-absolute text-truncate px-1">16:00</span> </div></div><div class="col position-relative o_gantt_cell " data-date="2022-08-30 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute d-flex justify-content-center" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill" title="12:00" style="height:50%;"></div><span class="o_gantt_consolidated_pill_title position-absolute text-truncate px-1">12:00</span> </div></div><div class="col position-relative o_gantt_cell " data-date="2022-08-31 00:00:00" style="height: 0px;"> <div class="o_gantt_pill_wrapper position-absolute d-flex justify-content-center" style="width: calc(100% - 0px); left: 0%;"> <div data-id="0" class="o_gantt_pill o_gantt_consolidated_pill" title="8:00" style="height:16.6%;"></div><span class="o_gantt_consolidated_pill_title position-absolute text-truncate px-1">4:00</span> </div></div></div></div></div></div></div></div></div><p class="text-dark" style="font-size: 125%;font-weight: bold;"> No roles found. Let's create one! </p><p class="text-muted"> Define the roles your resources perform (e.g. Chef, Bartender, Waiter...). Create open shifts for the roles you will be needing to complete a mission. Then, assign those open shifts to the resources that are available. </p></div>
+            <p class="d-block d-sm-none o_view_nocontent_smiling_face">
                 No roles found. Let's create one!
             </p>
-            <p>
-                Define the different roles filled by your employees.
+            <p class="d-block d-sm-none">
+                Define the roles your resources perform (e.g. Chef, Bartender, Waiter...). Create open shifts for the roles you will be needing to complete a mission. Then, assign those open shifts to the resources that are available.
             </p>
         </field>
     </record>
@@ -584,7 +784,7 @@
                 No shift templates found. Let's create one!
             </p>
             <p>
-                Encode your shifts in one click by using templates.
+                Make encoding shifts easy with templates.
             </p>
         </field>
     </record>
@@ -625,7 +825,7 @@
         name="Planning"
         sequence="85"
         groups="base.group_user"
-        web_icon="planning,static/description/icon.png"/>
+        web_icon="planning,static/description/icon.svg"/>
 
     <menuitem
         id="planning_menu_my_planning"
@@ -671,8 +871,16 @@
             groups="base.group_system"/>
 
         <menuitem
+            id="planning_menu_settings_employee"
+            name="Employees"
+            parent="planning_menu_settings"
+            sequence="12"
+            action="hr.open_view_employee_list_my"
+            groups="planning.group_planning_manager"/>
+
+        <menuitem
             id="planning_menu_settings_resource"
-            name="Resources"
+            name="Materials"
             parent="planning_menu_settings"
             sequence="15"
             action="planning_action_resources"

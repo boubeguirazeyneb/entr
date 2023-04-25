@@ -18,6 +18,8 @@ class SocialLivePost(models.Model):
     account_id = fields.Many2one('social.account', string="Social Account", required=True, readonly=True, ondelete="cascade")
     message = fields.Char('Message', compute='_compute_message',
         help="Content of the social post message that is post-processed (links are shortened, UTMs, ...)")
+    live_post_link = fields.Char('Post Link', compute='_compute_live_post_link',
+        help="Link of the live post on the target media.")
     failure_reason = fields.Text('Failure Reason', readonly=True,
         help="""The reason why a post is not successfully posted on the Social Media (eg: connection error, duplicated post, ...).""")
     state = fields.Selection([
@@ -32,7 +34,7 @@ class SocialLivePost(models.Model):
     company_id = fields.Many2one('res.company', 'Company', related='account_id.company_id')
 
     @api.depends(lambda self:
-        ['post_id.message', 'post_id.utm_campaign_id', 'account_id.media_type', 'account_id.utm_medium_id', 'post_id.utm_source_id'] +
+        ['post_id.message', 'post_id.utm_campaign_id', 'account_id.media_type', 'account_id.utm_medium_id', 'post_id.source_id'] +
         ['post_id.%s' % field for field in self.env['social.post']._get_post_message_modifying_fields()])
     def _compute_message(self):
         """ Prepares the message of the parent post, and shortens links to contain UTM data. """
@@ -45,6 +47,11 @@ class SocialLivePost(models.Model):
                 message,
                 live_post.account_id.media_type,
                 **{field: live_post.post_id[field] for field in self.env['social.post']._get_post_message_modifying_fields()})
+
+    @api.depends('account_id.media_id')
+    def _compute_live_post_link(self):
+        for live_post in self:
+            live_post.live_post_link = False
 
     def name_get(self):
         """ ex: [Facebook] Odoo Social: posted, [Twitter] Mitchell Admin: failed, ... """
@@ -95,5 +102,8 @@ class SocialLivePost(models.Model):
         return {
             'campaign_id': post_id.utm_campaign_id.id,
             'medium_id': self.account_id.utm_medium_id.id,
-            'source_id': post_id.utm_source_id.id
+            'source_id': post_id.source_id.id,
         }
+
+    def _filter_by_media_types(self, media_types):
+        return self.filtered(lambda post: post.account_id.media_id.media_type in media_types)

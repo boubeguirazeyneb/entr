@@ -33,12 +33,6 @@ odoo.define('sign_widgets_tour', function (require) {
                 run: 'click',
             },
             {
-                content: "Edit Mitchell",
-                trigger: 'div.o_cp_buttons .o_form_button_edit',
-                extra_trigger: '.o_signature', // Check widget sign is present
-                run: 'click',
-            },
-            {
                 content: "Editor loaded",
                 trigger: '.note-editable',
             },
@@ -54,28 +48,27 @@ odoo.define('sign_widgets_tour', function (require) {
             },
             {
                 content: "Click on style button",
-                trigger: 'div.o_web_sign_auto_select_style > a',
+                trigger: '.o_web_sign_auto_select_style > button',
                 run: 'click',
             },
             {
                 content: "Select a style",
-                trigger: 'div.o_web_sign_auto_font_list > a:nth-child(3)',
+                trigger: '.o_web_sign_auto_select_style .dropdown-item:nth-child(3)',
                 run: 'click',
             },
             {
                 content: "Click on style button",
-                trigger: 'div.o_web_sign_auto_select_style > a',
+                trigger: '.o_web_sign_auto_select_style > button',
                 run: 'click',
             },
             {
                 content: "Select a style",
-                trigger: 'div.o_web_sign_auto_font_list > a:nth-child(2)',
+                trigger: '.o_web_sign_auto_select_style .dropdown-item:nth-child(2)',
                 run: 'click',
             },
             {
                 content: "Sign",
-                trigger: 'button.btn-primary:contains("Adopt and Sign")',
-                run: 'click',
+                trigger: 'button.btn-primary:contains("Adopt & Sign")',
                 extra_trigger: 'canvas.jSignature',
                 run: function () {
                     setTimeout(() => {
@@ -83,11 +76,7 @@ odoo.define('sign_widgets_tour', function (require) {
                     }, 1000);
                 },
             },
-            {
-                content: "Save Mitchell",
-                trigger: 'button.o_form_button_save',
-                run: 'click',
-            },
+            ...tour.stepUtils.saveForm(),
         ]
     );
 });

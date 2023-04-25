@@ -9,9 +9,10 @@ from odoo.addons.appointment.models.res_partner import Partner
 from odoo.addons.calendar.models.calendar_event import Meeting
 from odoo.addons.resource.models.resource import ResourceCalendar
 from odoo.addons.mail.tests.common import mail_new_test_user, MailCommon
+from odoo.tests import common
 
 
-class AppointmentCommon(MailCommon):
+class AppointmentCommon(MailCommon, common.HttpCase):
 
     @classmethod
     def setUpClass(cls):
@@ -35,22 +36,18 @@ class AppointmentCommon(MailCommon):
         # reference dates to have reproducible tests (sunday evening, allowing full week)
         cls.reference_now = datetime(2022, 2, 13, 20, 0, 0)
         cls.reference_monday = datetime(2022, 2, 14, 7, 0, 0)
-        cls.reference_now_monthweekstart = date(2022, 1, 31)  # starts on a Monday, first week containing Feb day
+        cls.reference_now_monthweekstart = date(2022, 1, 30)  # starts on a Sunday, first week containing Feb day
 
         cls.apt_manager = mail_new_test_user(
             cls.env,
             company_id=cls.company_admin.id,
             email='apt_manager@test.example.com',
-            groups='base.group_user,appointment.group_calendar_manager',
+            groups='base.group_user,appointment.group_appointment_manager',
             name='Appointment Manager',
             notification_type='email',
             login='apt_manager',
             tz='Europe/Brussels'
         )
-        cls.apt_manager_employee = cls.env['hr.employee'].create({
-            'company_id': cls.apt_manager.company_id.id,
-            'user_id': cls.apt_manager.id,
-        })
         cls.staff_user_bxls = mail_new_test_user(
             cls.env,
             company_id=cls.company_admin.id,
@@ -71,65 +68,17 @@ class AppointmentCommon(MailCommon):
             login='staff_user_aust',
             tz='Australia/West'  # UTC + 8 (at least in February)
         )
-
-        # Move to appointment_hr in post 15.2
-        # ------------------------------------------------------------
-
-        # Calendars: 8-12, 13-17 (UTC + 1)
-        cls.resource_calendar_2days = cls.env['resource.calendar'].create({
-            'attendance_ids': [
-                (0, 0, {'dayofweek': weekday,
-                        'day_period': 'morning',
-                        'hour_from': hour,
-                        'hour_to': hour + 4,
-                        'name': 'Day %s H %d %d' % (weekday, hour, hour + 4),
-                       })
-                for weekday in ['0', '1']
-                for hour in [8, 13]
-            ],
-            'company_id': cls.company_admin.id,
-            'name': 'Light Calendars',
-            'tz': 'Europe/Brussels',
-        })
-
-        # User resources and employees for work intervals
-        cls.staff_resources = cls.env['resource.resource'].create([
-            {'calendar_id': cls.resource_calendar_2days.id,
-             'company_id': cls.staff_user_bxls.company_id.id,
-             'name': cls.staff_user_bxls.name,
-             'user_id': cls.staff_user_bxls.id,
-             'tz': cls.staff_user_bxls.tz,
-            },
-            {'calendar_id': cls.resource_calendar_2days.id,
-             'company_id': cls.staff_user_aust.company_id.id,
-             'name': cls.staff_user_aust.name,
-             'user_id': cls.staff_user_aust.id,
-             'tz': cls.staff_user_aust.tz,
-            }
-        ])
-        cls.staff_employees = cls.env['hr.employee'].create([
-            {'company_id': cls.staff_user_bxls.company_id.id,
-             'resource_calendar_id': cls.resource_calendar_2days.id,
-             'resource_id': cls.staff_resources[0].id,
-            },
-            {'company_id': cls.staff_user_aust.company_id.id,
-             'resource_calendar_id': cls.resource_calendar_2days.id,
-             'resource_id': cls.staff_resources[1].id,
-            }
-        ])
-        cls.staff_resource_bxls, cls.staff_resource_aust = cls.staff_resources[0], cls.staff_resources[1]
-        cls.staff_employee_bxls, cls.staff_employee_aust = cls.staff_employees[0], cls.staff_employees[1]
+        cls.staff_users = cls.staff_user_bxls + cls.staff_user_aust
 
         # Default (test) appointment type
         # Slots are each hours from 8 to 13 (UTC + 1)
         # -> working hours: 7, 8, 9, 10 and 12 UTC as 11 is lunch time in working hours
-        cls.apt_type_bxls_2days = cls.env['calendar.appointment.type'].create({
+        cls.apt_type_bxls_2days = cls.env['appointment.type'].create({
             'appointment_tz': 'Europe/Brussels',
             'appointment_duration': 1,
             'assign_method': 'random',
             'category': 'website',
-            'employee_ids': [(4, cls.staff_employee_bxls.id)],
-            'location': 'Bxls Office',
+            'location_id': cls.staff_user_bxls.partner_id.id,
             'name': 'Bxls Appt Type',
             'max_schedule_days': 15,
             'min_cancellation_hours': 1,
@@ -142,7 +91,13 @@ class AppointmentCommon(MailCommon):
                 for weekday in ['1', '2']
                 for hour in range(8, 14)
             ],
+            'staff_user_ids': [(4, cls.staff_user_bxls.id)],
         })
+
+    def _test_url_open(self, url):
+        """ Call url_open with nocache parameter """
+        url += ('?' not in url and '?' or '&') + 'nocache'
+        return self.url_open(url)
 
     def _create_meetings(self, user, time_info):
         return self.env['calendar.event'].with_context(self._test_context).create([
@@ -157,20 +112,19 @@ class AppointmentCommon(MailCommon):
             for start, stop, allday in time_info
         ])
 
-    def _create_leaves(self, user, time_info, **kw):
-        return self.env['resource.calendar.leaves'].sudo().with_context(self._test_context).create([
-            {'calendar_id': kw['calendar'].id if 'calendar' in kw else user.resource_calendar_id.id,
-             'company_id': user.company_id.id,
-             'date_from': date_from,
-             'date_to': date_to,
-             'name': 'Leave for %s (%s - %s)' % (user.name, date_from, date_to),
-             'resource_id': kw['resource'].id if 'resource' in kw else (user.resource_ids and user.resource_ids[0].id or False),
-             'time_type': 'leave',
-            }
-            for date_from, date_to in time_info
-        ])
+    def _create_invite_test_data(self):
+        apt_type_test = self.env['appointment.type'].create({
+            'name': 'Appointment Test',
+        })
+        self.all_apts = self.apt_type_bxls_2days + apt_type_test
+        self.invite_apt_type_bxls_2days = self.env['appointment.invite'].create({
+            'appointment_type_ids': self.apt_type_bxls_2days.ids,
+        })
+        self.invite_all_apts = self.env['appointment.invite'].create({
+            'appointment_type_ids': self.all_apts.ids,
+        })
 
-    def _filter_appointment_slots(self, slots, filter_months=False, filter_weekdays=False, filter_employees=False):
+    def _filter_appointment_slots(self, slots, filter_months=False, filter_weekdays=False, filter_users=False):
         """ Get all the slots info computed.
         Can target a part of slots by referencing the expected months or days we want.
         :param list slots: slots content computed from _get_appointment_slots() method.
@@ -178,11 +132,11 @@ class AppointmentCommon(MailCommon):
             [(2, 2022), ...] where (2, 2022) represents February 2022
         :param list filter_weekdays: list of integers of the weekdays we want to check 0 = monday and 6 = sunday
             [0, 1, 3] to filter only monday, tuesday and thursday slots
-        :param recordset filter_employees: recordset of employees for which we want to get slots when they are available
+        :param recordset filter_users: recordset of users for which we want to get slots when they are available
         :return list: [{
             'datetime': '2022-02-14 08:00:00',
             'duration': '1.0',
-            'employee_id': 21,
+            'staff_user_id': 21,
             'hours': '08:00 - 09:00',
         }, ...] """
         slots_info = []
@@ -197,7 +151,7 @@ class AppointmentCommon(MailCommon):
                     if not day['slots'] or (filter_weekdays and day['day'].weekday() not in filter_weekdays):
                         continue
                     for slot in day['slots']:
-                        if filter_employees and slot.get('employee_id') not in filter_employees.ids:
+                        if filter_users and slot.get('staff_user_id') not in filter_users.ids:
                             continue
                         slots_info.append(slot)
         return slots_info
@@ -205,7 +159,7 @@ class AppointmentCommon(MailCommon):
     def _flush_tracking(self):
         """ Force the creation of tracking values notably, and ensure tests are
         reproducible. """
-        self.env['base'].flush()
+        self.env.flush_all()
         self.cr.flush()
 
     def assertSlots(self, slots, exp_months, slots_data):

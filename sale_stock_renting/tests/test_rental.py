@@ -32,19 +32,19 @@ class TestRentalCommon(common.TransactionCase):
 
         # Set Stock quantities
 
-        cls.lot_id1 = cls.env['stock.production.lot'].create({
+        cls.lot_id1 = cls.env['stock.lot'].create({
             'product_id': cls.tracked_product_id.id,
             'name': "RentalLot1",
             'company_id': cls.env.company.id,
         })
 
-        cls.lot_id2 = cls.env['stock.production.lot'].create({
+        cls.lot_id2 = cls.env['stock.lot'].create({
             'product_id': cls.tracked_product_id.id,
             'name': "RentalLot2",
             'company_id': cls.env.company.id,
         })
 
-        cls.lot_id3 = cls.env['stock.production.lot'].create({
+        cls.lot_id3 = cls.env['stock.lot'].create({
             'product_id': cls.tracked_product_id.id,
             'name': "RentalLot3",
             'company_id': cls.env.company.id,
@@ -53,25 +53,25 @@ class TestRentalCommon(common.TransactionCase):
         quants = cls.env['stock.quant'].create({
             'product_id': cls.product_id.id,
             'inventory_quantity': 4.0,
-            'location_id': cls.env['sale.order']._default_warehouse_id().lot_stock_id.id
+            'location_id': cls.env.user._get_default_warehouse_id().lot_stock_id.id
         })
         quants |= cls.env['stock.quant'].create({
             'product_id': cls.tracked_product_id.id,
             'inventory_quantity': 1.0,
             'lot_id': cls.lot_id1.id,
-            'location_id': cls.env['sale.order']._default_warehouse_id().lot_stock_id.id
+            'location_id': cls.env.user._get_default_warehouse_id().lot_stock_id.id
         })
         quants |= cls.env['stock.quant'].create({
             'product_id': cls.tracked_product_id.id,
             'inventory_quantity': 1.0,
             'lot_id': cls.lot_id2.id,
-            'location_id': cls.env['sale.order']._default_warehouse_id().lot_stock_id.id
+            'location_id': cls.env.user._get_default_warehouse_id().lot_stock_id.id
         })
         quants |= cls.env['stock.quant'].create({
             'product_id': cls.tracked_product_id.id,
             'inventory_quantity': 1.0,
             'lot_id': cls.lot_id3.id,
-            'location_id': cls.env['sale.order']._default_warehouse_id().lot_stock_id.id
+            'location_id': cls.env.user._get_default_warehouse_id().lot_stock_id.id
         })
         quants.action_apply_inventory()
 
@@ -100,9 +100,8 @@ class TestRentalCommon(common.TransactionCase):
             'order_id': cls.sale_order_id.id,
             'product_id': cls.product_id.id,
             'product_uom_qty': 0.0,
-            'product_uom': cls.product_id.uom_id.id,
             'is_rental': True,
-            'pickup_date': fields.Datetime.today(),
+            'start_date': fields.Datetime.today(),
             'return_date': fields.Datetime.today() + timedelta(days=3),
             'price_unit': 150,
         })
@@ -120,9 +119,8 @@ class TestRentalCommon(common.TransactionCase):
             'order_id': cls.lots_rental_order.id,
             'product_id': cls.tracked_product_id.id,
             'product_uom_qty': 0.0,
-            'product_uom': cls.tracked_product_id.uom_id.id,
             'is_rental': True,
-            'pickup_date': fields.Datetime.today(),
+            'start_date': fields.Datetime.today(),
             'return_date': fields.Datetime.today() + timedelta(days=3),
             'price_unit': 250,
         })
@@ -131,9 +129,8 @@ class TestRentalCommon(common.TransactionCase):
             'order_id': cls.lots_rental_order.id,
             'product_id': cls.tracked_product_id.id,
             'product_uom_qty': 0.0,
-            'product_uom': cls.tracked_product_id.uom_id.id,
             'is_rental': True,
-            'pickup_date': fields.Datetime.today(),
+            'start_date': fields.Datetime.today(),
             'return_date': fields.Datetime.today() + timedelta(days=3),
             'price_unit': 250,
         })
@@ -231,12 +228,12 @@ class TestRentalCommon(common.TransactionCase):
             1
         )
 
-        self.product_id.invalidate_cache()
+        self.env.invalidate_all()
         """ In company internal rental location (in stock valuation but not in available qty) """
         self.assertEqual(
             self.product_id.with_context(
                 location=self.env.company.rental_loc_id.id,
-                from_date=self.order_line_id1.pickup_date,
+                from_date=self.order_line_id1.start_date,
                 to_date=self.order_line_id1.return_date,
             ).qty_available,
             3
@@ -274,7 +271,7 @@ class TestRentalCommon(common.TransactionCase):
         self.assertEqual(
             self.product_id.with_context(
                 location=self.env.company.rental_loc_id.id,
-                from_date=self.order_line_id1.pickup_date,
+                from_date=self.order_line_id1.start_date,
                 to_date=self.order_line_id1.return_date,
             ).qty_available,
             1
@@ -308,8 +305,8 @@ class TestRentalCommon(common.TransactionCase):
     def test_rental_lot_flow(self):
         self.lots_rental_order.action_confirm()
 
-        lots = self.env['stock.production.lot'].search([('product_id', '=', self.tracked_product_id.id)])
-        rentable_lots = self.env['stock.production.lot']._get_available_lots(self.tracked_product_id)
+        lots = self.env['stock.lot'].search([('product_id', '=', self.tracked_product_id.id)])
+        rentable_lots = self.env['stock.lot']._get_available_lots(self.tracked_product_id)
         self.assertEqual(set(lots.ids), set(rentable_lots.ids))  # set is here to ensure that order wont break test
 
         self.order_line_id2.reserved_lot_ids += self.lot_id1
@@ -370,7 +367,7 @@ class TestRentalCommon(common.TransactionCase):
 
         One sale.order.line with 3 different lots (reserved/pickedup/returned)
         is represented by 3 sale.rental.schedule to allow grouping reservation information
-        by stock.production.lot .
+        by stock.lot .
 
         Note that a lot can be pickedup (sol.pickedup_lot_ids) even if not reserved (sol.reserved_lot_ids).
         """
@@ -401,7 +398,7 @@ class TestRentalCommon(common.TransactionCase):
         # 2 reserved, 2 pickedup, 1 returned
         self.order_line_id2.returned_lot_ids = self.lot_id2
         self.order_line_id2.pickedup_lot_ids += self.lot_id1
-        scheduling_recs.invalidate_cache()
+        self.env.invalidate_all()
         scheduling_recs = self.env["sale.rental.schedule"].search([
             ('order_line_id', '=', self.order_line_id2.id)
         ])

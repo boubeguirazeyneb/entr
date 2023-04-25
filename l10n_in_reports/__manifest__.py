@@ -12,10 +12,10 @@ Accounting reports for India
     'category': 'Accounting/Localizations/Reporting',
     'depends': ['l10n_in', 'account_reports'],
     'data': [
-        'data/account_financial_html_report_data.xml',
+        'data/account_financial_html_report_gstr1.xml',
+        'data/account_financial_html_report_gstr3b.xml',
     ],
-    'demo': [],
-    'auto_install': True,
+    'auto_install': ['l10n_in', 'account_reports'],
     'installable': True,
     'license': 'OEEL-1',
 }

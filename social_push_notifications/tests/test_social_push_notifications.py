@@ -3,6 +3,7 @@
 
 import base64
 import datetime
+import random
 
 from unittest.mock import patch
 
@@ -34,7 +35,8 @@ class SocialPushNotificationsCase(SocialCase, CronMixinCase):
             visitor_vals.append({
                 'name': timezones[i] or 'Visitor',
                 'timezone': timezones[i],
-                'push_token': 'fake_token_%s' % i if i != 0 else False,
+                'access_token': '%032x' % random.randrange(16**32),
+                'push_subscription_ids': [(0, 0, {'push_token': 'fake_token_%s' % i})] if i != 0 else False,
             })
         visitors = Visitor.create(visitor_vals)
         self.social_post.create_uid.write({'tz': timezones[0]})
@@ -71,7 +73,7 @@ class SocialPushNotificationsCase(SocialCase, CronMixinCase):
         with patch.object(
              SocialAccountPushNotifications,
              '_firebase_send_message_from_configuration',
-             lambda self, data, visitors: visitors.mapped('push_token'), []):
+             lambda self, data, visitors: visitors.mapped('push_subscription_ids.push_token'), []):
             live_posts._post_push_notifications()
 
         self.assertFalse(all(live_post.state == 'posted' for live_post in live_posts))
@@ -83,7 +85,7 @@ class SocialPushNotificationsCase(SocialCase, CronMixinCase):
         with patch.object(
              SocialAccountPushNotifications,
              '_firebase_send_message_from_configuration',
-             lambda self, data, visitors: visitors.mapped('push_token'), []):
+             lambda self, data, visitors: visitors.mapped('push_subscription_ids.push_token'), []):
             live_posts._post_push_notifications()
 
         self._checkPostedStatus(True)

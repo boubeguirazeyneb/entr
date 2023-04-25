@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, call
 from functools import reduce
 from itertools import chain
+from freezegun import freeze_time
 
 from dateutil.relativedelta import relativedelta
 from odoo.addons.account_auto_transfer.tests.account_auto_transfer_test_classes import AccountAutoTransferTestCase
@@ -35,7 +36,7 @@ class TransferModelTestFunctionalCase(AccountAutoTransferTestCase):
         neutral_account = cls.env['account.account'].create({
             'name': 'Neutral Account',
             'code': 'NEUT',
-            'user_type_id': cls.env.ref('account.data_account_type_revenue').id,
+            'account_type': 'income',
         })
         cls.analytic_accounts = reduce(lambda x, y: x + y, (cls._create_analytic_account(cls, name) for name in ('ANA1', 'ANA2', 'ANA3')))
         cls.dates = ('2019-01-15', '2019-02-15')
@@ -66,7 +67,7 @@ class TransferModelTestFunctionalCase(AccountAutoTransferTestCase):
             self.assertEqual(sum(self.env['account.move.line'].search([('account_id', '=', account.id)]).mapped('balance')), 3200)
             for date in self.dates:
                 # 2 move lines have been created in each account for each date
-                self.assertEqual(len(self.env['account.move.line'].search([('account_id', '=', account.id), ('date', '=', fields.Date.to_date(date) + relativedelta(day=1, months=1))])), 2)
+                self.assertEqual(len(self.env['account.move.line'].search([('account_id', '=', account.id), ('date', '=', fields.Date.to_date(date) + relativedelta(day=31))])), 2)
 
     def test_analytics(self):
         # Each line with analytic accounts is set to 100%
@@ -104,6 +105,7 @@ class TransferModelTestCase(AccountAutoTransferTestCase):
         patched.assert_called_once()
 
     @patch('odoo.addons.account_auto_transfer.models.transfer_model.TransferModel._create_or_update_move_for_period')
+    @freeze_time('2022-01-01')
     def test_action_perform_auto_transfer(self, patched):
         self.transfer_model.date_start = datetime.strftime(datetime.today() + relativedelta(day=1), "%Y-%m-%d")
         # - CASE 1 : normal case, acting on current period
@@ -138,7 +140,6 @@ class TransferModelTestCase(AccountAutoTransferTestCase):
         initial_call_count = patched.call_count
         transfer_model.action_perform_auto_transfer()
         self.assertEqual(initial_call_count + 13, patched.call_count, '13 more calls should have been done')
-
 
     @patch('odoo.addons.account_auto_transfer.models.transfer_model.TransferModel._get_auto_transfer_move_line_values')
     def test__create_or_update_move_for_period(self, patched_get_auto_transfer_move_line_values):
@@ -224,12 +225,12 @@ class TransferModelTestCase(AccountAutoTransferTestCase):
         })
         # 2019-06-30 --> None as generated move is generated for 01/07
         move_for_period = self.transfer_model._get_move_for_period(date_to_test)
-        self.assertIsNone(move_for_period, 'The generated move is for the next period')
+        self.assertEqual(move_for_period, already_generated_move, 'Should be equal to the already generated move')
 
         # 2019-07-01 --> The generated move
         date_to_test += relativedelta(days=1)
         move_for_period = self.transfer_model._get_move_for_period(date_to_test)
-        self.assertEqual(move_for_period, already_generated_move, 'Should be equal to the already generated move')
+        self.assertIsNone(move_for_period, 'The generated move is for the next period')
 
         # 2019-07-02 --> None as generated move is generated for 01/07
         date_to_test += relativedelta(days=1)
@@ -261,24 +262,24 @@ class TransferModelTestCase(AccountAutoTransferTestCase):
         experimentations = {
             'month': [
                 # date, expected date
-                (self.transfer_model.date_start, '2019-07-01'),
-                (fields.Date.to_date('2019-01-29'), '2019-02-28'),
-                (fields.Date.to_date('2019-01-30'), '2019-02-28'),
-                (fields.Date.to_date('2019-01-31'), '2019-02-28'),
-                (fields.Date.to_date('2019-02-28'), '2019-03-28'),
-                (fields.Date.to_date('2019-12-31'), '2020-01-31'),
+                (self.transfer_model.date_start, '2019-06-30'),
+                (fields.Date.to_date('2019-01-29'), '2019-02-27'),
+                (fields.Date.to_date('2019-01-30'), '2019-02-27'),
+                (fields.Date.to_date('2019-01-31'), '2019-02-27'),
+                (fields.Date.to_date('2019-02-28'), '2019-03-27'),
+                (fields.Date.to_date('2019-12-31'), '2020-01-30'),
             ],
             'quarter': [
-                (self.transfer_model.date_start, '2019-09-01'),
-                (fields.Date.to_date('2019-01-31'), '2019-04-30'),
-                (fields.Date.to_date('2019-02-28'), '2019-05-28'),
-                (fields.Date.to_date('2019-12-31'), '2020-03-31'),
+                (self.transfer_model.date_start, '2019-08-31'),
+                (fields.Date.to_date('2019-01-31'), '2019-04-29'),
+                (fields.Date.to_date('2019-02-28'), '2019-05-27'),
+                (fields.Date.to_date('2019-12-31'), '2020-03-30'),
             ],
             'year': [
-                (self.transfer_model.date_start, '2020-06-01'),
-                (fields.Date.to_date('2019-01-31'), '2020-01-31'),
-                (fields.Date.to_date('2019-02-28'), '2020-02-28'),
-                (fields.Date.to_date('2019-12-31'), '2020-12-31'),
+                (self.transfer_model.date_start, '2020-05-31'),
+                (fields.Date.to_date('2019-01-31'), '2020-01-30'),
+                (fields.Date.to_date('2019-02-28'), '2020-02-27'),
+                (fields.Date.to_date('2019-12-31'), '2020-12-30'),
             ]
         }
 
@@ -290,15 +291,39 @@ class TransferModelTestCase(AccountAutoTransferTestCase):
                                  'Next date from %s should be %s' % (str(next_date), expected_date_str))
 
     @patch('odoo.addons.account_auto_transfer.models.transfer_model.TransferModel._get_non_analytic_transfer_values')
-    @patch('odoo.models.BaseModel.read_group')
-    def test__get_non_filtered_auto_transfer_move_line_values(self, patched_read_group, patched_get_values):
+    def test__get_non_filtered_auto_transfer_move_line_values(self, patched_get_values):
         start_date = fields.Date.to_date('2019-01-01')
+        self.transfer_model.write({'account_ids': [(6, 0, [ma.id for ma in self.origin_accounts])], })
         end_date = fields.Date.to_date('2019-12-31')
-        patched_read_group.return_value = [
-            {'balance': 4242.42, 'account_id': (self.origin_accounts[0].id,)},
-            {'balance': 0, 'account_id': (self.destination_accounts[0].id,)},
-            {'balance': -12585.0, 'account_id': (self.origin_accounts[1].id,)}
-        ]
+
+        move = self.env['account.move'].create({
+            'move_type': 'entry',
+            'date': '2019-12-01',
+            'journal_id': self.company_data['default_journal_misc'].id,
+            'line_ids': [
+                (0, 0, {
+                    'debit': 4242.42,
+                    'credit': 0,
+                    'account_id': self.origin_accounts[0].id,
+                }),
+                (0, 0, {
+                    'debit': 8342.58,
+                    'credit': 0,
+                    'account_id': self.company_data.get('default_account_revenue').id,
+                }),
+                (0, 0, {
+                    'debit': 0,
+                    'credit': 0,
+                    'account_id': self.destination_accounts[0].id,
+                }),
+                (0, 0, {
+                    'debit': 0,
+                    'credit': 12585.0,
+                    'account_id': self.origin_accounts[1].id,
+                }),
+            ]
+        })
+        move.action_post()
         amount_left = 10.0
         patched_get_values.return_value = [{
             'name': "YO",
@@ -328,9 +353,8 @@ class TransferModelTestCase(AccountAutoTransferTestCase):
             'date_maturity': end_date,
             'debit': 12585.0 - amount_left
         }]
-        exp_res_len = len([x for x in patched_read_group.return_value if x['balance'] != 0.0]) * 2
         res = self.transfer_model._get_non_filtered_auto_transfer_move_line_values([], start_date, end_date)
-        self.assertEqual(len(res), exp_res_len)
+        self.assertEqual(len(res), 4)
         self.assertListEqual(exp, res)
 
     @patch(

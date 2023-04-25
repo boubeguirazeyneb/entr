@@ -2,10 +2,8 @@ odoo.define('voip.PhoneField', function (require) {
 "use strict";
 
 const basicFields = require('web.basic_fields');
-const core = require('web.core');
 
 const Phone = basicFields.FieldPhone;
-const _t = core._t;
 
 /**
  * Override of FieldPhone to use the DialingPanel to perform calls on clicks.
@@ -31,19 +29,11 @@ Phone.include({
     },
 
     async _hasPbxConfig() {
-
-        const pbxConfiguration = await new Promise(resolve => {
-            this.trigger_up('get_pbx_configuration', {
-                callback: output => resolve(output.pbxConfiguration),
-            });
-        });
-
-        return pbxConfiguration.mode !== 'prod' ||
-        (
-            pbxConfiguration.pbx_ip &&
-            pbxConfiguration.wsServer &&
-            pbxConfiguration.login &&
-            pbxConfiguration.password
+        const { voip } = await owl.Component.env.services.messaging.get();
+        return (
+            voip.mode !== "prod" ||
+            voip.isServerConfigured &&
+            voip.areCredentialsSet
         );
     },
     //--------------------------------------------------------------------------

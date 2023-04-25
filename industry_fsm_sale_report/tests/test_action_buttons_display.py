@@ -137,11 +137,11 @@ class TestTimerButtons(TestFsmFlowSaleCommon):
             'privacy_visibility': 'followers',
             'message_partner_ids': self.env.user.partner_id,
         })
-        self.env.user.write ({
+        self.env.user.write({
             'groups_id': [(4, self.env.ref('project.group_project_manager').id)],
         })
 
-        # 1 employee for 3 companies must work        
+        # 1 employee for 3 companies must work
         task._compute_display_timer_buttons()
         self.assertTrue(task.display_timer_start_primary)
         self.assertFalse(task.display_timer_start_secondary)
@@ -400,7 +400,7 @@ class TestTimerButtons(TestFsmFlowSaleCommon):
             })]
         })
         order.action_confirm()
-        order.flush()
+        self.env.flush_all()
         project = order.order_line.project_id
         self.assertTrue(project.sale_line_id)
         self.assertTrue(project.partner_id)

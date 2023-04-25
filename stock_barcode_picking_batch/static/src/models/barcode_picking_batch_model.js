@@ -2,18 +2,20 @@
 
 import BarcodePickingModel from '@stock_barcode/models/barcode_picking_model';
 import {_t} from "web.core";
+import { sprintf } from '@web/core/utils/strings';
+import { session } from '@web/session';
 
 export default class BarcodePickingBatchModel extends BarcodePickingModel {
     constructor(params) {
         super(...arguments);
         this.formViewReference = 'stock_barcode_picking_batch.stock_barcode_batch_picking_view_info';
-        this.lineFormViewReference = 'stock_barcode_picking_batch.stock_move_line_product_selector_inherit';
         this.validateMessage = _t("The Batch Transfer has been validated");
         this.validateMethod = 'action_done';
     }
 
     setData(data) {
         super.setData(...arguments);
+        this.formViewId = data.data.form_view_id;
         // In case it's a new batch, we must display the pickings selector first.
         if (this.record.state === 'draft' && this.record.picking_ids.length === 0) {
             this.selectedPickings = [];
@@ -40,6 +42,11 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
             return [];
         }
         return this._allowedPickings.filter(picking => picking.picking_type_id === pickingTypeId);
+    }
+
+    askBeforeNewLinesCreation(product) {
+        return !this.picking.immediate_transfer && product &&
+            !this.currentState.lines.some(line => line.product_id.id === product.id);
     }
 
     get barcodeInfo() {
@@ -119,6 +126,7 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
                 }]
             );
             await this.refreshCache(data.records);
+            this.config = data.config || {}; // Get the picking type's scan restrictions configuration.
             this.displayBarcodeLines();
         }
     }
@@ -128,7 +136,7 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
     }
 
     groupKey(line) {
-        return `${line.picking_id.id}_${line.product_id.id}`;
+        return `${line.picking_id.id}_` + super.groupKey(...arguments);
     }
 
     get needPickings() {
@@ -207,12 +215,12 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
         this.picking = this.cache.getRecord('stock.picking', this.record.picking_ids[0]);
     }
 
-    _defaultLocationId() {
-        return this.picking && this.picking.location_id;
+    _defaultLocation() {
+        return this.picking && this.cache.getRecord('stock.location', this.picking.location_id);
     }
 
-    _defaultDestLocationId() {
-        return this.picking && this.picking.location_dest_id;
+    _defaultDestLocation() {
+        return this.picking && this.cache.getRecord('stock.location', this.picking.location_dest_id);
     }
 
     _getNewLineDefaultValues(fieldsParams) {
@@ -220,9 +228,9 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
         const defaultValues = super._getNewLineDefaultValues(...arguments);
         let line = this.selectedLine;
         if (!line) {
-            if (this.lastScannedPackage) {
+            if (this.lastScanned.packageId) {
                 const lines = this._moveEntirePackage() ? this.packageLines : this.pageLines;
-                line = lines.find(l => l.package_id && l.package_id.id === this.lastScannedPackage);
+                line = lines.find(l => l.package_id && l.package_id.id === this.lastScanned.packageId);
             } else if (this.pageLines.length) {
                 line = this.pageLines[0];
             }
@@ -242,12 +250,35 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
         return defaultContextValues;
     }
 
+    _getScanPackageMessage(line) {
+        if (line.suggested_package) {
+            return sprintf(_t("Scan the package %s"), line.suggested_package);
+        }
+        return super._getScanPackageMessage(...arguments);
+    }
+
     _incrementTrackedLine() {
         return !(this.picking.use_create_lots || this.picking.use_existing_lots);
     }
 
     _moveEntirePackage() {
         return this.picking.picking_type_entire_packs;
+    }
+
+    _sortingMethod(l1, l2) {
+        const res = super._sortingMethod(...arguments);
+        if (res) {
+            return res;
+        }
+        // Sort by picking's name.
+        const picking1 = l1.picking_id && l1.picking_id.name || '';
+        const picking2 = l2.picking_id && l2.picking_id.name || '';
+        if (picking1 < picking2) {
+            return -1;
+        } else if (picking1 > picking2) {
+            return 1;
+        }
+        return 0;
     }
 
     _suggestPackages() {
@@ -265,4 +296,35 @@ export default class BarcodePickingBatchModel extends BarcodePickingModel {
             }
         }
     }
+
+    /**
+     * Set the batch's responsible if the batch or one of its picking is unassigned.
+     */
+    async _setUser() {
+        if (this._shouldAssignUser()) {
+            await this.orm.write(this.params.model, [this.record.id], { user_id: session.uid });
+            this.record.user_id = session.uid;
+            const pickings = [];
+            for (const pickingId of this.record.picking_ids) {
+                const picking = this.cache.getRecord('stock.picking', pickingId);
+                picking.user_id = session.uid;
+                pickings.push(picking);
+            }
+            this.cache.setCache({'stock.picking': pickings});
+        }
+    }
+
+    _shouldAssignUser() {
+        // First checks if user should be assigned to batch...
+        if (this.record.user_id != session.uid)
+            return true;
+        // ... then checks if user should be assigned to atleast one picking.
+        for (const pickingId of this.record.picking_ids) {
+            const picking = this.cache.getRecord('stock.picking', pickingId);
+            if (picking.user_id != session.uid)
+                return true;
+        }
+        return false;
+    }
+
 }

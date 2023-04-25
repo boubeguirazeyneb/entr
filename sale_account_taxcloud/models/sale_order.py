@@ -12,13 +12,24 @@ from .taxcloud_request import TaxCloudRequest
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
-    is_taxcloud_configured = fields.Boolean(related='company_id.is_taxcloud_configured', help='Used to determine whether or not to warn the user to configure TaxCloud.')
-    is_taxcloud = fields.Boolean(related='fiscal_position_id.is_taxcloud', help='Technical field to determine whether to hide taxes in views or not.')
+    # Used to determine whether or not to warn the user to configure TaxCloud
+    is_taxcloud_configured = fields.Boolean(related='company_id.is_taxcloud_configured')
+    # Technical field to determine whether to hide taxes in views or not
+    is_taxcloud = fields.Boolean(related='fiscal_position_id.is_taxcloud')
 
     def action_confirm(self):
         for order in self.filtered('fiscal_position_id.is_taxcloud'):
             order.validate_taxes_on_sales_order()
         return super(SaleOrder, self).action_confirm()
+
+    def action_quotation_send(self):
+        self.validate_taxes_on_sales_order()
+        return super().action_quotation_send()
+
+    def action_quotation_sent(self):
+        for order in self:
+            order.validate_taxes_on_sales_order()
+        return super().action_quotation_sent()
 
     @api.model
     def _get_TaxCloudRequest(self, api_id, api_key):

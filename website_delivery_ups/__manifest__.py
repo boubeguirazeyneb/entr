@@ -7,9 +7,9 @@
     'description': """
 This module allows ecommerce users to enter their UPS account number and delivery fees will be charged on that account number.
     """,
-    'depends': ['delivery_ups', 'website_sale_delivery'],
+    'depends': ['delivery_ups', 'website_sale_delivery', 'payment_custom'],
     'data': [
-        'data/payment_acquirer_data.xml',
+        'data/payment_provider_data.xml',
         'views/delivery_ups_templates.xml',
         'views/res_config_settings_views.xml',
     ],
@@ -17,6 +17,10 @@ This module allows ecommerce users to enter their UPS account number and deliver
     'license': 'OEEL-1',
     'assets': {
         'web.assets_common': [
+            'website_delivery_ups/static/src/**/*',
+            ('remove', 'website_delivery_ups/static/src/js/checkout_form.js'),
+        ],
+        'web.assets_frontend': [
             'website_delivery_ups/static/src/**/*',
         ],
     }

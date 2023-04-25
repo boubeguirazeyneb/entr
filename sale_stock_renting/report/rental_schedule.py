@@ -8,23 +8,26 @@ class RentalSchedule(models.Model):
 
     is_available = fields.Boolean(compute='_compute_is_available', readonly=True, compute_sudo=True)
 
-    lot_id = fields.Many2one('stock.production.lot', 'Serial Number', readonly=True)
+    lot_id = fields.Many2one('stock.lot', 'Serial Number', readonly=True)
     warehouse_id = fields.Many2one('stock.warehouse', 'Warehouse', readonly=True)
     # TODO color depending on report_line_status
 
     def _compute_is_available(self):
-        for rental in self:
-            if rental.rental_status not in ['return', 'returned', 'cancel'] and rental.return_date > fields.Datetime.now() and rental.product_id.type == 'product':
-                sol = rental.order_line_id
-                rental.is_available = sol.virtual_available_at_date - sol.product_uom_qty >= 0
-            else:
-                rental.is_available = True
+        quoted_rentals_with_product = self.filtered(
+            lambda r: r.rental_status not in ['return', 'returned', 'cancel']
+                and r.return_date > fields.Datetime.now()
+                and r.product_id.type == 'product')
+        for rental in quoted_rentals_with_product:
+            sol = rental.order_line_id
+            rental.is_available = sol.virtual_available_at_date - sol.product_uom_qty >= 0
+        (self - quoted_rentals_with_product).is_available = True
 
     def _get_product_name(self):
-        return """COALESCE(lot_info.name, t.name) as product_name"""
+        lang = self.env.lang or 'en_US'
+        return f"""COALESCE(lot_info.name, NULLIF(t.name->>'{lang}', ''), t.name->>'en_US') as product_name"""
 
     def _id(self):
-        return """CONCAT(lot_info.lot_id, pdg.max_id, sol.id) as id"""
+        return """CAST(CONCAT(lot_info.lot_id, pdg.max_id, sol.id) AS NUMERIC) as id"""
 
     def _quantity(self):
         return """
@@ -40,7 +43,7 @@ class RentalSchedule(models.Model):
     def _late(self):
         return """
             CASE when lot_info.lot_id is NULL then
-                CASE WHEN sol.pickup_date < NOW() AT TIME ZONE 'UTC' AND sol.qty_delivered < sol.product_uom_qty THEN TRUE
+                CASE WHEN sol.start_date < NOW() AT TIME ZONE 'UTC' AND sol.qty_delivered < sol.product_uom_qty THEN TRUE
                     WHEN sol.return_date < NOW() AT TIME ZONE 'UTC' AND sol.qty_returned < sol.qty_delivered THEN TRUE
                     ELSE FALSE
                 END
@@ -51,7 +54,7 @@ class RentalSchedule(models.Model):
                         ELSE FALSE
                         END
                     ELSE
-                        CASE WHEN sol.pickup_date < NOW() AT TIME ZONE 'UTC' THEN TRUE
+                        CASE WHEN sol.start_date < NOW() AT TIME ZONE 'UTC' THEN TRUE
                         ELSE FALSe
                         END
                 END
@@ -73,7 +76,7 @@ class RentalSchedule(models.Model):
         """2 = orange, 4 = blue, 6 = red, 7 = green"""
         return """
             CASE when lot_info.lot_id is NULL then
-                CASE WHEN sol.pickup_date < NOW() AT TIME ZONE 'UTC' AND sol.qty_delivered < sol.product_uom_qty THEN 4
+                CASE WHEN sol.start_date < NOW() AT TIME ZONE 'UTC' AND sol.qty_delivered < sol.product_uom_qty THEN 4
                     WHEN sol.return_date < NOW() AT TIME ZONE 'UTC' AND sol.qty_returned < sol.qty_delivered THEN 6
                     when sol.qty_returned = sol.qty_delivered AND sol.qty_delivered = sol.product_uom_qty THEN 7
                     WHEN sol.qty_delivered = sol.product_uom_qty THEN 2
@@ -98,28 +101,32 @@ class RentalSchedule(models.Model):
                     lot.name,
                     COALESCE(res.sale_order_line_id, pickedup.sale_order_line_id) as sol_id,
                     CASE
-                        WHEN returned.stock_production_lot_id IS NOT NULL THEN 'returned'
-                        WHEN pickedup.stock_production_lot_id IS NOT NULL THEN 'pickedup'
+                        WHEN returned.stock_lot_id IS NOT NULL THEN 'returned'
+                        WHEN pickedup.stock_lot_id IS NOT NULL THEN 'pickedup'
                         ELSE 'reserved'
                     END AS report_line_status
                     FROM
                         rental_reserved_lot_rel res
                     FULL OUTER JOIN rental_pickedup_lot_rel pickedup
                         ON res.sale_order_line_id=pickedup.sale_order_line_id
-                        AND res.stock_production_lot_id=pickedup.stock_production_lot_id
+                        AND res.stock_lot_id=pickedup.stock_lot_id
                     LEFT OUTER JOIN rental_returned_lot_rel returned
                         ON returned.sale_order_line_id=pickedup.sale_order_line_id
-                        AND returned.stock_production_lot_id=pickedup.stock_production_lot_id
-                    JOIN stock_production_lot lot
-                        ON res.stock_production_lot_id=lot.id
-                        OR pickedup.stock_production_lot_id=lot.id
+                        AND returned.stock_lot_id=pickedup.stock_lot_id
+                    JOIN stock_lot lot
+                        ON res.stock_lot_id=lot.id
+                        OR pickedup.stock_lot_id=lot.id
                 ),
-                sol_id_max (id) AS
-                    (SELECT MAX(id) FROM sale_order_line),
-                lot_id_max (id) AS
-                    (SELECT MAX(id) FROM stock_production_lot),
-                padding (max_id) AS
-                    (SELECT CASE when lot_id_max > sol_id_max then lot_id_max ELSE sol_id_max END as max_id from lot_id_max, sol_id_max)
+                padding(max_id) AS (
+                    SELECT
+                        MAX(id) as max
+                    FROM
+                        (
+                            SELECT max(id) as id from stock_lot
+                            UNION
+                            SELECT max(id) as id from sale_order_line
+                        ) AS whatever
+                )
         """
 
     def _select(self):

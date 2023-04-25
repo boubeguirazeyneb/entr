@@ -15,12 +15,12 @@ class TestBillsPrediction(AccountTestInvoicingCommon):
 
         cls.test_partners = cls.env['res.partner'].create([{'name': 'test partner %s' % i} for i in range(7)])
 
-        expense_type = cls.env.ref('account.data_account_type_expenses')
+        expense_type = 'expense'
 
         accounts_data = [{
             'code': 'test%s' % i,
             'name': name,
-            'user_type_id': expense_type.id,
+            'account_type': expense_type,
             'company_id': cls.company_data['company'].id,
         } for i, name in enumerate((
             "Test Maintenance and Repair",
@@ -74,6 +74,7 @@ class TestBillsPrediction(AccountTestInvoicingCommon):
         default_account = self.company_data['default_journal_purchase'].default_account_id
         self._create_bill(self.test_partners[0], "Maintenance and repair", self.test_accounts[0])
         self._create_bill(self.test_partners[5], "Subsidies obtained", default_account, account_to_set=self.test_accounts[1])
+        self._create_bill(self.test_partners[6], "Prepare subsidies file", default_account, account_to_set=self.test_accounts[1])
         self._create_bill(self.test_partners[6], "Prepare subsidies file", self.test_accounts[1])
         self._create_bill(self.test_partners[1], "Contributions January", self.test_accounts[2])
         self._create_bill(self.test_partners[2], "Coca-cola", default_account, account_to_set=self.test_accounts[4])
@@ -81,6 +82,7 @@ class TestBillsPrediction(AccountTestInvoicingCommon):
         self._create_bill(self.test_partners[3], "Electricity Bruxelles", default_account, account_to_set=self.test_accounts[3])
         self._create_bill(self.test_partners[3], "Electricity Grand-Rosière", self.test_accounts[3])
         self._create_bill(self.test_partners[2], "Purchase of coca-cola", self.test_accounts[4])
+        self._create_bill(self.test_partners[4], "Crate of coca-cola", default_account, account_to_set=self.test_accounts[4])
         self._create_bill(self.test_partners[4], "Crate of coca-cola", self.test_accounts[4])
         self._create_bill(self.test_partners[1], "March", self.test_accounts[2])
 

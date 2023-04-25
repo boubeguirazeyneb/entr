@@ -19,8 +19,8 @@ class SocialStreamPostLinkedIn(models.Model):
     linkedin_author_vanity_name = fields.Char('LinkedIn Vanity Name', help='Vanity name, used to generate a link to the author')
     linkedin_author_image_url = fields.Char('LinkedIn author image URL')
 
-    linkedin_comments_count = fields.Integer('LinkedIn Comments', help='Number of comments')
-    linkedin_likes_count = fields.Integer('LinkedIn Likes', help='Number of likes')
+    linkedin_comments_count = fields.Integer('LinkedIn Comments')
+    linkedin_likes_count = fields.Integer('LinkedIn Likes')
 
     def _compute_linkedin_author_urn(self):
         for post in self:
@@ -30,7 +30,7 @@ class SocialStreamPostLinkedIn(models.Model):
                 post.linkedin_author_id = False
 
     def _compute_author_link(self):
-        linkedin_posts = self.filtered(lambda post: post.media_type == 'linkedin')
+        linkedin_posts = self._filter_by_media_types(['linkedin'])
         super(SocialStreamPostLinkedIn, (self - linkedin_posts))._compute_author_link()
 
         for post in linkedin_posts:
@@ -40,7 +40,7 @@ class SocialStreamPostLinkedIn(models.Model):
                 post.author_link = False
 
     def _compute_post_link(self):
-        linkedin_posts = self.filtered(lambda post: post.media_type == 'linkedin')
+        linkedin_posts = self._filter_by_media_types(['linkedin'])
         super(SocialStreamPostLinkedIn, (self - linkedin_posts))._compute_post_link()
 
         for post in linkedin_posts:
@@ -105,7 +105,7 @@ class SocialStreamPostLinkedIn(models.Model):
         element_urn = comment_urn or self.linkedin_post_urn
 
         response = requests.get(
-            url_join(self.env['social.media']._LINKEDIN_ENDPOINT, 'socialActions/%s/comments/' % quote(element_urn)),
+            url_join(self.env['social.media']._LINKEDIN_ENDPOINT, 'socialActions/%s/comments' % quote(element_urn)),
             params={
                 'start': offset,
                 'count': count,
@@ -137,13 +137,15 @@ class SocialStreamPostLinkedIn(models.Model):
 
     def _linkedin_format_comment(self, json_data):
         """Formats a comment returned by the LinkedIn API to a dict that will be interpreted by our frontend."""
+        author_image_url = self.account_id._extract_linkedin_picture_url(json_data.get('created', {}).get('actor~'))
+        author_image_url = self.env['social.stream']._enforce_url_scheme(author_image_url)
         data = {
             'id': json_data.get('$URN'),
             'from': {
                 'id': json_data.get('created', {}).get('actor'),
                 'name': self.stream_id._format_linkedin_name(json_data.get('created', {}).get('actor~')),
                 'authorUrn': json_data.get('created', {}).get('actor'),
-                'picture': self.account_id._extract_linkedin_picture_url(json_data.get('created', {}).get('actor~')),
+                'picture': author_image_url,
                 'vanityName': json_data.get('created', {}).get('actor~').get('vanityName'),
                 'isOrganization': 'organization' in json_data.get('created', {}).get('actor', ''),
             },
@@ -161,12 +163,21 @@ class SocialStreamPostLinkedIn(models.Model):
         }
 
         sub_comments_count = json_data.get('commentsSummary', {}).get('totalFirstLevelComments', 0)
-        if sub_comments_count:
-            data['comments'] = {
-                'data': {
-                    'length': sub_comments_count,
-                    'parentUrn': json_data.get('$URN'),
-                }
-            }
+        data['comments'] = {
+            'data': {
+                'length': sub_comments_count,
+                'parentUrn': json_data.get('$URN'),
+            } if sub_comments_count else []
+        }
 
         return data
+
+    def _fetch_matching_post(self):
+        self.ensure_one()
+
+        if self.account_id.media_type == 'linkedin' and self.linkedin_post_urn:
+            return self.env['social.live.post'].search(
+                [('linkedin_post_id', '=', self.linkedin_post_urn)], limit=1
+            ).post_id
+        else:
+            return super(SocialStreamPostLinkedIn, self)._fetch_matching_post()

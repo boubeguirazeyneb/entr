@@ -3,7 +3,7 @@
 
 from odoo.tests import tagged
 from odoo.tests.common import Form
-from odoo.addons.stock_barcode.tests.test_barcode_client_action import clean_access_rights, TestBarcodeClientAction
+from odoo.addons.stock_barcode.tests.test_barcode_client_action import TestBarcodeClientAction
 
 
 @tagged('post_install', '-at_install')
@@ -11,7 +11,7 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
     def setUp(self):
         super().setUp()
 
-        clean_access_rights(self.env)
+        self.clean_access_rights()
         grp_lot = self.env.ref('stock.group_production_lot')
         grp_multi_loc = self.env.ref('stock.group_stock_multi_locations')
         grp_pack = self.env.ref('stock.group_tracking_lot')
@@ -193,6 +193,7 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         picking_receipt_3 = picking_form.save()
         picking_receipt_3.action_confirm()
         picking_receipt_3.name = 'picking_receipt_3'
+        picking_receipt_3.user_id = False
 
         batch_form = Form(self.env['stock.picking.batch'])
         batch_form.picking_ids.add(self.picking_receipt_1)
@@ -207,9 +208,14 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         batch_receipt.action_confirm()
         self.assertEqual(len(batch_receipt.move_ids), 5)
         self.assertEqual(len(batch_receipt.move_line_ids), 6)
+        self.assertEqual(batch_receipt.user_id.id, False)
+        self.assertEqual(picking_receipt_3.user_id.id, False)
 
         url = self._get_batch_client_action_url(batch_receipt.id)
         self.start_tour(url, 'test_barcode_batch_receipt_1', login='admin', timeout=180)
+        # Checks user was assign on the batch and its pickings.
+        self.assertEqual(batch_receipt.user_id.id, self.env.user.id)
+        self.assertEqual(picking_receipt_3.user_id.id, self.env.user.id)
 
     def test_barcode_batch_delivery_1(self):
         """ Create a batch picking with 2 deliveries (split into 3 locations),
@@ -218,8 +224,8 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         """
         batch_form = Form(self.env['stock.picking.batch'])
         # Adds two quantities for product tracked by SN.
-        sn1 = self.env['stock.production.lot'].create({'name': 'sn1', 'product_id': self.productserial1.id, 'company_id': self.env.company.id})
-        sn2 = self.env['stock.production.lot'].create({'name': 'sn2', 'product_id': self.productserial1.id, 'company_id': self.env.company.id})
+        sn1 = self.env['stock.lot'].create({'name': 'sn1', 'product_id': self.productserial1.id, 'company_id': self.env.company.id})
+        sn2 = self.env['stock.lot'].create({'name': 'sn2', 'product_id': self.productserial1.id, 'company_id': self.env.company.id})
         self.env['stock.quant'].with_context(inventory_mode=True).create({
             'product_id': self.productserial1.id,
             'inventory_quantity': 1,
@@ -265,6 +271,77 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         url = self._get_batch_client_action_url(batch_delivery.id)
         self.start_tour(url, 'test_barcode_batch_delivery_1', login='admin', timeout=180)
 
+    def test_barcode_batch_delivery_2_move_entire_package(self):
+        """ Creates a batch picking with 2 deliveries while the delivery picking type use the "move
+        entire package" setting and check lines are correctly displayed as package line when moving
+        the entire package, or as usual barcode line in other cases.
+        """
+        self.clean_access_rights()
+        grp_pack = self.env.ref('stock.group_tracking_lot')
+        self.env.user.write({'groups_id': [(4, grp_pack.id, 0)]})
+        self.picking_type_out.show_entire_packs = True
+
+        # Creates two packages and adds some quantities on hand.
+        pack1 = self.env['stock.quant.package'].create({'name': 'pack1'})
+        pack2 = self.env['stock.quant.package'].create({'name': 'pack2'})
+        self.env['stock.quant'].with_context(inventory_mode=True).create({
+            'product_id': self.product1.id,
+            'inventory_quantity': 10,
+            'package_id': pack1.id,
+            'location_id': self.stock_location.id,
+        }).action_apply_inventory()
+        self.env['stock.quant'].with_context(inventory_mode=True).create({
+            'product_id': self.product2.id,
+            'inventory_quantity': 10,
+            'package_id': pack2.id,
+            'location_id': self.stock_location.id,
+        }).action_apply_inventory()
+        self.env['stock.quant'].with_context(inventory_mode=True).create({
+            'product_id': self.product3.id,
+            'inventory_quantity': 10,
+            'package_id': pack1.id,
+            'location_id': self.stock_location.id,
+        }).action_apply_inventory()
+
+        # Creates two deliveries.
+        picking_form = Form(self.env['stock.picking'])
+        picking_form.picking_type_id = self.picking_type_out
+        with picking_form.move_ids_without_package.new() as move:
+            move.product_id = self.product1
+            move.product_uom_qty = 10
+        with picking_form.move_ids_without_package.new() as move:
+            move.product_id = self.product2
+            move.product_uom_qty = 5
+        with picking_form.move_ids_without_package.new() as move:
+            move.product_id = self.product3
+            move.product_uom_qty = 10
+        delivery_1 = picking_form.save()
+        delivery_1.action_confirm()
+        delivery_1.action_assign()
+
+        picking_form = Form(self.env['stock.picking'])
+        picking_form.picking_type_id = self.picking_type_out
+        with picking_form.move_ids_without_package.new() as move:
+            move.product_id = self.product2
+            move.product_uom_qty = 5
+        delivery_2 = picking_form.save()
+        delivery_2.action_confirm()
+        delivery_2.action_assign()
+
+        # Changes name of pickings to be able to track them on the tour.
+        delivery_1.name = 'delivery_1'
+        delivery_2.name = 'delivery_2'
+
+        # Creates and confirms the batch.
+        batch_form = Form(self.env['stock.picking.batch'])
+        batch_form.picking_ids.add(delivery_1)
+        batch_form.picking_ids.add(delivery_2)
+        batch_delivery = batch_form.save()
+        batch_delivery.action_confirm()
+
+        url = self._get_batch_client_action_url(batch_delivery.id)
+        self.start_tour(url, 'test_barcode_batch_delivery_2_move_entire_package', login='admin', timeout=180)
+
     def test_put_in_pack_from_multiple_pages(self):
         """ A batch picking of 2 internal pickings where prod1 and prod2 are reserved in shelf1 and shelf2,
         processing all these products and then hitting put in pack should move them all in the new pack.
@@ -274,14 +351,14 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         batch's `put_in_pack` button as we do with a single internal transfer so we re-use the same exact tour.
         Note that batch `put_in_pack` logic is not the same as it is for pickings.
         """
-        self.env['stock.picking.type'].search([('active', '=', False)]).write({'active': True})
-
         self.env['stock.quant']._update_available_quantity(self.product1, self.shelf1, 1)
         self.env['stock.quant']._update_available_quantity(self.product2, self.shelf1, 1)
         self.env['stock.quant']._update_available_quantity(self.product1, self.shelf2, 1)
         self.env['stock.quant']._update_available_quantity(self.product2, self.shelf2, 1)
 
-        self.env['stock.picking.type'].search([('active', '=', False)]).write({'active': True})
+        # Adapts the setting to scan only the source location.
+        self.picking_type_internal.restrict_scan_dest_location = 'no'
+        self.picking_type_internal.restrict_scan_source_location = 'mandatory'
 
         internal_picking = self.env['stock.picking'].create({
             'location_id': self.stock_location.id,
@@ -345,6 +422,8 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         destination in this test (since it doesn't matter).
         """
         self.picking_type_internal.active = True
+        self.picking_type_internal.restrict_scan_dest_location = 'mandatory'
+        self.picking_type_internal.restrict_scan_source_location = 'mandatory'
 
         self.env['stock.quant']._update_available_quantity(self.product1, self.shelf1, 1)
         self.env['stock.quant']._update_available_quantity(self.product2, self.shelf3, 1)
@@ -404,11 +483,12 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         Put first picking line in a package and the second one in another package,
         then change the location page and scan the suggested packaged for each picking lines.
         """
-        clean_access_rights(self.env)
+        self.clean_access_rights()
         grp_multi_loc = self.env.ref('stock.group_stock_multi_locations')
         self.env.user.write({'groups_id': [(4, grp_multi_loc.id, 0)]})
         grp_pack = self.env.ref('stock.group_tracking_lot')
         self.env.user.write({'groups_id': [(4, grp_pack.id, 0)]})
+        self.picking_type_out.barcode_validation_all_product_packed = True
 
         self.env['stock.quant']._update_available_quantity(self.product1, self.shelf1, 2)
         self.env['stock.quant']._update_available_quantity(self.product2, self.shelf2, 2)
@@ -481,3 +561,60 @@ class TestBarcodeBatchClientAction(TestBarcodeClientAction):
         batch_delivery = self.picking_delivery_1.batch_id
         self.assertEqual(len(batch_delivery.move_ids), 5)
         self.assertEqual(len(batch_delivery.move_line_ids), 7)
+
+    def test_pack_and_same_product_several_sml(self):
+        """
+        A batch with two transfers, source and destination are the same. The
+        first picking contains 3 x P1 and 25 x P2, the second one 7 x P1 and
+        30 x P2. The 10 P1 are in a package PK1. The situation is more
+        complicated for the second product: there are 100 P2 in a package PK2.
+        When processing the batch, if the user scans the package PK1, it should
+        update all move lines related to P1. Then, when scanning PK2, it should
+        also update the move lines related to P2 and a new line should be
+        created for the surplus (45 x P2).
+        """
+        self.clean_access_rights()
+        grp_pack = self.env.ref('stock.group_tracking_lot')
+        self.env.user.write({'groups_id': [(4, grp_pack.id)]})
+
+        package02 = self.package.copy({'name': 'P00002'})
+        self.env['stock.quant']._update_available_quantity(self.product1, self.shelf1, 10, package_id=self.package)
+        self.env['stock.quant']._update_available_quantity(self.product2, self.shelf1, 100, package_id=package02)
+
+        # Two pickings,
+        #   one with 3 x P1 and 25 x P2
+        #   one with 7 x P1 and 30 x P2
+        pickings = self.env['stock.picking'].create([{
+            'location_id': self.shelf1.id,
+            'location_dest_id': self.shelf2.id,
+            'picking_type_id': self.picking_type_internal.id,
+            'move_ids': [(0, 0, {
+                'name': 'test_put_in_pack_from_multiple_pages',
+                'location_id': self.shelf1.id,
+                'location_dest_id': self.shelf2.id,
+                'product_id': product.id,
+                'product_uom': self.uom_unit.id,
+                'product_uom_qty': qty,
+            }) for product, qty in picking_lines]
+        } for picking_lines in [
+            [(self.product1, 3), (self.product2, 25)],
+            [(self.product1, 7), (self.product2, 30)],
+        ]])
+        pickings.action_confirm()
+        pickings.action_assign()
+
+        batch_form = Form(self.env['stock.picking.batch'])
+        batch_form.picking_ids.add(pickings[0])
+        batch_form.picking_ids.add(pickings[1])
+        batch = batch_form.save()
+        batch.action_confirm()
+
+        url = self._get_batch_client_action_url(batch.id)
+        self.start_tour(url, 'test_pack_and_same_product_several_sml', login='admin', timeout=180)
+
+        self.assertRecordValues(pickings.move_ids, [
+            {'picking_id': pickings[0].id, 'product_id': self.product1.id, 'state': 'done', 'quantity_done': 3},
+            {'picking_id': pickings[0].id, 'product_id': self.product2.id, 'state': 'done', 'quantity_done': 70},
+            {'picking_id': pickings[1].id, 'product_id': self.product1.id, 'state': 'done', 'quantity_done': 7},
+            {'picking_id': pickings[1].id, 'product_id': self.product2.id, 'state': 'done', 'quantity_done': 30},
+        ])

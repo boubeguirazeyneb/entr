@@ -40,9 +40,11 @@ class Picking(models.Model):
             ('9', '9. Export Sales')
         ], string='Reason of the Transfer', default='1')
 
-    l10n_cl_draft_status = fields.Boolean(help="Technical field making it possible to have a draft status for entering "
-                                               "the starting number for the guia in this company.  ")
-
+    # Technical field making it possible to have a draft status for entering
+    # the starting number for the guia in this company
+    l10n_cl_draft_status = fields.Boolean()
+    # delivery guide is not mandatory for return case
+    l10n_cl_is_return = fields.Boolean(compute="_compute_l10n_cl_is_return")
     # Common fields that will go into l10n_cl.edi.util in master (check copy=False as this flag was not in edi util):
     l10n_latam_document_type_id = fields.Many2one('l10n_latam.document.type', string='Document Type',
                                                   readonly=True, copy=False)
@@ -121,18 +123,26 @@ class Picking(models.Model):
         if not self.l10n_latam_document_number:
             self.l10n_latam_document_number = self._get_next_document_number()
         self.l10n_cl_dte_status = 'not_sent'
+        msg_demo = _(' in DEMO mode.') if self.company_id.l10n_cl_dte_service_provider == 'SIIDEMO' else '.'
         self._l10n_cl_create_dte()
         dte_signed, file_name = self._l10n_cl_get_dte_envelope()
         attachment = self.env['ir.attachment'].create({
             'name': 'SII_{}'.format(file_name),
             'res_id': self.id,
             'res_model': self._name,
-            'datas': base64.b64encode(dte_signed.encode('ISO-8859-1')),
+            'datas': base64.b64encode(dte_signed.encode('ISO-8859-1', 'replace')),
             'type': 'binary',
         })
         self.l10n_cl_sii_send_file = attachment.id
-        self.message_post(body=_('DTE has been created'), attachment_ids=attachment.ids)
+        self.message_post(body=_('DTE has been created%s', msg_demo), attachment_ids=attachment.ids)
         return self.print_delivery_guide_pdf()
+
+    def _compute_l10n_cl_is_return(self):
+        for picking in self:
+            if picking.country_code == 'CL':
+                picking.l10n_cl_is_return = any(m.origin_returned_move_id for m in picking.move_ids_without_package)
+            else:
+                picking.l10n_cl_is_return = False
 
     def print_delivery_guide_pdf(self):
         return self.env.ref('l10n_cl_edi_stock.action_delivery_guide_report_pdf').report_action(self)
@@ -162,7 +172,7 @@ class Picking(models.Model):
             'res_model': self._name,
             'res_id': self.id,
             'type': 'binary',
-            'datas': base64.b64encode(signed_dte.encode('ISO-8859-1'))
+            'datas': base64.b64encode(signed_dte.encode('ISO-8859-1', 'replace'))
         })
         self.l10n_cl_dte_file = dte_attachment.id
 
@@ -210,7 +220,7 @@ class Picking(models.Model):
                               'create the delivery guide', self.l10n_latam_document_type_id.code))
 
     def _l10n_cl_edi_prepare_values(self):
-        move_lines = self.move_lines
+        move_ids = self.move_ids
         values = {
             'format_vat': self._l10n_cl_format_vat,
             'format_length': self._format_length,
@@ -218,13 +228,13 @@ class Picking(models.Model):
             'time_stamp': self._get_cl_current_strftime(),
             'caf': self.l10n_latam_document_type_id.sudo()._get_caf_file(self.company_id.id,
                                                                   int(self.l10n_latam_document_number)),
-            'fe_value': self.scheduled_date.date(),
+            'fe_value': self._get_cl_current_datetime().date(),
             'rr_value': '55555555-5' if self.partner_id._l10n_cl_is_foreign() else self._l10n_cl_format_vat(
                 self.partner_id.vat),
             'rsr_value': self._format_length(self.partner_id.name, 40),
             'mnt_value': float_repr(self._l10n_cl_get_tax_amounts()[0]['total_amount'], 0),
             'picking': self,
-            'it1_value': self._format_length(move_lines[0].product_id.name, 40) if move_lines else '',
+            'it1_value': self._format_length(move_ids[0].product_id.name, 40) if move_ids else '',
             '__keep_empty_lines': True,
         }
         return values
@@ -252,7 +262,7 @@ class Picking(models.Model):
             guide_price = "product"
         max_vat_perc = 0.0
         move_retentions = self.env['account.tax']
-        for move in self.move_lines.filtered(lambda x: x.quantity_done > 0):
+        for move in self.move_ids.filtered(lambda x: x.quantity_done > 0):
             if guide_price == "product" or not move.sale_line_id:
                 taxes = move.product_id.taxes_id.filtered(lambda t: t.company_id == self.company_id)
                 price = move.product_id.lst_price
@@ -402,10 +412,10 @@ class Picking(models.Model):
         of the invoice, etc.
         :return: xml that goes embedded inside the pdf417 code
         """
-        dd = self.env.ref('l10n_cl_edi_stock.dd_template')._render(self._l10n_cl_edi_prepare_values())
-        ted = self.env.ref('l10n_cl_edi.ted_template')._render({
+        dd = self.env['ir.qweb']._render('l10n_cl_edi_stock.dd_template', self._l10n_cl_edi_prepare_values())
+        ted = self.env['ir.qweb']._render('l10n_cl_edi.ted_template', {
             'dd': dd,
-            'frmt': self._sign_message(dd.encode('ISO-8859-1'), caf_file.findtext('RSASK')),
+            'frmt': self._sign_message(dd.encode('ISO-8859-1', 'replace'), caf_file.findtext('RSASK')),
             'stamp': self._get_cl_current_strftime()
         })
         return {
@@ -435,8 +445,7 @@ class Picking(models.Model):
         caf_file = self.l10n_latam_document_type_id.sudo()._get_caf_file(self.company_id.id,
                                                                   int(self.l10n_latam_document_number))
         dte_barcode_xml = self._l10n_cl_get_dte_barcode_xml(caf_file)
-        template = self._get_dte_template()
-        dte = template._render(self._prepare_dte_values())
+        dte = self.env['ir.qweb']._render(self._get_dte_template().id, self._prepare_dte_values())
         digital_signature = self.company_id._get_digital_signature(user_id=self.env.user.id)
         signed_dte = self._sign_full_xml(
             dte, digital_signature, doc_id_number, 'doc', self.l10n_latam_document_type_id._is_doc_type_voucher())
@@ -446,10 +455,10 @@ class Picking(models.Model):
     def _l10n_cl_get_dte_envelope(self, receiver_rut='60803000-K'):
         file_name = 'F{}T{}.xml'.format(self.l10n_latam_document_number, self.l10n_latam_document_type_id.code)
         digital_signature = self.company_id._get_digital_signature(user_id=self.env.user.id)
-        template = self.env.ref('l10n_cl_edi.envio_dte') # Guia is always DTE
+        # Guia is always DTE
         dte = self.l10n_cl_dte_file.raw.decode('ISO-8859-1')
         dte = Markup(dte.replace('<?xml version="1.0" encoding="ISO-8859-1" ?>', ''))
-        dte_rendered = template._render({
+        dte_rendered = self.env['ir.qweb']._render('l10n_cl_edi.envio_dte', {
             'move': self, # Only needed for the name of the document type
             'RutEmisor': self._l10n_cl_format_vat(self.company_id.vat),
             'RutEnvia': digital_signature.subject_serial_number,
@@ -476,7 +485,7 @@ class Picking(models.Model):
             'res_model': self._name,
             'res_id': self.id,
             'type': 'binary',
-            'datas': base64.b64encode(dte_signed.encode('ISO-8859-1'))
+            'datas': base64.b64encode(dte_signed.encode('ISO-8859-1', 'replace'))
         })
         self.with_context(no_new_invoice=True).message_post(
             body=_('Partner DTE has been generated'),
@@ -512,6 +521,11 @@ class Picking(models.Model):
         if self.l10n_cl_dte_status != "not_sent":
             return None
         digital_signature = self.company_id._get_digital_signature(user_id=self.env.user.id)
+        if self.company_id.l10n_cl_dte_service_provider == 'SIIDEMO':
+            self.message_post(body=_('This DTE has been generated in DEMO Mode. It is considered as accepted and '
+                                     'it won\'t be sent to SII.'))
+            self.l10n_cl_dte_status = 'accepted'
+            return None
         response = self._send_xml_to_sii(
             self.company_id.l10n_cl_dte_service_provider,
             self.company_id.website,
@@ -567,7 +581,7 @@ class Picking(models.Model):
             # The assumption here is that the unexpected input is intermittent,
             # so we'll retry later. If the same input appears regularly, it should
             # be handled properly in _analyze_sii_result.
-            _logger.error("Unexpected XML response:\n{}".format(response))
+            _logger.error("Unexpected XML response:\n%s", response)
             return
 
         if self.l10n_cl_dte_status in ['accepted', 'objected']:

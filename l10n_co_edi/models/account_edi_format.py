@@ -49,6 +49,8 @@ class AccountEdiFormat(models.Model):
                                                   int(invoice_number))
 
     def _l10n_co_edi_get_round_amount(self, amount):
+        if amount == '':
+            return ''
         if abs(amount - float("%.2f" % amount)) > 0.00001:
             return "%.3f" % amount
         return '%.2f' % amount
@@ -89,7 +91,7 @@ class AccountEdiFormat(models.Model):
                 }
                 if rec.tax_line_id.amount_type == 'fixed':
                     imp.update({
-                        'IMP_6': '',
+                        'IMP_6': 0,
                         'IMP_7': 1,
                         'IMP_8': 'BO' if rec.tax_line_id.l10n_co_edi_type.code == '22' else '94',
                         'IMP_9': rec.tax_line_id.amount,
@@ -167,6 +169,22 @@ class AccountEdiFormat(models.Model):
             left to philosophers, not dumb developers like myself.
             '''
             # Volume has to be reported in l (not e.g. ml).
+            if invoice.move_type in ('in_invoice', 'in_refund'):
+                company_partner = invoice.company_id.partner_id
+                invoice_partner = invoice.partner_id.commercial_partner_id
+                return [
+                    '23.-%s' % ("|".join([
+                                        company_partner.street or '',
+                                        company_partner.city or '',
+                                        company_partner.country_id.name or '',
+                                        company_partner.phone or '',
+                                        company_partner.email or '',
+                                    ])),
+                    '24.-%s' % ("|".join([invoice_partner.phone or '',
+                                        invoice_partner.ref or '',
+                                        invoice_partner.email or '',
+                                    ])),
+                ]
             lines = invoice.invoice_line_ids.filtered(lambda line: line.product_uom_id.category_id == self.env.ref('uom.product_uom_categ_vol'))
             liters = sum(line.product_uom_id._compute_quantity(line.quantity, self.env.ref('uom.product_uom_litre')) for line in lines)
             total_volume = int(liters)
@@ -181,9 +199,8 @@ class AccountEdiFormat(models.Model):
             units = sum(line.product_uom_id._compute_quantity(line.quantity, self.env.ref('uom.product_uom_unit')) for line in lines)
             total_units = int(units)
 
-            withholding_amount = invoice.amount_untaxed + sum(invoice.line_ids.filtered(lambda line: line.tax_line_id and not line.tax_line_id.l10n_co_edi_type.retention).mapped('price_total'))
+            withholding_amount = invoice.amount_untaxed + abs(sum(invoice.line_ids.filtered(lambda line: line.tax_line_id and not line.tax_line_id.l10n_co_edi_type.retention).mapped('amount_currency')))
             amount_in_words = invoice.currency_id.with_context(lang=invoice.partner_id.lang or 'es_ES').amount_to_text(withholding_amount)
-            shipping_partner = self.env['res.partner'].browse(invoice._get_invoice_delivery_partner_id())
 
             reg_a_tag = re.compile('<a.*?>')
             clean_narration = re.sub(reg_a_tag, '', invoice.narration) if invoice.narration else False
@@ -196,10 +213,10 @@ class AccountEdiFormat(models.Model):
                                           invoice.company_id.l10n_co_edi_header_resolucion_aplicable or '',
                                           invoice.company_id.l10n_co_edi_header_actividad_economica or ''),
                 '2.-%s' % (invoice.company_id.l10n_co_edi_header_bank_information or '').replace('\n', '|'),
-                ('3.- %s' % (narration or 'N/A'))[:500],
+                ('3.- %s' % (narration or 'N/A'))[:5000],
                 '6.- %s|%s' % (html2plaintext(invoice.invoice_payment_term_id.note), amount_in_words),
                 '7.- %s' % (invoice.company_id.website),
-                '8.-%s|%s|%s' % (invoice.partner_id.commercial_partner_id._get_vat_without_verification_code() or '', shipping_partner.phone or '', invoice.invoice_origin and invoice.invoice_origin.split(',')[0] or ''),
+                '8.-%s|%s|%s' % (invoice.partner_id.commercial_partner_id._get_vat_without_verification_code() or '', invoice.partner_shipping_id.phone or '', invoice.invoice_origin and invoice.invoice_origin.split(',')[0] or ''),
                 '10.- | | | |%s' % (invoice.invoice_origin and invoice.invoice_origin.split(',')[0] or 'N/A'),
                 '11.- |%s| |%s|%s' % (total_units, total_weight, total_volume)
             ]
@@ -207,8 +224,8 @@ class AccountEdiFormat(models.Model):
             return notas
 
         invoice = invoice.with_context(lang=invoice.partner_id.lang)
-
-        move_lines_with_tax_type = invoice.line_ids.filtered('tax_line_id.l10n_co_edi_type')
+        code_to_filter = ['07', 'ZZ'] if invoice.move_type in ('in_invoice', 'in_refund') else ['ZZ']
+        move_lines_with_tax_type = invoice.line_ids.filtered(lambda l: l.tax_line_id.l10n_co_edi_type.code not in [False] + code_to_filter)
 
         ovt_tax_codes = ('01C', '02C', '03C')
         ovt_taxes = move_lines_with_tax_type.filtered(lambda move: move.tax_line_id.l10n_co_edi_type.code in ovt_tax_codes).tax_line_id
@@ -218,10 +235,14 @@ class AccountEdiFormat(models.Model):
             'out_refund': 'NC',
         }
 
-        def group_tax_retention(tax_values):
-            return {'tax': tax_values['tax_id'], 'l10n_co_edi_type': tax_values['tax_id'].l10n_co_edi_type}
+        def group_tax_retention(base_line, tax_values):
+            tax = tax_values['tax_repartition_line'].tax_id
+            return {'tax': tax, 'l10n_co_edi_type': tax.l10n_co_edi_type}
 
-        tax_details = invoice._prepare_edi_tax_details(grouping_key_generator=group_tax_retention)
+        def l10n_co_filter_to_apply(base_line, tax_values):
+            return tax_values['tax_repartition_line'].tax_id.l10n_co_edi_type.code not in code_to_filter
+
+        tax_details = invoice._prepare_edi_tax_details(filter_to_apply=l10n_co_filter_to_apply, grouping_key_generator=group_tax_retention)
         retention_taxes = [(group, detail) for group, detail in tax_details['tax_details'].items() if detail['l10n_co_edi_type'].retention]
         regular_taxes = [(group, detail) for group, detail in tax_details['tax_details'].items() if not detail['l10n_co_edi_type'].retention]
 
@@ -243,18 +264,18 @@ class AccountEdiFormat(models.Model):
             regular_lines_listdict[line.tax_line_id.l10n_co_edi_type.code].append(line)
 
         zero_tax_details = defaultdict(float)
-        for line, tax_detail in tax_details['invoice_line_tax_details'].items():
+        for line, tax_detail in tax_details['tax_details_per_record'].items():
             for tax, detail in tax_detail.get('tax_details').items():
                 if not detail.get('tax_amount'):
                     for grouped_tax in detail.get('group_tax_details'):
-                        tax = grouped_tax.get('tax_id')
+                        tax = tax.get('tax')
                         zero_tax_details[tax.l10n_co_edi_type.code] += abs(grouped_tax.get('base_amount'))
         retention_taxes_new = self._l10n_co_edi_prepare_tim_sections(retention_lines_listdict, invoice.currency_id, True)
         regular_taxes_new = self._l10n_co_edi_prepare_tim_sections(regular_lines_listdict, invoice.currency_id, False, zero_tax_details)
         # The rate should indicate how many pesos is one foreign currency
         currency_rate = "%.2f" % (tax_details['base_amount'] / tax_details['base_amount_currency'])
 
-        withholding_amount = '%.2f' % (invoice.amount_untaxed + sum(invoice.line_ids.filtered(lambda move: move.tax_line_id and not move.tax_line_id.l10n_co_edi_type.retention).mapped('price_total')))
+        withholding_amount = '%.2f' % (invoice.amount_untaxed + abs(sum(invoice.line_ids.filtered(lambda move: move.tax_line_id and not move.tax_line_id.l10n_co_edi_type.retention).mapped('amount_currency'))))
 
         # edi_type
         if invoice.move_type == 'out_refund':
@@ -273,14 +294,14 @@ class AccountEdiFormat(models.Model):
 
         # description
         description_field = None
-        if invoice.move_type == 'out_refund':
+        if invoice.move_type in ('out_refund', 'in_refund'):
             description_field = 'l10n_co_edi_description_code_credit'
-        if invoice.move_type == 'out_invoice' and invoice.l10n_co_edi_debit_note:
+        if invoice.move_type in ('out_invoice', 'in_invoice') and invoice.l10n_co_edi_debit_note:
             description_field = 'l10n_co_edi_description_code_debit'
         description_code = invoice[description_field] if description_field else None
         description = dict(invoice._fields[description_field].selection).get(description_code) if description_code else None
 
-        xml_content = self.env.ref('l10n_co_edi.electronic_invoice_xml')._render({
+        xml_content = self.env['ir.qweb']._render(self._l10n_co_edi_get_electronic_invoice_template(invoice), {
             'invoice': invoice,
             'edi_type': edi_type,
             'company_partner': invoice.company_id.partner_id,
@@ -294,7 +315,7 @@ class AccountEdiFormat(models.Model):
             'tax_types': invoice.mapped('line_ids.tax_ids.l10n_co_edi_type'),
             'exempt_tax_dict': exempt_tax_dict,
             'currency_rate': currency_rate,
-            'shipping_partner': self.env['res.partner'].browse(invoice._get_invoice_delivery_partner_id()),
+            'shipping_partner': invoice.partner_shipping_id,
             'invoice_type_to_ref_1': invoice_type_to_ref_1,
             'ovt_taxes': ovt_taxes,
             'float_compare': float_compare,
@@ -308,6 +329,11 @@ class AccountEdiFormat(models.Model):
             '_l10n_co_edi_get_round_amount': self._l10n_co_edi_get_round_amount
         })
         return b'<?xml version="1.0" encoding="utf-8"?>' + xml_content.encode()
+
+    def _l10n_co_edi_get_electronic_invoice_template(self, invoice):
+        if invoice.move_type in ('in_invoice', 'in_refund'):
+            return 'l10n_co_edi.electronic_invoice_vendor_document_xml'
+        return 'l10n_co_edi.electronic_invoice_xml'
 
     def _l10n_co_post_invoice_step_1(self, invoice):
         '''Sends the xml to carvajal.
@@ -326,7 +352,7 @@ class AccountEdiFormat(models.Model):
         })
 
         # == Upload ==
-        request = CarvajalRequest(invoice.company_id)
+        request = CarvajalRequest(invoice.move_type, invoice.company_id)
         response = request.upload(xml_filename, xml)
 
         if 'error' not in response:
@@ -350,7 +376,7 @@ class AccountEdiFormat(models.Model):
         download a ZIP containing the official XML and PDF if the
         invoice is reported as fully validated.
         '''
-        request = CarvajalRequest(invoice.company_id)
+        request = CarvajalRequest(invoice.move_type, invoice.company_id)
         response = request.check_status(invoice)
         if not response.get('error'):
             response['success'] = True
@@ -388,16 +414,32 @@ class AccountEdiFormat(models.Model):
         self.ensure_one()
         if self.code != 'ubl_carvajal':
             return super()._is_compatible_with_journal(journal)
-        return journal.type == 'sale' and journal.country_code == 'CO'
+        return journal.type in ['sale', 'purchase'] and journal.country_code == 'CO'
 
-    def _is_required_for_invoice(self, invoice):
-        # OVERRIDE
+    def _get_move_applicability(self, move):
+        # EXTENDS account_edi
         self.ensure_one()
         if self.code != 'ubl_carvajal':
-            return super()._is_required_for_invoice(invoice)
+            return super()._get_move_applicability(move)
 
         # Determine on which invoices the EDI must be generated.
-        return invoice.move_type in ('out_invoice', 'out_refund') and invoice.country_code == 'CO'
+        co_edi_needed = move.country_code == 'CO' and (
+            move.move_type in ('in_invoice', 'in_refund')
+            and bool(self.env.ref('l10n_co_edi.electronic_invoice_vendor_document_xml', raise_if_not_found=False))
+        ) or (
+            move.move_type in ('out_invoice', 'out_refund')
+        )
+        if co_edi_needed:
+            if move.l10n_co_edi_transaction:
+                return {
+                    'post': self._l10n_co_edi_post_invoice_step_2,
+                    'cancel': self._l10n_co_edi_cancel_invoice,
+                }
+            else:
+                return {
+                    'post': self._l10n_co_edi_post_invoice_step_1,
+                    'cancel': self._l10n_co_edi_cancel_invoice,
+                }
 
     def _check_move_configuration(self, move):
         # OVERRIDE
@@ -411,8 +453,8 @@ class AccountEdiFormat(models.Model):
         now = fields.Datetime.now()
         oldest_date = now - timedelta(days=5)
         newest_date = now + timedelta(days=10)
-        if not company.l10n_co_edi_username or not company.l10n_co_edi_password or not company.l10n_co_edi_company or \
-           not company.l10n_co_edi_account:
+        if not company.sudo().l10n_co_edi_username or not company.sudo().l10n_co_edi_password or not company.l10n_co_edi_company or \
+           not company.sudo().l10n_co_edi_account:
             edi_result.append(_("Carvajal credentials are not set on the company, please go to Accounting Settings and set the credentials."))
         if (move.move_type != 'out_refund' and not move.debit_origin_id) and \
            (not journal.l10n_co_edi_dian_authorization_number or not journal.l10n_co_edi_dian_authorization_date or not journal.l10n_co_edi_dian_authorization_end_date):
@@ -439,19 +481,11 @@ class AccountEdiFormat(models.Model):
 
         return edi_result
 
-    def _post_invoice_edi(self, invoices):
-        # OVERRIDE
-        self.ensure_one()
-        if self.code != 'ubl_carvajal':
-            return super()._post_invoice_edi(invoices)
+    def _l10n_co_edi_post_invoice_step_1(self, invoice):
+        return {invoice: self._l10n_co_post_invoice_step_1(invoice)}
 
-        invoice = invoices  # No batching ensures that only one invoice is given as parameter
-        if not invoice.l10n_co_edi_transaction:
-            return {invoice: self._l10n_co_post_invoice_step_1(invoice)}
-        else:
-            return {invoice: self._l10n_co_post_invoice_step_2(invoice)}
+    def _l10n_co_edi_post_invoice_step_2(self, invoice):
+        return {invoice: self._l10n_co_post_invoice_step_2(invoice)}
 
-    def _cancel_invoice_edi(self, invoices):
-        # OVERRIDE
-        self.ensure_one()
-        return {invoice: {'success': True} for invoice in invoices}  # By default, cancel succeeds doing nothing.
+    def _l10n_co_edi_cancel_invoice(self, invoice):
+        return {invoice: {'success': True}}

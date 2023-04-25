@@ -1,10 +1,13 @@
 odoo.define('web_studio.testUtils', function (require) {
 "use strict";
 
-const { start } = require('@mail/utils/test_utils');
+const { start } = require('@mail/../tests/helpers/test_utils');
 
 var dom = require('web.dom');
+const MockServer = require('web.MockServer');
+const { ComponentAdapter } = require('web.OwlCompatibility');
 var QWeb = require('web.QWeb');
+const { registry } = require('@web/core/registry');
 var testUtils = require('web.test_utils');
 var utils = require('web.utils');
 var Widget = require('web.Widget');
@@ -15,6 +18,8 @@ var ReportEditorSidebar = require('web_studio.ReportEditorSidebar');
 var ViewEditorManager = require('web_studio.ViewEditorManager');
 
 var weTestUtils = require('web_editor.test_utils');
+
+const { registerCleanup } = require("@web/../tests/helpers/cleanup");
 
 /**
  * Create a ReportEditorManager widget.
@@ -143,6 +148,24 @@ async function createSidebar(params) {
 }
 
 /**
+ * This class let us instanciate a widget via createWebClient and get it
+ * afterwards in order to use it during tests.
+ */
+const { onMounted, onWillUnmount } = require("@odoo/owl");
+class StudioEnvironmentComponent extends ComponentAdapter {
+    constructor() {
+        super(...arguments);
+        this.env = owl.Component.env;
+        onMounted(() => {
+            StudioEnvironmentComponent.currentWidget = this.widget;
+        });
+        onWillUnmount(() => {
+            StudioEnvironmentComponent.currentWidget = undefined;
+        });
+    }
+}
+
+/**
  * Create a ViewEditorManager widget.
  *
  * @param {Object} params
@@ -150,13 +173,39 @@ async function createSidebar(params) {
  */
 async function createViewEditorManager(params) {
     weTestUtils.patch();
-    params.data = weTestUtils.wysiwygData(params.data);
-    const { mockServer, widget } = await start(params);
-    const parent = new StudioEnvironment(widget);
-    const fieldsView = testUtils.mock.fieldsViewGet(mockServer, params);
+    params.serverData = params.serverData || {};
+    params.serverData.models = params.serverData.models || {};
+    params.serverData.models = weTestUtils.wysiwygData(params.serverData.models);
+    registry.category('main_components').add('StudioEnvironmentContainer', {
+        Component: StudioEnvironmentComponent,
+        props: { Component: StudioEnvironment },
+    });
+    const { env: wowlEnv } = await start({
+        ...params,
+        legacyParams: { withLegacyMockServer: true },
+    });
+    const parent = StudioEnvironmentComponent.currentWidget;
+    const fieldsView = testUtils.mock.getView(MockServer.currentMockServer, params);
     if (params.viewID) {
         fieldsView.view_id = params.viewID;
     }
+    const type = fieldsView.type;
+
+    const viewDescriptions = {
+        fields: fieldsView.fields,
+        relatedModels: {
+            [params.model]: fieldsView.fields,
+        },
+        views: {
+            [type]: {
+                arch: fieldsView.arch,
+                id: fieldsView.view_id || false,
+                custom_view_id: null,
+            },
+        }
+    }
+
+
     const vem = new ViewEditorManager(parent, {
         action: {
             context: params.context || {},
@@ -171,15 +220,14 @@ async function createViewEditorManager(params) {
         viewType: fieldsView.type,
         studio_view_id: params.studioViewID,
         chatter_allowed: params.chatter_allowed,
+        wowlEnv,
+        viewDescriptions,
     });
 
-    // also destroy to parent widget to avoid memory leak
-    const originalDestroy = ViewEditorManager.prototype.destroy;
-    vem.destroy = function () {
-        vem.destroy = originalDestroy;
-        widget.destroy();
+    registerCleanup(() => {
+        vem.destroy();
         weTestUtils.unpatch();
-    };
+    });
 
     const fragment = document.createDocumentFragment();
     await parent.prependTo(testUtils.prepareTarget(params.debug));

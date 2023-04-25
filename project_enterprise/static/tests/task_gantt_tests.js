@@ -3,7 +3,7 @@
 import { createView } from "web.test_utils";
 import { Domain } from "@web/core/domain";
 import { registerCleanup } from "@web/../tests/helpers/cleanup";
-import { TaskGanttView } from "@project_enterprise/js/task_gantt_view";
+import TaskGanttView from "@project_enterprise/js/task_gantt_view";
 
 const actualDate = new Date(2021, 5, 22, 8, 0, 0);
 const initialDate = new Date(actualDate.getTime() - actualDate.getTimezoneOffset() * 60 * 1000);
@@ -18,12 +18,16 @@ const ganttViewParams = {
         if (args.method === 'search_milestone_from_task') {
             return Promise.resolve([]);
         }
-        return this._super.apply(this, arguments);
+        return this._super(...arguments);
     },
 };
 
 QUnit.module("Views > GanttView > TaskGantt", {
     beforeEach() {
+        // Avoid animation to not have to wait until the tooltip is removed
+        this.initialPopoverDefaultAnimation = Popover.Default.animation;
+        Popover.Default.animation = false;
+
         ganttViewParams.data = {
             task: {
                 fields: {
@@ -43,6 +47,11 @@ QUnit.module("Views > GanttView > TaskGantt", {
                         relation: "stuff",
                     },
                     active: { string: "active", type: "boolean", default: true },
+                    project_id: {
+                        string: "Project",
+                        type: "many2one",
+                        relation: "project",
+                    },
                 },
                 records: [
                     {
@@ -51,6 +60,7 @@ QUnit.module("Views > GanttView > TaskGantt", {
                         start: "2021-06-14 08:00:00",
                         stop: "2021-06-24 08:00:00",
                         user_ids: 100,
+                        project_id: 1,
                     },
                     {
                         id: 2,
@@ -59,6 +69,7 @@ QUnit.module("Views > GanttView > TaskGantt", {
                         stop: "2021-06-12 08:00:00",
                         user_ids: 101,
                         stuff_id: 1,
+                        project_id: 1,
                     },
                 ],
             },
@@ -79,12 +90,22 @@ QUnit.module("Views > GanttView > TaskGantt", {
                 },
                 records: [{ id: 1, name: "Bruce Willis" }],
             },
+            project: {
+                fields: {
+                    id: { string: "ID", type: "integer" },
+                    name: { string: "Name", type: "char" },
+                },
+                records: [{ id: 1, name: "My Project" }],
+            },
         };
+    },
+    afterEach: async function() {
+        Popover.Default.animation = this.initialPopoverDefaultAnimation;
     },
 });
 
-QUnit.test("not user_ids grouped: empty groups are displayed first", async (assert) => {
-    assert.expect(1);
+QUnit.test("not user_ids grouped: empty groups are displayed first and user avatar is not displayed", async (assert) => {
+    assert.expect(2);
     const gantt = await createView({ ...ganttViewParams, groupBy: ["stuff_id"] });
     registerCleanup(gantt.destroy);
 
@@ -95,6 +116,8 @@ QUnit.test("not user_ids grouped: empty groups are displayed first", async (asse
         ["Undefined Stuff", "Bruce Willis"],
         "'Undefined Stuff' should be the first group"
     );
+    assert.containsNone(gantt, '.o_standalone_avatar_user','should not have user avatars');
+    gantt.destroy();
 });
 
 QUnit.test("not user_ids grouped: no empty group if no records", async (assert) => {
@@ -111,10 +134,11 @@ QUnit.test("not user_ids grouped: no empty group if no records", async (assert) 
         ["Bruce Willis"],
         "should not have an 'Undefined Stuff' group"
     );
+    gantt.destroy();
 });
 
 QUnit.test("user_ids grouped: specific empty group added, even if no records", async (assert) => {
-    assert.expect(1);
+    assert.expect(2);
     const gantt = await createView({ ...ganttViewParams, groupBy: ["user_ids"] });
     registerCleanup(gantt.destroy);
 
@@ -122,9 +146,11 @@ QUnit.test("user_ids grouped: specific empty group added, even if no records", a
         [...gantt.el.querySelectorAll(".o_gantt_row_container .o_gantt_row_sidebar")].map(
             (el) => el.innerText
         ),
-        ["Unassigned Tasks", "Jane Doe", "John Doe"],
+        ["Unassigned Tasks", " Jane Doe", " John Doe"],
         "'Unassigned Tasks' should be the first group, even if no record exist without user_ids"
     );
+    assert.containsN(gantt, '.o_standalone_avatar_user', 2, 'should have 2 user avatars');
+    gantt.destroy();
 });
 
 QUnit.test("[user_ids, ...] grouped", async (assert) => {
@@ -154,6 +180,7 @@ QUnit.test("[user_ids, ...] grouped", async (assert) => {
             "Bruce Willis",
         ]
     );
+    gantt.destroy();
 });
 
 QUnit.test("[..., user_ids(, ...)] grouped", async (assert) => {
@@ -174,6 +201,7 @@ QUnit.test("[..., user_ids(, ...)] grouped", async (assert) => {
             "John Doe",
         ]
     );
+    gantt.destroy();
 });
 
 QUnit.test('Empty groupby "Assigned To" and "Project" can be rendered', async function (assert) {

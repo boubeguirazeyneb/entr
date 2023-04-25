@@ -49,7 +49,6 @@ class sale_order(models.Model):
             for line in rec.order_line.sudo():
                 po_vals['order_line'] += [(0, 0, rec._prepare_purchase_order_line_data(line, rec.date_order, company))]
             purchase_order = self.env['purchase.order'].create(po_vals)
-            purchase_order.order_line._compute_tax_id()
             msg = _("Automatically generated from %(origin)s of company %(company)s.", origin=self.name, company=company.name)
             purchase_order.message_post(body=msg)
 
@@ -127,7 +126,8 @@ class SaleOrderLine(models.Model):
         line_to_purchase = set()
         for line in self:
             # Do not auto purchase as the sale order is automatically created in a intercompany flow
-            if self.env.user != line.company_id.intercompany_user_id:
+            company = self.env['res.company']._find_company_from_partner(line.order_id.partner_id.id)
+            if not company or company.rule_type not in ('purchase', 'sale_purchase') and not line.order_id.auto_generated:
                 line_to_purchase.add(line.id)
         line_to_purchase = self.env['sale.order.line'].browse(list(line_to_purchase))
         return super(SaleOrderLine, line_to_purchase)._purchase_service_create(quantity=quantity)

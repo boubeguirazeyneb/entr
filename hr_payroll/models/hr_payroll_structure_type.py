@@ -9,7 +9,7 @@ class HrPayrollStructureType(models.Model):
     _inherit = 'hr.payroll.structure.type'
     _description = 'Salary Structure Type'
 
-    name = fields.Char('Structure Type')
+    name = fields.Char('Structure Type', required=True)
     default_schedule_pay = fields.Selection([
         ('monthly', 'Monthly'),
         ('quarterly', 'Quarterly'),
@@ -41,8 +41,9 @@ class HrPayrollStructureType(models.Model):
             self._check_country(vals)
         return super().write(vals)
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         if self.env.context.get('payroll_check_country'):
-            self._check_country(vals)
-        return super().create(vals)
+            for vals in vals_list:
+                self._check_country(vals)
+        return super().create(vals_list)

@@ -54,6 +54,20 @@ patch(MockServer.prototype, "web_studio.MockServer", {
                 type: "ir.actions.act_window",
                 views: [[false, "kanban"]],
             };
+        } else if (args.action_name === "automations") {
+            return {
+                name: "Automated Actions",
+                type: "ir.actions.act_window",
+                res_model: "base.automation",
+                views: [[false, "list"]],
+                target: "current",
+                domain: [],
+                help: /*xml*/ `
+                    <p class="no_content_helper_class">
+                        This text content is needed here, otherwise the paragraph won't be rendered.
+                    </p>
+                `,
+            };
         }
     },
 
@@ -78,14 +92,19 @@ patch(MockServer.prototype, "web_studio.MockServer", {
         }
         const [modelName, , viewType] = uniqueViewKey[0];
 
+        const view = this.getView(modelName, [viewId, viewType], {
+            context: args.context,
+            options: {},
+        });
+        const models = {};
+        for (const modelName of Object.keys(view.models)) {
+            models[modelName] = this.mockFieldsGet(modelName);
+        }
         return {
-            fields_views: {
-                [viewType]: this.fieldsViewGet(modelName, [viewId, viewType], {
-                    context: args.context,
-                    options: {},
-                }),
+            views: {
+                [viewType]: view,
             },
-            fields: this.mockFieldsGet(modelName),
+            models,
             studio_view_id: false,
         };
     },

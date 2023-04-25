@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import Command
+from datetime import timedelta
+
+from odoo import Command, fields
 
 from odoo.addons.project.tests.test_project_sharing import TestProjectSharingCommon
 from odoo.addons.sale_timesheet_enterprise.models.sale import DEFAULT_INVOICED_TIMESHEET
@@ -12,8 +14,14 @@ class TestProjectSharing(TestProjectSharingCommon):
     def setUpClass(cls):
         super().setUpClass()
 
+        cls.analytic_plan = cls.env['account.analytic.plan'].create({
+            'name': 'Plan',
+            'company_id': False,
+        })
+
         cls.analytic_account = cls.env['account.analytic.account'].create({
             'name': 'Analytic Account for Project Shared',
+            'plan_id': cls.analytic_plan.id,
             'code': 'TEST'
         })
         cls.project_portal.write({'analytic_account_id': cls.analytic_account.id})
@@ -56,13 +64,11 @@ class TestProjectSharing(TestProjectSharingCommon):
             .with_context({'tracking_disable': True, 'default_project_id': project_shared.id}) \
             .create({
                 'name': 'Test Timesheets invoicing policy',
-                'timesheet_ids': [
-
-                ],
             })
         common_timesheet_vals = {
             'project_id': project_shared.id,
             'task_id': task.id,
+            'date': fields.Date.today() - timedelta(days=1),
         }
         timesheets = self.env['account.analytic.line'] \
             .with_context({'tracking_disable': True}) \

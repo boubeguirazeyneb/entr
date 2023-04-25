@@ -7,11 +7,12 @@ import os
 
 from lxml import etree
 
-from odoo.tests import Form
 from xmlrpc import client as xmlrpclib
 
-from odoo import api, fields, models, tools, _
+from odoo import api, fields, models, _, Command
 from odoo.exceptions import ValidationError
+from odoo.tools import float_compare
+from odoo.tools.misc import formatLang
 
 _logger = logging.getLogger(__name__)
 
@@ -35,8 +36,8 @@ class FetchmailServer(models.Model):
                            'site in the section: "ACTUALIZACION DE DATOS DEL CONTRIBUYENTE", "Mail Contacto SII"\n'
                            'and "Mail Contacto Empresas".')
     l10n_cl_last_uid = fields.Integer(
-        string='Last message UID (CL)', default=1,
-        help='This value is pointing to the number of the last message unread by odoo '
+        string='Last read message ID (CL)', default=1,
+        help='This value is pointing to the number of the last message read by odoo '
              'in the inbox. This value will be updated by the system during its normal'
              'operation.')
 
@@ -50,6 +51,12 @@ class FetchmailServer(models.Model):
         for server in self.filtered(lambda s: s.l10n_cl_is_dte):
             _logger.info('Start checking for new emails on %s IMAP server %s', server.server_type, server.name)
 
+            # prevents the process from timing out when connecting for the first time
+            # to an edi email server with too many new emails to process
+            # e.g over 5k emails. We will only fetch the next 50 "new" emails
+            # based on their IMAP uid
+            default_batch_size = 50
+
             count, failed = 0, 0
             imap_server = None
             try:
@@ -58,7 +65,7 @@ class FetchmailServer(models.Model):
 
                 result, data = imap_server.uid('search', None, '(UID %s:*)' % server.l10n_cl_last_uid)
                 new_max_uid = server.l10n_cl_last_uid
-                for uid in data[0].split():
+                for uid in data[0].split()[:default_batch_size]:
                     if int(uid) <= server.l10n_cl_last_uid:
                         # We get always minimum 1 message.  If no new message, we receive the newest already managed.
                         continue
@@ -71,9 +78,9 @@ class FetchmailServer(models.Model):
 
                     # To leave the mail in the state in which they were.
                     if 'Seen' not in data[1].decode('UTF-8'):
-                        imap_server.store(uid, '+FLAGS', '\\Seen')
+                        imap_server.uid('STORE', uid, '+FLAGS', '(\\Seen)')
                     else:
-                        imap_server.store(uid, '-FLAGS', '\\Seen')
+                        imap_server.uid('STORE', uid, '-FLAGS', '(\\Seen)')
 
                     # See details in message_process() in mail_thread.py
                     if isinstance(message, xmlrpclib.Binary):
@@ -84,6 +91,7 @@ class FetchmailServer(models.Model):
                     try:
                         server._process_incoming_email(msg_txt)
                         new_max_uid = max(new_max_uid, int(uid))
+                        server.write({'l10n_cl_last_uid': new_max_uid})
                         self._cr.commit()
                     except Exception:
                         _logger.info('Failed to process mail from %s server %s.', server.server_type, server.name,
@@ -132,7 +140,7 @@ class FetchmailServer(models.Model):
         This could be called from a button if there is a need to be processed manually
         """
         if origin_type == 'incoming_supplier_document':
-            for move in self._create_invoice_from_attachment(att_content, att_name, from_address, company_id):
+            for move in self._create_document_from_attachment(att_content, att_name, from_address, company_id):
                 if move.partner_id:
                     try:
                         move._l10n_cl_send_receipt_acknowledgment()
@@ -172,7 +180,7 @@ class FetchmailServer(models.Model):
                 continue
             document_type_code = self._get_document_type_from_xml(dte)
             document_type = self.env['l10n_latam.document.type'].search(
-                [('code', '=', document_type_code)], limit=1)
+                [('code', '=', document_type_code), ('country_id.code', '=', 'CL')], limit=1)
             zfill = self._get_doc_number_padding(company_id)
             name = '{} {}'.format(document_type.doc_code_prefix, document_number.zfill(zfill))
             move = self.env['account.move'].sudo().search([
@@ -222,13 +230,15 @@ class FetchmailServer(models.Model):
                       x.l10n_latam_document_number.lstrip('0') == document_number.lstrip('0')
         )) > 0
 
-    def _create_invoice_from_attachment(self, att_content, att_name, from_address, company_id):
+    def _create_document_from_attachment(self, att_content, att_name, from_address, company_id):
         moves = []
         xml_content = etree.fromstring(att_content)
         for dte_xml in xml_content.xpath('//ns0:DTE', namespaces=XML_NAMESPACES):
             document_number = self._get_document_number(dte_xml)
             document_type_code = self._get_document_type_from_xml(dte_xml)
-            document_type = self.env['l10n_latam.document.type'].search([('code', '=', document_type_code)], limit=1)
+            xml_total_amount = float(dte_xml.findtext('.//ns0:MntTotal', namespaces=XML_NAMESPACES))
+            document_type = self.env['l10n_latam.document.type'].search(
+                [('code', '=', document_type_code), ('country_id.code', '=', 'CL')], limit=1)
             if not document_type:
                 _logger.info('DTE has been discarded! Document type %s not found' % document_type_code)
                 continue
@@ -252,9 +262,9 @@ class FetchmailServer(models.Model):
 
             except Exception as error:
                 _logger.info(error)
-                with Form(self.env['account.move'].with_context(
+                with self.env['account.move'].with_context(
                         default_move_type=default_move_type, allowed_company_ids=[company_id],
-                        account_predictive_bills_disable_prediction=True)) as invoice_form:
+                        account_predictive_bills_disable_prediction=True)._get_edi_creation() as invoice_form:
                     msgs.append(error)
                     invoice_form.partner_id = partner
                     invoice_form.l10n_latam_document_type_id = document_type
@@ -262,7 +272,7 @@ class FetchmailServer(models.Model):
 
             if not partner:
                 invoice_form.narration = issuer_vat or ''
-            move = invoice_form.save()
+            move = invoice_form
 
             dte_attachment = self.env['ir.attachment'].create({
                 'name': 'DTE_{}.xml'.format(document_number),
@@ -286,6 +296,13 @@ class FetchmailServer(models.Model):
                     'name': self._get_dte_partner_name(xml_content) or '',
                     'address': self._get_dte_issuer_address(xml_content) or ''}, attachment_ids=[dte_attachment.id])
 
+            if float_compare(move.amount_total, xml_total_amount, precision_digits=move.currency_id.decimal_places) != 0:
+                move.message_post(
+                    body=_('<strong>Warning:</strong> The total amount of the DTE\'s XML is %s and the total amount '
+                           'calculated by Odoo is %s. Typically this is caused by additional lines in the detail or '
+                           'by unidentified taxes, please check if a manual correction is needed.')
+                    % (formatLang(self.env, xml_total_amount, currency_obj=move.currency_id),
+                       formatLang(self.env, move.amount_total, currency_obj=move.currency_id)))
             move.l10n_cl_dte_acceptation_status = 'received'
             moves.append(move)
             _logger.info(_('New move has been created from DTE %s with id: %s') % (att_name, move.id))
@@ -296,11 +313,15 @@ class FetchmailServer(models.Model):
         """
         This method creates a draft vendor bill from the attached xml in the incoming email.
         """
-        with Form(self.env['account.move'].with_context(
+        with self.env['account.move'].with_context(
+                default_invoice_source_email=from_address,
                 default_move_type=default_move_type, allowed_company_ids=[company_id],
-                account_predictive_bills_disable_prediction=True)) as invoice_form:
+                account_predictive_bills_disable_prediction=True)._get_edi_creation() as invoice_form:
+            journal = self._get_dte_purchase_journal(company_id)
+            if journal:
+                invoice_form.journal_id = journal
+
             invoice_form.partner_id = partner
-            invoice_form.invoice_source_email = from_address
             invoice_date = dte_xml.findtext('.//ns0:FchEmis', namespaces=XML_NAMESPACES)
             if invoice_date is not None:
                 invoice_form.invoice_date = fields.Date.from_string(invoice_date)
@@ -312,46 +333,41 @@ class FetchmailServer(models.Model):
             if invoice_date_due is not None:
                 invoice_form.invoice_date_due = fields.Date.from_string(invoice_date_due)
 
-            journal = self._get_dte_purchase_journal(company_id)
-            if journal:
-                invoice_form.journal_id = journal
             currency = self._get_dte_currency(dte_xml)
             if currency:
                 invoice_form.currency_id = currency
 
             invoice_form.l10n_latam_document_type_id = document_type
             invoice_form.l10n_latam_document_number = document_number
-            for invoice_line in self._get_dte_lines(dte_xml, company_id, partner.id):
-                price_unit = invoice_line.get('price_unit')
-                with invoice_form.invoice_line_ids.new() as invoice_line_form:
-                    invoice_line_form.product_id = invoice_line.get('product', self.env['product.product'])
-                    invoice_line_form.name = invoice_line.get('name')
-                    invoice_line_form.quantity = invoice_line.get('quantity')
-                    invoice_line_form.price_unit = price_unit
-                    invoice_line_form.discount = invoice_line.get('discount', 0)
-
-                    if not invoice_line.get('default_tax'):
-                        invoice_line_form.tax_ids.clear()
-                    for tax in invoice_line.get('taxes', []):
-                        invoice_line_form.tax_ids.add(tax)
-            for reference_line in self._get_invoice_references(dte_xml):
-                if not self._is_valid_reference_doc_type(
-                        reference_line.get('l10n_cl_reference_doc_type_selection')):
-                    msgs.append(_('There is an unidentified reference in this invoice:<br/>'
-                                  '<li>Origin: %(origin_doc_number)s<li/>'
-                                  '<li>Reference Code: %(reference_doc_code)s<li/>'
-                                  '<li>Doc Type: %(l10n_cl_reference_doc_type_selection)s<li/>'
-                                  '<li>Reason: %(reason)s<li/>'
-                                  '<li>Date:%(date)s') % reference_line)
-                    continue
-                with invoice_form.l10n_cl_reference_ids.new() as reference_line_form:
-                    reference_line_form.origin_doc_number = reference_line['origin_doc_number']
-                    reference_line_form.reference_doc_code = reference_line['reference_doc_code']
-                    reference_line_form.l10n_cl_reference_doc_type_selection = reference_line[
-                        'l10n_cl_reference_doc_type_selection']
-                    reference_line_form.reason = reference_line['reason']
-                    reference_line_form.date = reference_line['date']
-
+            dte_lines = self._get_dte_lines(dte_xml, company_id, partner.id)
+            invoice_form.write({
+                'invoice_line_ids': [
+                    Command.create({
+                        'product_id': dte_line.get('product', self.env['product.product']).id,
+                        'name': dte_line.get('name'),
+                        'quantity': dte_line.get('quantity'),
+                        'price_unit': dte_line.get('price_unit'),
+                        'discount': dte_line.get('discount', 0),
+                        'tax_ids': [Command.set([tax.id for tax in dte_line.get('taxes', [])])],
+                    })
+                    for dte_line in dte_lines
+                ],
+                'l10n_cl_reference_ids': [
+                    Command.create({
+                        'origin_doc_number': reference_line['origin_doc_number'],
+                        'reference_doc_code': reference_line['reference_doc_code'],
+                        'l10n_cl_reference_doc_type_id': reference_line['l10n_cl_reference_doc_type_id'].id,
+                        'reason': reference_line['reason'],
+                        'date': reference_line['date'],
+                    })
+                    for reference_line in self._get_invoice_references(dte_xml)
+                ],
+            })
+            for line, dte_line in zip(invoice_form.invoice_line_ids, dte_lines):
+                if dte_line.get('default_tax'):
+                    default_tax = line._get_computed_taxes()
+                    if default_tax not in line.tax_ids:
+                        line.tax_ids += default_tax
         return invoice_form, msgs
 
     def _is_dte_email(self, attachment_content):
@@ -388,14 +404,7 @@ class FetchmailServer(models.Model):
             return 'incoming_sii_dte_result'
         return 'not_classified'
 
-    def _get_partner(self, partner_rut, company_id=False):
-        if not company_id:
-            # The company_id parameter was added to fix a bug where partners that were
-            # inaccessible to the company could be returned, resulting in access errors
-            # later. If the company is not specified, use the old logic that still has
-            # the bug to keep the function signature stable. To be removed in master.
-            return self.env['res.partner'].search([('vat', '=', partner_rut)], limit=1)
-
+    def _get_partner(self, partner_rut, company_id):
         return self.env["res.partner"].search(
             [
                 ("vat", "=", partner_rut),
@@ -473,7 +482,7 @@ class FetchmailServer(models.Model):
         4) if 3 previous criteria fail, check product name, and return false if fails
         """
         if partner_id:
-            supplier_info_domain = [('name', '=', partner_id), ('company_id', 'in', [company_id, False])]
+            supplier_info_domain = [('partner_id', '=', partner_id), ('company_id', 'in', [company_id, False])]
             if product_code:
                 # 1st criteria
                 supplier_info_domain.append(('product_code', '=', product_code))
@@ -539,8 +548,8 @@ class FetchmailServer(models.Model):
                 # additional taxes (withholdings)
                 # even if the company has not selected its default tax value, we deduct it
                 # from the price unit, gathering the value rate of the l10n_cl default purchase tax
-                values['price_unit'] = default_purchase_tax.with_context(force_price_include=True).compute_all(
-                    price_unit, currency)['total_excluded']
+                values['price_unit'] = default_purchase_tax.with_context(
+                 force_price_include=True).compute_all(price_unit, currency)['total_excluded']
             invoice_lines.append(values)
 
         for desc_rcg_global in dte_xml.findall('.//ns0:DscRcgGlobal', namespaces=XML_NAMESPACES):
@@ -589,20 +598,19 @@ class FetchmailServer(models.Model):
             invoice_lines.append(values)
         return invoice_lines
 
-    def _is_valid_reference_doc_type(self, reference_doc_type):
-        reference_codes = [item[0] for item in self.env['l10n_cl.account.invoice.reference']._fields[
-            'l10n_cl_reference_doc_type_selection'].selection]
-        return reference_doc_type in reference_codes
-
     def _get_invoice_references(self, dte_xml):
         invoice_reference_ids = []
         for reference in dte_xml.findall('.//ns0:Referencia', namespaces=XML_NAMESPACES):
-            invoice_reference_ids.append({
+            new_reference = {
+                'reference_doc_type': reference.findtext('.//ns0:TpoDocRef', namespaces=XML_NAMESPACES),
                 'origin_doc_number': reference.findtext('.//ns0:FolioRef', namespaces=XML_NAMESPACES),
                 'reference_doc_code': reference.findtext('.//ns0:CodRef', namespaces=XML_NAMESPACES),
-                'l10n_cl_reference_doc_type_selection': reference.findtext('.//ns0:TpoDocRef',
-                                                                           namespaces=XML_NAMESPACES),
                 'reason': reference.findtext('.//ns0:RazonRef', namespaces=XML_NAMESPACES),
                 'date': reference.findtext('.//ns0:FchRef', namespaces=XML_NAMESPACES),
-            })
+            }
+            new_reference['l10n_cl_reference_doc_type_id'] = self.env['l10n_latam.document.type'].search(
+                [('code', '=', new_reference['reference_doc_type'])], limit=1)
+            if not new_reference['l10n_cl_reference_doc_type_id']:
+                new_reference['reason'] = '%s: %s' % (new_reference['reference_doc_type'], new_reference['reason'])
+            invoice_reference_ids.append(new_reference)
         return invoice_reference_ids

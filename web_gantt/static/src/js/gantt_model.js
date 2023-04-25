@@ -1,25 +1,26 @@
-odoo.define('web_gantt.GanttModel', function (require) {
-"use strict";
+/** @odoo-module alias=web_gantt.GanttModel */
 
-var AbstractModel = require('web.AbstractModel');
-var concurrency = require('web.concurrency');
-var core = require('web.core');
-var fieldUtils = require('web.field_utils');
-const { findWhere, groupBy } = require('web.utils');
-var session = require('web.session');
+import AbstractModel from 'web.AbstractModel';
+import { x2ManyCommands } from '@web/core/orm_service';
+import concurrency from 'web.concurrency';
+import core from 'web.core';
+import fieldUtils from 'web.field_utils';
+import { findWhere, groupBy } from 'web.utils';
+import session from 'web.session';
 
-var _t = core._t;
+const _t = core._t;
 
-
-var GanttModel = AbstractModel.extend({
+export default AbstractModel.extend({
     /**
      * @override
      */
-    init: function () {
+    init(parent, params = {}) {
         this._super.apply(this, arguments);
 
         this.dp = new concurrency.DropPrevious();
         this.mutex = new concurrency.Mutex();
+        this.dependencyField = params.dependencyField;
+        this.dependencyInvertedField = params.dependencyInvertedField;
     },
 
     //--------------------------------------------------------------------------
@@ -31,14 +32,14 @@ var GanttModel = AbstractModel.extend({
      *
      * @param {string} rowId
      */
-    collapseRow: function (rowId) {
+    collapseRow(rowId) {
         this.allRows[rowId].isOpen = false;
     },
     /**
      * Collapses all rows (first level only).
      */
-    collapseRows: function () {
-        this.ganttData.rows.forEach(function (group) {
+    collapseRows() {
+        this.ganttData.rows.forEach((group) => {
             group.isOpen = false;
         });
     },
@@ -48,12 +49,31 @@ var GanttModel = AbstractModel.extend({
      * @param {Moment} date
      * @returns {string} date in server format
      */
-    convertToServerTime: function (date) {
-        var result = date.clone();
+    convertToServerTime(date) {
+        const result = date.clone();
         if (!result.isUTC()) {
             result.subtract(session.getTZOffset(date), 'minutes');
         }
         return result.locale('en').format('YYYY-MM-DD HH:mm:ss');
+    },
+    /**
+     * Adds a dependency between masterId and slaveId (slaveId depends
+     * on masterId).
+     *
+     * @param masterId
+     * @param slaveId
+     * @returns {Promise<*>}
+     */
+    async createDependency(masterId, slaveId) {
+        return this.mutex.exec(() => {
+            const writeCommand = {};
+            writeCommand[this.dependencyField] = [x2ManyCommands.linkTo(masterId)];
+            return this._rpc({
+                model: this.modelName,
+                method: 'write',
+                args: [[slaveId], writeCommand],
+            });
+        });
     },
     /**
      * Add or subtract value to a moment.
@@ -65,10 +85,10 @@ var GanttModel = AbstractModel.extend({
      * @param {integer} offset
      * @param {string} unit
      */
-    dateAdd: function(date, offset, unit) {
-        var result = date.clone().add(offset, unit);
+    dateAdd(date, offset, unit) {
+        const result = date.clone().add(offset, unit);
         if(Math.abs(result.diff(date, 'hours')) >= 24) {
-            var tzOffsetDiff = result.clone().local().utcOffset() - date.clone().local().utcOffset();
+            const tzOffsetDiff = result.clone().local().utcOffset() - date.clone().local().utcOffset();
             if(tzOffsetDiff !== 0) {
                 result.subtract(tzOffsetDiff, 'minutes');
             }
@@ -81,7 +101,7 @@ var GanttModel = AbstractModel.extend({
      * @returns {Object} the whole gantt data if no rowId given, the given row's
      *   description otherwise
      */
-    __get: function (rowId) {
+    __get(rowId) {
         if (rowId) {
             return this.allRows[rowId];
         } else {
@@ -93,18 +113,17 @@ var GanttModel = AbstractModel.extend({
      *
      * @param {string} rowId
      */
-    expandRow: function (rowId) {
+    expandRow(rowId) {
         this.allRows[rowId].isOpen = true;
     },
     /**
      * Expands all rows.
      */
-    expandRows: function () {
-        var self = this;
-        Object.keys(this.allRows).forEach(function (rowId) {
-            var row = self.allRows[rowId];
+    expandRows() {
+        Object.keys(this.allRows).forEach((rowId) => {
+            const row = this.allRows[rowId];
             if (row.isGroup) {
-                self.allRows[rowId].isOpen = true;
+                this.allRows[rowId].isOpen = true;
             }
         });
     },
@@ -116,7 +135,8 @@ var GanttModel = AbstractModel.extend({
      * @param {string} params.dateStartField
      * @param {string} params.dateStopField
      * @param {string[]} params.decorationFields
-     * @param {string[]} params.defaultGroupBy
+     * @param {string} params.defaultGroupBy
+     * @param {string} params.permanentGroupBy
      * @param {boolean} params.displayUnavailability
      * @param {Array[]} params.domain
      * @param {Object} params.fields
@@ -127,7 +147,7 @@ var GanttModel = AbstractModel.extend({
      * @param {string} params.scale
      * @returns {Promise<any>}
      */
-    __load: async function (params) {
+    async __load(params) {
         await this._super(...arguments);
         this.modelName = params.modelName;
         this.fields = params.fields;
@@ -140,11 +160,16 @@ var GanttModel = AbstractModel.extend({
         this.collapseFirstLevel = params.collapseFirstLevel;
         this.displayUnavailability = params.displayUnavailability;
         this.SCALES = params.SCALES;
+        this.progressBarFields = params.progressBarFields ? params.progressBarFields.split(",") : false;
 
-        this.defaultGroupBy = params.defaultGroupBy ? [params.defaultGroupBy] : [];
+        this.defaultGroupBy = params.defaultGroupBy ? params.defaultGroupBy.split(',') : [];
+        this.permanentGroupBy  = params.permanentGroupBy
         let groupedBy = params.groupedBy;
         if (!groupedBy || !groupedBy.length) {
             groupedBy = this.defaultGroupBy;
+        }
+        if (this.permanentGroupBy && !groupedBy.includes(this.permanentGroupBy)) {
+            groupedBy.push(this.permanentGroupBy)
         }
         groupedBy = this._filterDateInGroupedBy(groupedBy);
 
@@ -156,7 +181,7 @@ var GanttModel = AbstractModel.extend({
             dynamicRange: params.dynamicRange,
         };
         this._setRange(params.initialDate, params.scale);
-        return this._fetchData().then(function () {
+        return this._fetchData().then(() => {
             // The 'load' function returns a promise which resolves with the
             // handle to pass to the 'get' function to access the data. In this
             // case, we don't want to pass any argument to 'get' (see its API).
@@ -172,7 +197,7 @@ var GanttModel = AbstractModel.extend({
      * @param {Moment} params.date
      * @returns {Promise<any>}
      */
-    __reload: async function (handle, params) {
+    async __reload(handle, params) {
         await this._super(...arguments);
         if ('scale' in params) {
             this._setRange(this.ganttData.focusDate, params.scale);
@@ -189,11 +214,14 @@ var GanttModel = AbstractModel.extend({
                 if(this.ganttData.groupedBy.length !== params.groupBy.length){
                     this.displayNotification({ message: _t('Grouping by date is not supported'), type: 'danger' });
                 }
+                if (this.permanentGroupBy && !this.ganttData.groupedBy.includes(this.permanentGroupBy)) {
+                    this.ganttData.groupedBy.push(this.permanentGroupBy)
+                }
             } else {
                 this.ganttData.groupedBy = this.defaultGroupBy;
             }
         }
-        return this._fetchData().then(function () {
+        return this._fetchData().then(() => {
             // The 'reload' function returns a promise which resolves with the
             // handle to pass to the 'get' function to access the data. In this
             // case, we don't want to pass any argument to 'get' (see its API).
@@ -207,15 +235,33 @@ var GanttModel = AbstractModel.extend({
      * @param {Object} schedule
      * @returns {Promise}
      */
-    copy: function (id, schedule) {
-        var self = this;
+    copy(id, schedule) {
         const defaults = this.rescheduleData(schedule);
-        return this.mutex.exec(function () {
-            return self._rpc({
-                model: self.modelName,
+        return this.mutex.exec(() => {
+            return this._rpc({
+                model: this.modelName,
                 method: 'copy',
                 args: [id, defaults],
-                context: self.context,
+                context: this.context,
+            });
+        });
+    },
+    /**
+     * Removes the dependency between masterId and slaveId (slaveId is no
+     * more dependent on masterId).
+     *
+     * @param masterId
+     * @param slaveId
+     * @returns {Promise<*>}
+     */
+    async removeDependency(masterId, slaveId) {
+        return this.mutex.exec(() => {
+            const writeCommand = {};
+            writeCommand[this.dependencyField] = [x2ManyCommands.forget(masterId)];
+            return this._rpc({
+                model: this.modelName,
+                method: 'write',
+                args: [[slaveId], writeCommand],
             });
         });
     },
@@ -227,18 +273,17 @@ var GanttModel = AbstractModel.extend({
      * @param {boolean} isUTC
      * @returns {Promise}
      */
-    reschedule: function (ids, schedule, isUTC, callback) {
-        var self = this;
+    reschedule(ids, schedule, isUTC, callback) {
         if (!_.isArray(ids)) {
             ids = [ids];
         }
         const data = this.rescheduleData(schedule, isUTC);
-        return this.mutex.exec(function () {
-            return self._rpc({
-                model: self.modelName,
+        return this.mutex.exec(() => {
+            return this._rpc({
+                model: this.modelName,
                 method: 'write',
                 args: [ids, data],
-                context: self.context,
+                context: this.context,
             }).then((result) => {
                 if (callback) {
                     callback(result);
@@ -247,10 +292,35 @@ var GanttModel = AbstractModel.extend({
         });
     },
     /**
+     * Reschedule masterId or slaveId according to the direction
+     *
+     * @param direction
+     * @param masterId
+     * @param slaveId
+     * @returns {Promise<*>}
+     */
+    async rescheduleAccordingToDependency(direction, masterId, slaveId) {
+        return this.mutex.exec(() => {
+            return this._rpc({
+                model: this.modelName,
+                method: 'web_gantt_reschedule',
+                args: [
+                    direction,
+                    masterId,
+                    slaveId,
+                    this.dependencyField,
+                    this.dependencyInvertedField,
+                    this.ganttData.dateStartField,
+                    this.ganttData.dateStopField
+                ],
+            });
+        });
+    },
+    /**
      * @param {Object} schedule
      * @param {boolean} isUTC
      */
-    rescheduleData: function (schedule, isUTC) {
+    rescheduleData(schedule, isUTC) {
         const allowedFields = [
             this.ganttData.dateStartField,
             this.ganttData.dateStopField,
@@ -274,17 +344,31 @@ var GanttModel = AbstractModel.extend({
     //--------------------------------------------------------------------------
 
     /**
+     * Post `_fetchData` process that relies on `this.rows`.
+     * @private
+     * @returns [Promise]
+     */
+    _fetchDataPostProcess() {
+        const proms = [];
+        if (this.displayUnavailability && !this.isSampleModel) {
+            proms.push(this._fetchUnavailability());
+        }
+        if (this.progressBarFields && !this.isSampleModel) {
+            proms.push(this._fetchProgressBarData());
+        }
+        return proms;
+    },
+    /**
      * Fetches records to display (and groups if necessary).
      *
      * @private
      * @returns {Deferred}
      */
-    _fetchData: function () {
-        var self = this;
-        var domain = this._getDomain();
-        var context = Object.assign({}, this.context, { group_by: this.ganttData.groupedBy });
+    _fetchData() {
+        const domain = this._getDomain();
+        const context = Object.assign({}, this.context, { group_by: this.ganttData.groupedBy });
 
-        var groupsDef;
+        let groupsDef;
         if (this.ganttData.groupedBy.length) {
             groupsDef = this._rpc({
                 model: this.modelName,
@@ -293,38 +377,35 @@ var GanttModel = AbstractModel.extend({
                 domain: domain,
                 context: context,
                 groupBy: this.ganttData.groupedBy,
-                orderBy: this.ganttData.groupedBy.map(function (f) { return {name: f}; }),
+                orderBy: this.ganttData.groupedBy.map((f) => { return {name: f}; }),
                 lazy: this.ganttData.groupedBy.length === 1,
             });
         }
 
-        var dataDef = this._rpc({
+        const dataDef = this._rpc({
             route: '/web/dataset/search_read',
             model: this.modelName,
             fields: this._getFields(),
             context: context,
+            orderBy: [{name: this.ganttData.dateStartField}],
             domain: domain,
         });
 
-        return this.dp.add(Promise.all([groupsDef, dataDef])).then(function (results) {
+        return this.dp.add(Promise.all([groupsDef, dataDef])).then((results) => {
             const groups = results[0] || [];
             groups.forEach((g) => (g.fromServer = true));
-            var searchReadResult = results[1];
-            var oldRows = self.allRows;
-            self.allRows = {};
-            self.ganttData.records = self._parseServerData(searchReadResult.records);
-            self.ganttData.rows = self._generateRows({
-                groupedBy: self.ganttData.groupedBy,
+            const searchReadResult = results[1];
+            const oldRows = this.allRows;
+            this.allRows = {};
+            this.ganttData.records = this._parseServerData(searchReadResult.records);
+            this.ganttData.rows = this._generateRows({
+                groupedBy: this.ganttData.groupedBy,
                 groups: groups,
                 oldRows: oldRows,
                 parentPath: [],
-                records: self.ganttData.records,
+                records: this.ganttData.records,
             });
-            var unavailabilityProm;
-            if (self.displayUnavailability && !self.isSampleModel) {
-                unavailabilityProm = self._fetchUnavailability();
-            }
-            return unavailabilityProm;
+            return Promise.all(this._fetchDataPostProcess());
         });
     },
     /**
@@ -334,16 +415,15 @@ var GanttModel = AbstractModel.extend({
      * @param {Object} rows in the format of ganttData.rows
      * @returns {Object} simplified rows only containing useful attributes
      */
-    _computeUnavailabilityRows: function(rows) {
-        var self = this;
-        return _.map(rows, function (r) {
+    _computeUnavailabilityRows(rows) {
+        return _.map(rows, (r) => {
             if (r) {
                 return {
                     groupedBy: r.groupedBy,
                     records: r.records,
                     name: r.name,
                     resId: r.resId,
-                    rows: self._computeUnavailabilityRows(r.rows)
+                    rows: this._computeUnavailabilityRows(r.rows)
                 }
             } else {
                 return r;
@@ -356,8 +436,7 @@ var GanttModel = AbstractModel.extend({
      * @private
      * @returns {Deferred}
      */
-    _fetchUnavailability: function () {
-        var self = this;
+    _fetchUnavailability() {
         return this._rpc({
             model: this.modelName,
             method: 'gantt_unavailability',
@@ -369,9 +448,9 @@ var GanttModel = AbstractModel.extend({
                 this._computeUnavailabilityRows(this.ganttData.rows),
             ],
             context: this.context,
-        }).then(function (enrichedRows) {
+        }).then((enrichedRows) => {
             // Update ganttData.rows with the new unavailabilities data
-            self._updateUnavailabilityRows(self.ganttData.rows, enrichedRows);
+            this._updateUnavailabilityRows(this.ganttData.rows, enrichedRows);
         });
     },
     /**
@@ -382,19 +461,18 @@ var GanttModel = AbstractModel.extend({
      * @param {Object} enriched rows as returned by the gantt_unavailability rpc call
      * @returns {Object} original rows enriched with the unavailabilities data
      */
-    _updateUnavailabilityRows: function (original, enriched) {
-        var self = this;
-        _.zip(original, enriched).forEach(function (rowPair) {
-            var o = rowPair[0];
-            var e = rowPair[1];
-            o.unavailabilities = _.map(e.unavailabilities, function (u) {
+    _updateUnavailabilityRows(original, enriched) {
+        _.zip(original, enriched).forEach((rowPair) => {
+            const o = rowPair[0];
+            const e = rowPair[1];
+            o.unavailabilities = _.map(e.unavailabilities, (u) => {
                 // These are new data from the server, they haven't been parsed yet
-                u.start = self._parseServerValue({ type: 'datetime' }, u.start);
-                u.stop = self._parseServerValue({ type: 'datetime' }, u.stop);
+                u.start = this._parseServerValue({ type: 'datetime' }, u.start);
+                u.stop = this._parseServerValue({ type: 'datetime' }, u.stop);
                 return u;
             });
             if (o.rows && e.rows) {
-                self._updateUnavailabilityRows(o.rows, e.rows);
+                this._updateUnavailabilityRows(o.rows, e.rows);
             }
         });
     },
@@ -510,7 +588,7 @@ var GanttModel = AbstractModel.extend({
                     records: groupRecords,
                 });
                 row.childrenRowIds = [];
-                row.rows.forEach(function (subRow) {
+                row.rows.forEach((subRow) => {
                     row.childrenRowIds.push(subRow.id);
                     row.childrenRowIds = row.childrenRowIds.concat(subRow.childrenRowIds || []);
                 });
@@ -527,8 +605,8 @@ var GanttModel = AbstractModel.extend({
      * @private
      * @returns {Array[]}
      */
-    _getDomain: function () {
-        var domain = [
+    _getDomain() {
+        const domain = [
             [this.ganttData.dateStartField, '<=', this.convertToServerTime(this.ganttData.stopDate)],
             [this.ganttData.dateStopField, '>=', this.convertToServerTime(this.ganttData.startDate)],
         ];
@@ -540,8 +618,8 @@ var GanttModel = AbstractModel.extend({
      * @private
      * @returns {string[]}
      */
-    _getFields: function () {
-        var fields = ['display_name', this.ganttData.dateStartField, this.ganttData.dateStopField];
+    _getFields() {
+        let fields = ['display_name', this.ganttData.dateStartField, this.ganttData.dateStopField];
         fields = fields.concat(this.ganttData.groupedBy, this.decorationFields);
 
         if (this.progressField) {
@@ -570,8 +648,8 @@ var GanttModel = AbstractModel.extend({
      * @param {Object} field
      * @returns {string} formatted field value
      */
-    _getFieldFormattedValue: function (value, field) {
-        var options = {};
+    _getFieldFormattedValue(value, field) {
+        let options = {};
         if (field.type === 'boolean') {
             options = {forceString: true};
         }
@@ -606,12 +684,10 @@ var GanttModel = AbstractModel.extend({
      * @param {Object} data the server data to parse
      * @returns {Promise<any>}
      */
-    _parseServerData: function (data) {
-        var self = this;
-
-        data.forEach(function (record) {
-            Object.keys(record).forEach(function (fieldName) {
-                record[fieldName] = self._parseServerValue(self.fields[fieldName], record[fieldName]);
+    _parseServerData(data) {
+        data.forEach((record) => {
+            Object.keys(record).forEach((fieldName) => {
+                record[fieldName] = this._parseServerValue(this.fields[fieldName], record[fieldName]);
             });
         });
 
@@ -624,7 +700,7 @@ var GanttModel = AbstractModel.extend({
      * @param {Moment} focusDate current activated date
      * @param {string} scale current activated scale
      */
-    _setRange: function (focusDate, scale) {
+    _setRange(focusDate, scale) {
         this.ganttData.scale = scale;
         this.ganttData.focusDate = focusDate;
         if (this.ganttData.dynamicRange) {
@@ -641,13 +717,85 @@ var GanttModel = AbstractModel.extend({
     _filterDateInGroupedBy(groupedBy) {
         return groupedBy.filter(
             groupedByField => {
-                var fieldName = groupedByField.split(':')[0];
+                const fieldName = groupedByField.split(':')[0];
                 return fieldName in this.fields && this.fields[fieldName].type.indexOf('date') === -1;
             }
         );
     },
-});
 
-return GanttModel;
-
+    //----------------------
+    // Gantt Progress Bars
+    //----------------------
+    /**
+     * Get progress bars info in order to display progress bar in gantt title column
+     *
+     * @private
+     */
+    _fetchProgressBarData() {
+        const progressBarFields = this.progressBarFields.filter(field => this.ganttData.groupedBy.includes(field));
+        if (this.isSampleModel || !progressBarFields.length) {
+            return;
+        }
+        const resIds = {};
+        let hasResIds = false;
+        for (const field of progressBarFields) {
+            resIds[field] = this._getProgressBarResIds(field, this.ganttData.rows);
+            hasResIds = hasResIds || resIds[field].length;
+        }
+        if (!hasResIds) {
+            return;
+        }
+        return this._rpc({
+            model: this.modelName,
+            method: 'gantt_progress_bar',
+            args: [
+                progressBarFields,
+                resIds,
+                this.convertToServerTime(this.ganttData.startDate),
+                this.convertToServerTime(this.ganttData.endDate || this.ganttData.startDate.clone().add(1, this.ganttData.scale)),
+            ],
+        }).then((progressBarInfo) => {
+            for (const field of progressBarFields) {
+                this._addProgressBarInfo(field, this.ganttData.rows, progressBarInfo[field]);
+            }
+        });
+    },
+    /**
+     * Recursive function to get resIds of groups where the progress bar will be added.
+     *
+     * @private
+     */
+    _getProgressBarResIds(field, rows) {
+        const resIds = [];
+        for (const row of rows) {
+            if (row.groupedByField === field) {
+                if (row.resId !== false) {
+                    resIds.push(row.resId);
+                }
+            } else {
+                resIds.push(...this._getProgressBarResIds(field, row.rows || []));
+            }
+        }
+        return [...new Set(resIds)];
+    },
+    /**
+     * Recursive function to add progressBar info to rows grouped by the field.
+     *
+     * @private
+     */
+    _addProgressBarInfo(field, rows, progressBarInfo) {
+        for (const row of rows) {
+            if (row.groupedByField === field) {
+                row.progressBar = progressBarInfo[row.resId];
+                if (row.progressBar) {
+                    row.progressBar.value_formatted = fieldUtils.format.float(row.progressBar.value, {'digits': [false, 0]});
+                    row.progressBar.max_value_formatted = fieldUtils.format.float(row.progressBar.max_value, {'digits': [false, 0]});
+                    row.progressBar.ratio = row.progressBar.max_value ? row.progressBar.value / row.progressBar.max_value * 100 : 0;
+                    row.progressBar.warning = progressBarInfo.warning;
+                }
+            } else {
+                this._addProgressBarInfo(field, row.rows, progressBarInfo);
+            }
+        }
+    },
 });

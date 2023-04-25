@@ -233,8 +233,8 @@ class TestConsolidationPeriod(AccountConsolidationTestCase):
             ap._format_value(3 * step + 4 * step)  # i=3 & i=4 loop step
         ]
         dashboard_sections = json.loads(ap.dashboard_sections)
-        self.assertListEqual([val[1] for val in dashboard_sections], expected_amounts)
-        self.assertEqual(list(map(lambda x: x.name, sections[:2])), [val[0] for val in dashboard_sections])
+        self.assertListEqual([val.get('value') for val in dashboard_sections], expected_amounts)
+        self.assertEqual(list(map(lambda x: x.name, sections[:2])), [val.get('name') for val in dashboard_sections])
 
     def test__journal_ids_count(self):
         Journal = self.env['consolidation.journal']
@@ -626,7 +626,7 @@ class TestConsolidationCompanyPeriod(AccountConsolidationTestCase):
             'ignored': self.env['account.journal'].create({'name': 'Outlier', 'code': 'OUT', 'type': 'bank',
                                                            'bank_acc_number': '12345226', 'company_id': self.default_company.id})
         }
-        revenue_type = self.env.ref('account.data_account_type_revenue')
+        revenue_type = 'income'
         dummy_account = self._create_account('003', 'NOTCONSIDERATED', company=self.default_company, type=revenue_type)
         not_ignored_accounts = [
             self._create_account('001', 'RCV', company=self.default_company, type=revenue_type),
@@ -729,10 +729,9 @@ class TestConsolidationCompanyPeriod(AccountConsolidationTestCase):
             self.assertEqual(self.env['account.move.line'].browse(move_line_id).move_id, right_move)
 
     def test__get_move_lines(self):
-        AccountType = self.env['account.account.type']
         journal = self._create_journal()
-        normal_type = self.env.ref('account.data_account_type_revenue')
-        include_initial_balance_type = self.env.ref('account.data_account_type_receivable')
+        normal_type = 'income'
+        include_initial_balance_type = 'asset_receivable'
 
         # NORMAL ACCOUNT AND CONSO ACCOUNT
         normal_consolidation_account = self._create_consolidation_account()

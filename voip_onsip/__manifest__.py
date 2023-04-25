@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
@@ -17,9 +16,11 @@ Module with the required configuration to connect to OnSIP.
         'views/res_config_settings_views.xml',
         'views/res_users_views.xml',
         ],
-    'application': False,
     'license': 'OEEL-1',
     'assets': {
+        'mail.assets_messaging': [
+            'voip_onsip/static/src/models/*.js',
+        ],
         'web.assets_backend': [
             'voip_onsip/static/src/**/*',
         ],

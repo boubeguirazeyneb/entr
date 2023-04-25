@@ -1,17 +1,5 @@
 <?xml version="1.0"?>
 <odoo>
-
-    <record id="account_activity_view_form_popup" model="ir.ui.view">
-        <field name="name">mail.activity.form.inherit.account.tax</field>
-        <field name="model">mail.activity</field>
-        <field name="inherit_id" ref="mail.mail_activity_view_form_popup"/>
-        <field name="arch" type="xml">
-            <xpath expr="//button[@name='action_done']" position="attributes">
-                  <attribute name="attrs">{'invisible': ['|', ('activity_category', '=', 'tax_report'), ('chaining_type', '=', 'trigger')]}</attribute>
-            </xpath>
-        </field>
-    </record>
-
     <record id="view_move_form_vat_return" model="ir.ui.view">
         <field name="name">account.move.form.vat.return</field>
         <field name="model">account.move</field>
@@ -25,7 +13,8 @@
                 </div>
                 <field name="tax_report_control_error" invisible="1"/>
                 <div class="alert alert-warning text-center" attrs="{'invisible': ['|', ('tax_closing_end_date', '==', False),  ('tax_report_control_error', '!=', True)]}" role="alert">
-                    Some controls failed
+                    Some controls failed.
+                    <button class="btn btn-link" string="-> Check your tax report" name="action_open_tax_report" type="object" style="padding: 0; vertical-align=baseline;"/>
                 </div>
             </xpath>
             <xpath expr="//div[hasclass('oe_button_box')]/button" position="before">

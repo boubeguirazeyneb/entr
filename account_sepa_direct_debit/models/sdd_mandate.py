@@ -41,7 +41,7 @@ class SDDMandate(models.Model):
     partner_bank_id = fields.Many2one(string='IBAN', readonly=True, states={'draft':[('readonly',False)]}, comodel_name='res.partner.bank', domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]", help="Account of the customer to collect payments from.")
     start_date = fields.Date(string="Start Date", required=True, readonly=True, states={'draft':[('readonly',False)]}, help="Date from which the mandate can be used (inclusive).")
     end_date = fields.Date(string="End Date", states={'closed':[('readonly',True)]}, help="Date until which the mandate can be used. It will automatically be closed after this date.")
-    payment_journal_id = fields.Many2one(string='Journal', comodel_name='account.journal', required=True, domain="[('id', '=', suitable_journal_ids)]", help='Journal to use to receive SEPA Direct Debit payments from this mandate.')
+    payment_journal_id = fields.Many2one(string='Journal', comodel_name='account.journal', required=True, domain="[('id', 'in', suitable_journal_ids)]", help='Journal to use to receive SEPA Direct Debit payments from this mandate.')
     sdd_scheme = fields.Selection(string="SDD Scheme", selection=[('CORE', 'CORE'), ('B2B', 'B2B')],
         required=True, default='CORE', help='The B2B scheme is an optional scheme,\noffered exclusively to business payers.\n'
         'Some banks/businesses might not accept B2B SDD.',)
@@ -51,7 +51,7 @@ class SDDMandate(models.Model):
         help="Invoices paid using this mandate.")
     paid_invoices_nber = fields.Integer(string='Paid Invoices Number',
         compute='_compute_from_moves',
-        help="Number of invoices paid with thid mandate.")
+        help="Number of invoices paid with this mandate.")
     payment_ids = fields.One2many(string='Payments', comodel_name='account.payment',
         compute='_compute_from_moves',
         help="Payments generated thanks to this mandate.")
@@ -84,7 +84,7 @@ class SDDMandate(models.Model):
         """ returns the first mandate found that can be used, accordingly to given parameters
         or none if there is no such mandate.
         """
-        self.flush(['state', 'start_date', 'end_date', 'company_id', 'partner_id', 'one_off'])
+        self.flush_model(['state', 'start_date', 'end_date', 'company_id', 'partner_id', 'one_off'])
 
         query_obj = self._where_calc([
             ('state', 'not in', ['draft', 'revoked']),
@@ -125,7 +125,7 @@ class SDDMandate(models.Model):
             self.paid_invoice_ids = False
             self.payment_ids = False
             return
-        self.env['account.move'].flush(['sdd_mandate_id', 'move_type'])
+        self.env['account.move'].flush_model(['sdd_mandate_id', 'move_type'])
 
         self._cr.execute('''
             SELECT
@@ -152,9 +152,9 @@ class SDDMandate(models.Model):
             JOIN account_move move ON move.id = payment.move_id
             WHERE move.sdd_mandate_id IS NOT NULL
             AND move.state = 'posted'
-            AND method.code = 'sdd'
+            AND method.code IN %s
             GROUP BY move.sdd_mandate_id
-        ''')
+        ''', [tuple(self.payment_ids.payment_method_id._get_sdd_payment_method_code())])
         query_res = dict((mandate_id, payment_ids) for mandate_id, payment_ids in self._cr.fetchall())
 
         for mandate in self:

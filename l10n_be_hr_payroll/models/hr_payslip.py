@@ -2,14 +2,13 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from pytz import timezone
-from odoo import api, models, fields, _
 from dateutil.relativedelta import relativedelta, MO, SU
 from dateutil import rrule
 from collections import defaultdict
 from datetime import date, timedelta
+from odoo import api, models, fields, _
 from odoo.tools import float_round, date_utils, ormcache
 from odoo.exceptions import UserError
-from odoo.addons.l10n_be_hr_payroll.models.hr_contract import EMPLOYER_ONSS
 
 
 class Payslip(models.Model):
@@ -26,6 +25,7 @@ class Payslip(models.Model):
     l10n_be_is_double_pay = fields.Boolean(compute='_compute_l10n_be_is_double_pay')
     l10n_be_max_seizable_amount = fields.Float(compute='_compute_l10n_be_max_seizable_amount')
     l10n_be_max_seizable_warning = fields.Char(compute='_compute_l10n_be_max_seizable_amount')
+    l10n_be_is_december = fields.Boolean(compute='_compute_l10n_be_is_december')
 
     @api.depends('employee_id', 'contract_id', 'struct_id', 'date_from', 'date_to')
     def _compute_input_line_ids(self):
@@ -52,20 +52,24 @@ class Payslip(models.Model):
             elif slip.struct_id.code == 'CP200DOUBLE':
                 to_recover = slip._get_sum_european_time_off_days()
                 if to_recover:
-                    slip.write({'input_line_ids': [(0, 0, {
+                    european_type = self.env.ref('l10n_be_hr_payroll.input_double_holiday_european_leave_deduction')
+                    lines_to_remove = slip.input_line_ids.filtered(lambda x: x.input_type_id == european_type)
+                    to_remove_vals = [(3, line.id, False) for line in lines_to_remove]
+                    to_add_vals = [(0, 0, {
                         'name': _('European Leaves Deduction'),
                         'amount': to_recover,
-                        'input_type_id': self.env.ref('l10n_be_hr_payroll.input_double_holiday_european_leave_deduction').id,
-                    })]})
+                        'input_type_id': european_type.id,
+                    })]
+                    slip.write({'input_line_ids': to_remove_vals + to_add_vals})
         return res
 
-    @ormcache('self.employee_id', 'self.date_from', 'self.date_to', 'tuple([self.env.context.get("salary_simulation", False)])')
+    @ormcache('self.employee_id', 'self.date_from', 'self.date_to')
     def _get_period_contracts(self):
         # Returns all the employee contracts over the same payslip period, to avoid
         # double remunerations for some line codes
         self.ensure_one()
         if self.env.context.get('salary_simulation'):
-            return self.contract_id.id
+            return self.env.context['origin_contract_id']
         contracts = self.employee_id._get_contracts(
             self.date_from,
             self.date_to,
@@ -79,6 +83,11 @@ class Payslip(models.Model):
         for payslip in self:
             payslip.sum_worked_hours -= sum([line.number_of_hours for line in payslip.worked_days_line_ids if line.is_credit_time])
 
+    @api.depends('struct_id', 'date_from')
+    def _compute_l10n_be_is_december(self):
+        for payslip in self:
+            payslip.l10n_be_is_december = payslip.struct_id.code == "CP200MONTHLY" and payslip.date_from and payslip.date_from.month == 12
+
     def _compute_work_entry_dependent_benefits(self):
         if self.env.context.get('salary_simulation'):
             for payslip in self:
@@ -87,10 +96,18 @@ class Payslip(models.Model):
                 payslip.representation_fees_missing_days = 0
         else:
             all_benefits = self.env['hr.work.entry.type'].get_work_entry_type_benefits()
-            work_entries_benefits_rights = self.env['l10n_be.work.entry.daily.benefit.report'].search_read([
+            query = self.env['l10n_be.work.entry.daily.benefit.report']._search([
                 ('employee_id', 'in', self.mapped('employee_id').ids),
                 ('day', '<=', max(self.mapped('date_to'))),
-                ('day', '>=', min(self.mapped('date_from')))], ['day', 'employee_id', 'benefit_name'])
+                ('day', '>=', min(self.mapped('date_from')))])
+            query_str, params = query.select('day', 'benefit_name', 'employee_id')
+            self.env.cr.execute(query_str, params)
+            work_entries_benefits_rights = self.env.cr.dictfetchall()
+
+            work_entries_benefits_rights_by_employee = defaultdict(list)
+            for work_entries_benefits_right in work_entries_benefits_rights:
+                employee_id = work_entries_benefits_right['employee_id']
+                work_entries_benefits_rights_by_employee[employee_id].append(work_entries_benefits_right)
 
             # {(calendar, date_from, date_to): resources}
             mapped_resources = defaultdict(lambda: self.env['resource.resource'])
@@ -113,9 +130,10 @@ class Payslip(models.Model):
                 date_from = max(payslip.date_from, contract.date_start)
                 date_to = min(payslip.date_to, contract.date_end or payslip.date_to)
                 for work_entries_benefits_right in (
-                        work_entries_benefits_right for work_entries_benefits_right in work_entries_benefits_rights
+                        work_entries_benefits_right
+                        for work_entries_benefits_right in work_entries_benefits_rights_by_employee[payslip.employee_id.id]
                         if date_from <= work_entries_benefits_right['day'] <= date_to
-                        and payslip.employee_id.id == work_entries_benefits_right['employee_id'][0]):
+                    ):
                     if work_entries_benefits_right['benefit_name'] not in benefits:
                         benefits[work_entries_benefits_right['benefit_name']] = 1
                     else:
@@ -135,6 +153,16 @@ class Payslip(models.Model):
     def _compute_l10n_be_is_double_pay(self):
         for payslip in self:
             payslip.l10n_be_is_double_pay = payslip.struct_id.code == "CP200DOUBLE"
+
+    @api.depends('struct_id')
+    def _compute_contract_domain_ids(self):
+        reimbursement_payslips = self.filtered(lambda p: p.struct_id.code == "CP200REIMBURSEMENT")
+        for payslip in reimbursement_payslips:
+            payslip.contract_domain_ids = self.env['hr.contract'].search([
+                ('company_id', '=', payslip.company_id.id),
+                ('employee_id', '=', payslip.employee_id.id),
+                ('state', '!=', 'cancel')])
+        super(Payslip, self - reimbursement_payslips)._compute_contract_domain_ids()
 
     @api.depends('date_to', 'line_ids.total', 'input_line_ids.code')
     def _compute_l10n_be_max_seizable_amount(self):
@@ -259,28 +287,22 @@ class Payslip(models.Model):
         if not self.contract_id.commission_on_target:
             return 0
         date_from = self.env.context.get('variable_revenue_date_from', self.date_from)
+        first_contract_date = self.employee_id.first_contract_date
+        if not first_contract_date:
+            return 0
+        start = first_contract_date
+        end = date_from + relativedelta(day=31, months=-1)
+        number_of_month = (end.year - start.year) * 12 + (end.month - start.month) + 1
+        number_of_month = min(12, number_of_month)
+        if number_of_month <= 0:
+            return 0
         payslips = self.env['hr.payslip'].search([
             ('employee_id', '=', self.employee_id.id),
             ('state', 'in', ['done', 'paid']),
             ('date_from', '>=', date_from + relativedelta(months=-12, day=1)),
             ('date_from', '<=', date_from),
         ], order="date_from asc")
-        complete_payslips = payslips.filtered(
-            lambda p: not p._get_worked_days_line_number_of_hours('OUT'))
-        if not complete_payslips:
-            return 0
-        total_amount = complete_payslips._get_line_values(['COMMISSION'], compute_sum=True)['COMMISSION']['sum']['total']
-        first_contract_date = self.employee_id.first_contract_date
-        if not first_contract_date:
-            return 0
-        # Only complete months count
-        if first_contract_date.day != 1:
-            start = first_contract_date + relativedelta(day=1, months=1)
-        else:
-            start = first_contract_date
-        end = date_from + relativedelta(day=31, months=-1)
-        number_of_month = (end.year - start.year) * 12 + (end.month - start.month) + 1
-        number_of_month = min(12, number_of_month)
+        total_amount = payslips._get_line_values(['COMMISSION'], compute_sum=True)['COMMISSION']['sum']['total']
         return total_amount / number_of_month if number_of_month else 0
 
     def _get_last_year_average_warrant_revenues(self):
@@ -325,8 +347,8 @@ class Payslip(models.Model):
             for vals in worked_days_line_values:
                 vals['is_credit_time'] = False
             credit_time_line_values = self._get_credit_time_lines()
-            return [(5, 0, 0)] + [(0, 0, vals) for vals in worked_days_line_values + credit_time_line_values]
-        return [(5, False, False)]
+            return [(0, 0, vals) for vals in worked_days_line_values + credit_time_line_values]
+        return []
 
     def _get_base_local_dict(self):
         res = super()._get_base_local_dict()
@@ -345,13 +367,15 @@ class Payslip(models.Model):
             'compute_representation_fees': compute_representation_fees,
             'compute_serious_representation_fees': compute_serious_representation_fees,
             'compute_volatile_representation_fees': compute_volatile_representation_fees,
-            'EMPLOYER_ONSS': EMPLOYER_ONSS,
+            'compute_holiday_pay_recovery_n': compute_holiday_pay_recovery_n,
+            'compute_holiday_pay_recovery_n1': compute_holiday_pay_recovery_n1,
+            'compute_termination_n_basic_double': compute_termination_n_basic_double,
         })
         return res
 
     def _compute_number_complete_months_of_work(self, date_from, date_to, contracts):
         invalid_days_by_year = defaultdict(lambda: defaultdict(dict))
-        for day in rrule.rrule(rrule.DAILY, dtstart=date_from, until=date_to):
+        for day in rrule.rrule(rrule.DAILY, dtstart=date_from + relativedelta(day=1), until=date_to + relativedelta(day=31)):
             invalid_days_by_year[day.year][day.month][day.date()] = True
 
         for contract in contracts:
@@ -363,25 +387,44 @@ class Payslip(models.Model):
                 contract_start = contract.date_start
             work_days = {int(d) for d in contract.resource_calendar_id._get_global_attendances().mapped('dayofweek')}
 
-            previous_week_start = max(contract_start + relativedelta(weeks=-1, weekday=MO(-1)), date_from)
+            previous_week_start = max(contract_start + relativedelta(weeks=-1, weekday=MO(-1)), date_from + relativedelta(day=1))
             next_week_end = min(contract.date_end + relativedelta(weeks=+1, weekday=SU(+1)) if contract.date_end else date.max, date_to)
             days_to_check = rrule.rrule(rrule.DAILY, dtstart=previous_week_start, until=next_week_end)
             for day in days_to_check:
                 day = day.date()
                 out_of_schedule = True
+                # Full time credit time doesn't count
+                if contract.time_credit and not contract.work_time_rate:
+                    continue
                 if contract_start <= day <= (contract.date_end or date.max):
                     out_of_schedule = False
                 elif day.weekday() not in work_days:
                     out_of_schedule = False
                 invalid_days_by_year[day.year][day.month][day] &= out_of_schedule
 
-        complete_months = [
-            month
-            for year, invalid_days_by_months in invalid_days_by_year.items()
-            for month, days in invalid_days_by_months.items()
-            if not any(days.values())
-        ]
-        return len(complete_months)
+        if self.struct_id.code == "CP200THIRTEEN":
+            complete_months = [
+                month
+                for year, invalid_days_by_months in invalid_days_by_year.items()
+                for month, days in invalid_days_by_months.items()
+                if not any(days.values())
+            ]
+            return len(complete_months)
+        else:
+            # If X = valid days
+            # -  0 <= X <= 10 days :   0 month
+            # - 11 <= X <= 20 days : 0.5 month
+            # - 21 <= X <= 31 days :   1 month
+            # If X = invalid days
+            # -  0 <= X <= 10 days :   1 month
+            # - 11 <= X <= 20 days : 0.5 month
+            # - 21 <= X <= 31 days :   0 month
+            complete_months = [
+                1 if sum(days.values()) <= 10 else 0.5 if 11 <= sum(days.values()) <= 20 else 0
+                for year, invalid_days_by_months in invalid_days_by_year.items()
+                for month, days in invalid_days_by_months.items()
+            ]
+            return sum(complete_months)
 
     def _compute_presence_prorata(self, date_from, date_to, contracts):
         unpaid_work_entry_types = self.struct_id.unpaid_work_entry_type_ids
@@ -407,7 +450,7 @@ class Payslip(models.Model):
                 or (first_contract_date.month > 7)):
             return 0.0
 
-        date_from = first_contract_date
+        date_from = max(first_contract_date, self.date_from + relativedelta(day=1, month=1))
         date_to = self.date_to + relativedelta(day=31)
 
         basic = self.contract_id._get_contract_wage()
@@ -436,7 +479,7 @@ class Payslip(models.Model):
                 avg_variable_revenues = 0
             else:
                 avg_variable_revenues = self.with_context(
-                    variable_revenue_date_from=self.date_from + relativedelta(months=-1)
+                    variable_revenue_date_from=self.date_from
                 )._get_last_year_average_variable_revenues()
         return fixed_salary + avg_variable_revenues
 
@@ -453,23 +496,20 @@ class Payslip(models.Model):
 
         basic = self.contract_id._get_contract_wage()
         force_months = self.input_line_ids.filtered(lambda l: l.code == 'MONTHS')
-        if force_months or self.contract_id.first_contract_date > date(self.date_from.year - 1, 1, 1):
-            year = self.date_from.year - 1
-            date_from = date(year, 1, 1)
-            date_to = date(year, 12, 31)
 
-            if force_months:
-                n_months = force_months[0].amount
-                presence_prorata = 1
-            else:
-                # 1. Number of months
-                n_months = self._compute_number_complete_months_of_work(date_from, date_to, contracts)
-                # 2. Deduct absences
-                presence_prorata = self._compute_presence_prorata(date_from, date_to, contracts)
-            fixed_salary = basic * n_months / 12 * presence_prorata
+        year = self.date_from.year - 1
+        date_from = date(year, 1, 1)
+        date_to = date(year, 12, 31)
+
+        if force_months:
+            n_months = force_months[0].amount
+            presence_prorata = 1
         else:
-            n_months = 12
-            fixed_salary = basic
+            # 1. Number of months
+            n_months = self._compute_number_complete_months_of_work(date_from, date_to, contracts)
+            # 2. Deduct absences
+            presence_prorata = self._compute_presence_prorata(date_from, date_to, contracts)
+        fixed_salary = basic * n_months / 12 * presence_prorata
 
         force_avg_variable_revenues = self.input_line_ids.filtered(lambda l: l.code == 'VARIABLE')
         if force_avg_variable_revenues:
@@ -479,7 +519,7 @@ class Payslip(models.Model):
                 avg_variable_revenues = 0
             else:
                 avg_variable_revenues = self.with_context(
-                    variable_revenue_date_from=self.date_from + relativedelta(months=-1)
+                    variable_revenue_date_from=self.date_from
                 )._get_last_year_average_variable_revenues()
         return fixed_salary + avg_variable_revenues
 
@@ -507,7 +547,7 @@ class Payslip(models.Model):
             ('date_from', '>=', date(self.date_from.year - 2, 1, 1)),
             ('state', 'in', ['done', 'paid']),
         ])
-        european_time_off_amount = two_years_payslips._get_worked_days_line_amount('LEAVE216')
+        european_time_off_amount = two_years_payslips.filtered(lambda p: p.date_from.year < self.date_from.year)._get_worked_days_line_amount('LEAVE216')
         already_recovered_amount = two_years_payslips._get_line_values(['EU.LEAVE.DEDUC'], compute_sum=True)['EU.LEAVE.DEDUC']['sum']['total']
         return european_time_off_amount + already_recovered_amount
 
@@ -527,10 +567,6 @@ class Payslip(models.Model):
         return super()._get_negative_net_input_type()
 
     def action_payslip_done(self):
-        regular_pay = self.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary')
-        invalid_payslips = self.filtered(lambda p: p.struct_id == regular_pay and not p.worked_days_line_ids)
-        if invalid_payslips:
-            raise UserError(_("The regular pay for these employees don't have any worked day lines:\n%s"), '\n'.join(invalid_payslips.mapped('employee_id.name')))
         if self._is_active_belgian_languages():
             bad_language_slips = self.filtered(
                 lambda p: p.struct_id.country_id.code == "BE" and p.employee_id.sudo().address_home_id.lang not in ["fr_BE", "fr_FR", "nl_BE", "nl_NL", "de_BE", "de_DE"])
@@ -571,8 +607,135 @@ class Payslip(models.Model):
                 'data/cp200/employee_thirteen_month_data.xml',
                 'data/cp200/employee_warrant_salary_data.xml',
                 'data/student/student_regular_pay_data.xml',
+                'views/281_10_xml_export_template.xml',
+                'views/281_45_xml_export_template.xml',
+                'report/hr_281_10_templates.xml',
+                'report/hr_281_45_templates.xml',
             ])]
 
+    @api.model
+    def _cron_generate_pdf(self, batch_size=False):
+        is_rescheduled = super()._cron_generate_pdf(batch_size=batch_size)
+        if is_rescheduled:
+            return is_rescheduled
+
+        # Generate 281.10, 281.45, individual accounts
+        for model in ['l10n_be.281_10.line', 'l10n_be.281_45.line', 'l10n_be.individual.account.line']:
+            lines = self.env[model].search([('pdf_to_generate', '=', True)])
+            if lines:
+                BATCH_SIZE = batch_size or 30
+                lines_batch = lines[:BATCH_SIZE]
+                lines_batch._generate_pdf()
+                lines_batch.write({'pdf_to_generate': False})
+                # if necessary, retrigger the cron to generate more pdfs
+                if len(lines) > BATCH_SIZE:
+                    self.env.ref('hr_payroll.ir_cron_generate_payslip_pdfs')._trigger()
+                    return True
+        return False
+
+    def _get_dashboard_warnings(self):
+        res = super()._get_dashboard_warnings()
+        belgian_companies = self.env.companies.filtered(lambda c: c.country_id.code == 'BE')
+        if belgian_companies:
+            # NISS VALIDATION
+            invalid_niss_employee_ids = self.env['hr.employee']._get_invalid_niss_employee_ids()
+            if invalid_niss_employee_ids:
+                invalid_niss_str = _('Employees With Invalid NISS Numbers')
+                res.append({
+                    'string': invalid_niss_str,
+                    'count': len(invalid_niss_employee_ids),
+                    'action': self._dashboard_default_action(invalid_niss_str, 'hr.employee', invalid_niss_employee_ids),
+                })
+
+            # GENDER VALIDATION
+            invalid_gender_employees = self.env['hr.employee'].search([
+                ('gender', 'not in', ['male', 'female']),
+                ('company_id', 'in', belgian_companies.ids)
+            ])
+            if invalid_gender_employees:
+                invalid_gender_str = _('Employees With Invalid Configured Gender')
+                res.append({
+                    'string': invalid_gender_str,
+                    'count': len(invalid_gender_employees),
+                    'action': self._dashboard_default_action(invalid_gender_str, 'hr.employee', invalid_gender_employees.ids),
+                })
+
+            # LANGUAGE VALIDATION
+            active_languages = self._is_active_belgian_languages()
+            if active_languages:
+                invalid_language_employees = self.env['hr.employee'].search([
+                    ('company_id', 'in', belgian_companies.ids)
+                ]).filtered(lambda e: e.sudo().address_home_id.lang not in ["fr_BE", "fr_FR", "nl_BE", "nl_NL", "de_BE", "de_DE"])
+            else:
+                invalid_language_employees = self.env['hr.employee']
+            if invalid_language_employees:
+                invalid_gender_str = _('Employees With Invalid Configured Language')
+                res.append({
+                    'string': invalid_gender_str,
+                    'count': len(invalid_language_employees),
+                    'action': self._dashboard_default_action(invalid_gender_str, 'hr.employee', invalid_language_employees.ids),
+                })
+
+            # WORK ADDRESS VALIDATION
+            address_employees = self.env['hr.employee'].search([
+                ('company_id', 'in', belgian_companies.ids),
+                ('employee_type', 'in', ['employee', 'student']),
+                ('contract_id.state', 'in', ['open', 'close']),
+            ])
+            work_addresses = address_employees.mapped('address_id')
+            location_units = self.env['l10n_be.dmfa.location.unit'].search([('partner_id', 'in', work_addresses.ids)])
+            invalid_addresses = work_addresses - location_units.mapped('partner_id')
+            if invalid_addresses:
+                invalid_address_str = _('Work addresses without ONSS identification code')
+                res.append({
+                    'string': invalid_address_str,
+                    'count': len(invalid_addresses),
+                    'action': self._dashboard_default_action(invalid_address_str, 'res.partner', invalid_addresses.ids),
+                })
+
+            # SICK MORE THAN 30 DAYS
+            sick_work_entry_type = self.env.ref('hr_work_entry_contract.work_entry_type_sick_leave')
+            partial_sick_work_entry_type = self.env.ref('l10n_be_hr_payroll.work_entry_type_part_sick')
+            long_sick_work_entry_type = self.env.ref('l10n_be_hr_payroll.work_entry_type_long_sick')
+            sick_work_entry_types = sick_work_entry_type + partial_sick_work_entry_type + long_sick_work_entry_type
+
+            sick_more_than_30days_leave = self.env['hr.leave'].search([
+                ('employee_company_id', '=', self.env.company.id),
+                ('date_from', '<=', date.today() + relativedelta(days=-31)),
+                ('holiday_status_id.work_entry_type_id', 'in', sick_work_entry_types.ids),
+                ('state', '=', 'validate'),
+            ])
+
+            employees_on_long_sick_leave = []
+            employee_ids = sick_more_than_30days_leave.mapped('employee_id').ids
+            for employee_id in employee_ids:
+                employee_leaves = sick_more_than_30days_leave.filtered(lambda l: l.employee_id.id == employee_id)
+                total_duration = sum([(leave.date_to - leave.date_from).days for leave in employee_leaves])
+                if total_duration > 30:
+                    employees_on_long_sick_leave.append(employee_id)
+
+            sick_more_than_30days_str = _('Employee on Mutual Health (> 30 days Illness)')
+            if employees_on_long_sick_leave:
+                res.append({
+                    'string': sick_more_than_30days_str,
+                    'count': len(employees_on_long_sick_leave),
+                    'action': self._dashboard_default_action(sick_more_than_30days_str, 'hr.employee', employees_on_long_sick_leave),
+                })
+
+        return res
+
+    def _get_ffe_contribution_rate(self, worker_count):
+        # Fond de fermeture d'entreprise
+        # https://www.socialsecurity.be/employer/instructions/dmfa/fr/latest/instructions/special_contributions/other_specialcontributions/basiccontributions_closingcompanyfunds.html
+        self.ensure_one()
+        if self.company_id.l10n_be_ffe_employer_type == 'commercial':
+            if worker_count < 20:
+                rate = self.env['hr.rule.parameter']._get_parameter_from_code('l10n_be_ffe_commercial_rate_low', self.date_to)
+            else:
+                rate = self.env['hr.rule.parameter']._get_parameter_from_code('l10n_be_ffe_commercial_rate_high', self.date_to)
+        else:
+            rate = self.env['hr.rule.parameter']._get_parameter_from_code('l10n_be_ffe_noncommercial_rate', self.date_to)
+        return rate
 
 def compute_termination_withholding_rate(payslip, categories, worked_days, inputs):
     # See: https://www.securex.eu/lex-go.nsf/vwReferencesByCategory_fr/52DA120D5DCDAE78C12584E000721081?OpenDocument
@@ -621,34 +784,10 @@ def compute_withholding_taxes(payslip, categories, worked_days, inputs):
 
     taxable_amount = categories.GROSS  # Base imposable
 
-    threshold = payslip.env['hr.rule.parameter']._get_parameter_from_code(
-        'pricate_car_taxable_threshold',
-        date=payslip.date_to,
-        raise_if_not_found=False) or 410
-    transport_amount = 0
-    if payslip.contract_id.transport_mode_private_car:
-        transport_amount = contract.with_context(
-            payslip_date=payslip.date_from)._get_private_car_reimbursed_amount(contract.km_home_work)
-        ratio = 1.0 / 12.0
-        # Private Car is added after PP, add the part exceeding the exempted part
-        if transport_amount and transport_amount > threshold * ratio:
-            taxable_amount += transport_amount - (threshold * ratio)
-    elif contract.transport_mode_car and not payslip.is_outside_contract:
-        if 'vehicle_id' in payslip.dict:
-            transport_amount = payslip.dict.vehicle_id._get_car_atn(date=date_from)
-        else:
-            transport_amount = contract.car_atn
-        # Introduced in May 2022
-        if date_from.year < 2022:
-            ratio = 0
-        elif date_from == 2022:
-            ratio = 1.0 / 8.0
-        else:
-            ratio = 1.0 / 12.0
-        # Car ATN is already in GROSS, only remove the exempted part
-        if transport_amount and transport_amount >= threshold * ratio:
-            taxable_amount -= threshold * ratio
-    lower_bound = taxable_amount - taxable_amount % 15
+    if payslip.date_from.year < 2023:
+        lower_bound = taxable_amount - taxable_amount % 15
+    else:
+        lower_bound = taxable_amount
 
     # yearly_gross_revenue = Revenu Annuel Brut
     yearly_gross_revenue = lower_bound * 12.0
@@ -1012,6 +1151,8 @@ def compute_onss_restructuring(payslip, categories, worked_days, inputs):
     # - low salary reduction = 100 €
 
     # The total amount of reductions exceeds the contributions due. We must therefore first reduce the restructuring reduction and then the balance of the low wage reduction.
+    if not payslip.worked_days_line_ids:
+        return 0
 
     employee = payslip.dict.contract_id.employee_id
     first_contract_date = employee.first_contract_date
@@ -1055,10 +1196,10 @@ def compute_representation_fees(payslip, categories, worked_days, inputs):
         else:
             work_time_rate = contract.resource_calendar_id.work_time_rate
 
-        threshold = 0 if (worked_days.OUT and worked_days.OUT.number_of_hours) else 279.31
+        threshold = 0 if (worked_days.OUT and worked_days.OUT.number_of_hours) else payslip.rule_parameter('cp200_representation_fees_threshold')
         if days_per_week and contract.representation_fees > threshold:
             # Only part of the representation costs are pro-rated because certain costs are fully
-            # covered for the company (teleworking costs, mobile phone, internet, etc., namely:
+            # covered for the company (teleworking costs, mobile phone, internet, etc., namely (for 2021):
             # - 144.31 € (Tax, since 2021 - coronavirus)
             # - 30 € (internet)
             # - 25 € (phone)
@@ -1071,7 +1212,7 @@ def compute_representation_fees(payslip, categories, worked_days, inputs):
             # +-120 € of representation expenses which is then subject to prorating.
 
             # Credit time, but with only half days (otherwise it's taken into account)
-            if contract.time_credit and work_time_rate and work_time_rate < 100 and days_per_week == 5:
+            if contract.time_credit and work_time_rate and work_time_rate < 100 and (days_per_week == 5 or not payslip.representation_fees_missing_days):
                 total_amount = threshold + (contract.representation_fees - threshold) * work_time_rate / 100
             # Contractual part time
             elif not contract.time_credit and work_time_rate < 100:
@@ -1089,7 +1230,81 @@ def compute_representation_fees(payslip, categories, worked_days, inputs):
     return result
 
 def compute_serious_representation_fees(payslip, categories, worked_days, inputs):
-    return min(compute_representation_fees(payslip, categories, worked_days, inputs), 279.31)
+    return min(compute_representation_fees(payslip, categories, worked_days, inputs), payslip.rule_parameter('cp200_representation_fees_threshold'))
 
 def compute_volatile_representation_fees(payslip, categories, worked_days, inputs):
-    return max(compute_representation_fees(payslip, categories, worked_days, inputs) - 279.31, 0)
+    return max(compute_representation_fees(payslip, categories, worked_days, inputs) - payslip.rule_parameter('cp200_representation_fees_threshold'), 0)
+
+def compute_holiday_pay_recovery_n(payslip, categories, worked_days, inputs):
+    """
+        See: https://www.socialsecurity.be/employer/instructions/dmfa/fr/latest/intermediates#intermediate_row_196b32c7-9d98-4233-805d-ca9bf123ff48
+
+        When an employee changes employer, he receives the termination pay and a vacation certificate
+        stating his vacation rights. When he subsequently takes vacation with his new employer, the latter
+        must, when paying the simple vacation pay, take into account the termination pay that the former
+        employer has already paid.
+
+        From an exchange of letters with the SPF ETCS and the Inspectorate responsible for the control of
+        social laws, it turned out that when calculating the simple vacation pay, the new employer must
+        deduct the exit pay based on the number of vacation days taken. The rule in the ONSS instructions
+        according to which the new employer must take into account the exit vacation pay only once when the
+        employee takes his main vacation is abolished.
+
+        When the salary of an employee with his new employer is higher than the salary he had with his
+        previous employer, his new employer will have, each time he takes vacation days, to make a
+        calculation to supplement the nest egg. exit from these days up to the amount of the simple vacation
+        pay to which the worker is entitled.
+
+        Concretely:
+
+        2020 vacation certificate (full year):
+        - simple allowance 1,917.50 EUR
+            - this amounts to 1917.50 / 20 EUR = 95.875 EUR per day of vacation
+            - holidays 2021, for example when taking 5 days in April 2021
+        - monthly salary with the new employer: 3000.00 EUR / month
+            - simple nest egg:
+                 - remuneration code 12: 5/20 x 1917.50 = 479.38 EUR
+                 - remuneration code 1: (5/22 x 3000.00) - 479.38 = 202.44 EUR
+            - ordinary days for the month of April:
+                - remuneration code 1: 17/22 x 3000.00 = 2318.18 EUR
+                - The examples included in the ONSS instructions will be adapted in the next publication.
+    """
+
+    employee = payslip.dict.employee_id
+    number_of_days = employee.l10n_be_holiday_pay_number_of_days_n
+    employee_hourly_cost = payslip.contract_id.hourly_wage if payslip.wage_type == 'hourly' else payslip.contract_id.contract_wage / payslip.sum_worked_hours
+    max_amount_to_recover = min(employee.l10n_be_holiday_pay_to_recover_n, employee_hourly_cost * number_of_days * 7.6)
+    if not worked_days.LEAVE120 or not worked_days.LEAVE120.amount:
+        return 0
+    leave120_amount = payslip.dict._get_worked_days_line_amount('LEAVE120')
+    holiday_amount = min(leave120_amount, employee_hourly_cost * worked_days.LEAVE120.number_of_hours)
+    remaining_amount = max_amount_to_recover - employee.l10n_be_holiday_pay_recovered_n
+    return - min(remaining_amount, holiday_amount)
+
+def compute_holiday_pay_recovery_n1(payslip, categories, worked_days, inputs):
+    employee = payslip.dict.employee_id
+    number_of_days = employee.l10n_be_holiday_pay_number_of_days_n1
+    employee_hourly_cost = payslip.contract_id.hourly_wage if payslip.wage_type == 'hourly' else payslip.contract_id.contract_wage / payslip.sum_worked_hours
+    max_amount_to_recover = min(employee.l10n_be_holiday_pay_to_recover_n1, employee_hourly_cost * number_of_days * 7.6)
+    if not worked_days.LEAVE120 or not worked_days.LEAVE120.amount:
+        return 0
+    leave120_amount = payslip.dict._get_worked_days_line_amount('LEAVE120')
+    holiday_amount = min(leave120_amount, employee_hourly_cost * worked_days.LEAVE120.number_of_hours)
+    remaining_amount = max_amount_to_recover - employee.l10n_be_holiday_pay_recovered_n1
+    return - min(remaining_amount, holiday_amount)
+
+def compute_termination_n_basic_double(payslip, categories, worked_days, inputs):
+    result_qty = 1
+    result_rate = 6.8
+    result = inputs.GROSS_REF.amount if inputs.GROSS_REF else 0
+    date_from = payslip.dict.date_from
+    existing_double_pay = payslip.dict.env['hr.payslip'].search([
+        ('employee_id', '=', payslip.employee_id),
+        ('state', 'in', ['done', 'paid']),
+        ('struct_id', '=', payslip.dict.env.ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_double_holiday').id),
+        ('date_from', '>=', date(date_from.year, 1, 1)),
+        ('date_to', '<=', date(date_from.year, 12, 31)),
+    ])
+    if existing_double_pay:
+        result = 0
+    return (result_qty, result_rate, result)

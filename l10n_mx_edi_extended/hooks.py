@@ -33,7 +33,7 @@ def post_init_hook(cr, registry):
                SELECT
                     'res_city_mx_' || lower(res_country_state.code) || '_' || res_city.l10n_mx_edi_code,
                     res_city.id,
-                    'l10n_mx_edi',
+                    'l10n_mx_edi_extended',
                     'res.city',
                     TRUE
                FROM res_city

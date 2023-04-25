@@ -1,31 +1,32 @@
 
 // ------- Provide room for the caret -------
-@mixin o-list-view-sortable-caret-padding($base: $table-cell-padding, $ratio: 1) {
+@mixin o-list-view-sortable-caret-padding($base-x: $table-cell-padding-x, $ratio: 1) {
     > thead > tr > th.o_column_sortable:not(:empty) {
-        padding-right: ceil((($base * $ratio) / 1rem) * $o-root-font-size) + 5px; // FIXME
+        padding-right: ceil((($base-x * $ratio) / 1rem) * $o-root-font-size) + 5px; // FIXME
 
         // Extra room when needed
         &:last-child {
-            padding-right: ceil((($base * $ratio) / 1rem) * $o-root-font-size) + 5px + $o-horizontal-padding!important; // FIXME
+            padding-right: ceil((($base-x * $ratio) / 1rem) * $o-root-font-size) + 5px + $o-horizontal-padding!important; // FIXME
         }
     }
 }
 
 // ------- Define paddings independently for each table component -------
-@mixin o-list-view-full-width-padding($base: $table-cell-padding, $ratio: 1) {
-    $body-padding: floor((($base * $ratio * 0.7) / 1rem) * $o-root-font-size); // FIXME
+@mixin o-list-view-full-width-padding($base-x: $table-cell-padding-x, $base-y: $table-cell-padding-y, $ratio: 1) {
+    $body-padding: floor((($base-y * $ratio * 0.7) / 1rem) * $o-root-font-size); // FIXME
 
-    > thead > tr > :not(:empty) {
-        padding: ceil((($base * $ratio) / 1rem) * $o-root-font-size + 4px) 4px; // FIXME
+    > thead > tr > :not(:empty),
+    .o_optional_columns_dropdown_toggle {
+        padding: ceil((($base-y * $ratio) / 1rem) * $o-root-font-size + 4px) 4px; // FIXME
     }
     > tbody > tr:not(.o_list_table_grouped) > td {
         padding: $body-padding 4px;
     }
     > tfoot > tr > :not(:empty) {
-        padding: ceil((($base * $ratio) / 1rem) * $o-root-font-size + 2px) 4px; // FIXME
+        padding: ceil((($base-y * $ratio) / 1rem) * $o-root-font-size + 2px) 4px; // FIXME
     }
 
-    @include o-list-view-sortable-caret-padding($base, $ratio);
+    @include o-list-view-sortable-caret-padding($base-x, $ratio);
 
     // ------- Make full-width tables to fit odoo layout -------
     > thead, > tbody, > tfoot {
@@ -44,7 +45,7 @@
 }
 
 // Common style for list views (also inside form views)
-.o_list_view .o_list_table {
+.o_legacy_list_view .o_list_table {
     // We need this to be collapse because we want to add a border on the rows
     // for sale order/invoice lines of type section.
     border-collapse: collapse;
@@ -68,12 +69,13 @@
 
     // ------- Increase thead and tfoot vertical padding -------
     > thead, > tfoot {
-        > tr > * {
+        > tr > *,
+        + .o_optional_columns_dropdown_toggle {
             // List views always have the table-sm class, maybe we should
             // remove it (and consider it does not exist) and change the default
             // table paddings
-            padding-top: $table-cell-padding-sm * 1.25;
-            padding-bottom: $table-cell-padding-sm * 1.25;
+            padding-top: $table-cell-padding-y-sm * 1.25;
+            padding-bottom: $table-cell-padding-y-sm * 1.25;
         }
     }
 
@@ -121,14 +123,14 @@
     // -------   Grouped list views -------
     &.o_list_table_grouped {
         > tbody > tr.o_group_header {
-            background-color: rgba(gray('200'), 0.9);
+            background-color: rgba(map-get($grays, '200'), 0.9);
 
             &.o_group_has_content {
-                @include o-hover-text-color($gray-600, theme-color('primary'));
+                @include o-hover-text-color($gray-600, map-get($theme-colors, 'primary'));
 
                 &.o_group_open {
                     font-weight: bold;
-                    @include o-hover-text-color($headings-color, theme-color('primary'));
+                    @include o-hover-text-color($headings-color, map-get($theme-colors, 'primary'));
                 }
             }
             &, &.o_group_has_content {
@@ -165,23 +167,19 @@
 }
 
 // Standalone list views
-.o_content > .o_list_view > .table-responsive > .table {
+.o_content > .o_legacy_list_view > .table-responsive > .table {
     // List views always have the table-sm class, maybe we should remove
     // it (and consider it does not exist) and change the default table paddings
-    @include o-list-view-full-width-padding($base: $table-cell-padding-sm, $ratio: 2);
+    @include o-list-view-full-width-padding($base-x: $table-cell-padding-x-sm, $base-y: $table-cell-padding-y-sm, $ratio: 2);
     &:not(.o_list_table_grouped) {
         @include media-breakpoint-up(xl) {
-            @include o-list-view-full-width-padding($base: $table-cell-padding-sm, $ratio: 2.5);
+            @include o-list-view-full-width-padding($base-x: $table-cell-padding-x-sm, $base-y: $table-cell-padding-y-sm, $ratio: 2.5);
         }
-    }
-
-    .o_optional_columns_dropdown_toggle {
-        padding: 8px 10px;
     }
 }
 // Restore on mobile the scroll on list view
-@include media-breakpoint-down(sm) {
-    .o_view_controller > .o_content > .o_list_view > .table-responsive {
+@include media-breakpoint-down(md) {
+    .o_view_controller > .o_content > .o_legacy_list_view > .table-responsive {
         overflow: auto;
 
         .o_list_table tr:focus-within {

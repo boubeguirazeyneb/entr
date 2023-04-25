@@ -3,23 +3,22 @@
 
 from dateutil.relativedelta import relativedelta
 
-from odoo.addons.project_enterprise.tests.auto_shift_dates_common import AutoShiftDatesCommon
+from odoo.addons.project_enterprise.tests.gantt_reschedule_dates_common import ProjectEnterpriseGanttRescheduleCommon
 from odoo.fields import Command
 
 
-class AutoShiftDatesHRCommon(AutoShiftDatesCommon):
+class AutoShiftDatesHRCommon(ProjectEnterpriseGanttRescheduleCommon):
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.armande_employee_create_date = cls.task_3_planned_date_begin - relativedelta(months=1, hour=12, minute=0, second=0, microsecond=0)
         cls.armande_employee = cls.env['hr.employee'].create({
             'name': 'Armande ProjectUser',
             'user_id': cls.user_projectuser.id,
             'tz': 'UTC',
+            'create_date': cls.armande_employee_create_date,
         })
-        cls.armande_employee_create_date = cls.task_3_planned_date_begin - relativedelta(months=1, hour=12, minute=0, second=0, microsecond=0)
-        cls.env.cr.execute("UPDATE hr_employee SET create_date=%s WHERE id=%s",
-                           (cls.armande_employee_create_date, cls.armande_employee.id))
         cls.calendar_morning = cls.env['resource.calendar'].create({
             'name': '20h calendar morning',
             'attendance_ids': [

@@ -6,7 +6,7 @@ let testUtils = require('web.test_utils');
 
 let createView = testUtils.createView;
 
-QUnit.module('Views', {
+QUnit.module('LegacyViews', {
     beforeEach: function () {
         this.data = {
             'analytic.line': {
@@ -57,7 +57,7 @@ QUnit.module('Views', {
         `;
     }
 }, function () {
-    QUnit.module('GridView Mobile');
+    QUnit.module('GridView (legacy) - Mobile');
 
     QUnit.test('basic grid view, range button in mobile', async function (assert) {
         assert.expect(5);
@@ -93,6 +93,31 @@ QUnit.module('Views', {
         assert.equal(btnRange.length, 2, "should have two range buttons (Day and Week)");
 
         await testUtils.dom.click(grid.$buttons.find('button[data-name=week]'));
+
+        grid.destroy();
+    });
+
+    QUnit.test('grid view should open in day range for mobile', async function (assert) {
+        assert.expect(1);
+
+        const grid = await createView({
+            View: GridView,
+            model: 'analytic.line',
+            data: this.data,
+            arch: `<grid string="Timesheet" adjustment="object" adjust_name="adjust_grid">
+                    <field name="project_id" type="row"/>
+                    <field name="task_id" type="row"/>
+                    <field name="date" type="col">
+                        <range name="week" string="Week" span="week" step="day"/>
+                        <range name="day" string="Day" span="day" step="day"/>
+                    </field>
+                    <field name="unit_amount" type="measure" widget="float_time"/>
+                </grid>`,
+            currentDate: "2017-01-25",
+        });
+
+        const btnRangeDay = grid.$buttons[0].querySelector('button[data-name=day]');
+        assert.hasClass(btnRangeDay, "active", "Grid view should be open in day range for mobile");
 
         grid.destroy();
     });

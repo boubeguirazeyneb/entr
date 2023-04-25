@@ -3,7 +3,7 @@
 
 
 from odoo import Command
-from odoo.addons.stock_barcode.tests.test_barcode_client_action import clean_access_rights, TestBarcodeClientAction
+from odoo.addons.stock_barcode.tests.test_barcode_client_action import TestBarcodeClientAction
 from odoo.tests import Form, tagged
 
 
@@ -37,7 +37,7 @@ class TestSubcontractingBarcodeClientAction(TestBarcodeClientAction):
         })
 
     def test_receipt_classic_subcontracted_product(self):
-        clean_access_rights(self.env)
+        self.clean_access_rights()
         grp_multi_loc = self.env.ref('stock.group_stock_multi_locations')
         self.env.user.write({'groups_id': [(4, grp_multi_loc.id, 0)]})
         receipt_picking = self.env['stock.picking'].create({
@@ -61,7 +61,7 @@ class TestSubcontractingBarcodeClientAction(TestBarcodeClientAction):
         self.start_tour(url, 'test_receipt_classic_subcontracted_product', login='admin', timeout=180)
 
         self.assertEqual(receipt_picking.state, 'done')
-        self.assertEqual(receipt_picking.move_lines.quantity_done, 2)
+        self.assertEqual(receipt_picking.move_ids.quantity_done, 2)
         self.assertTrue(receipt_picking.move_line_ids.filtered(lambda ml: ml.location_dest_id == self.shelf1))
         self.assertTrue(receipt_picking.move_line_ids.filtered(lambda ml: ml.location_dest_id == self.shelf2))
         sub_order = self.env['mrp.production'].search([('product_id', '=', self.subcontracted_product.id)])
@@ -69,9 +69,9 @@ class TestSubcontractingBarcodeClientAction(TestBarcodeClientAction):
         self.assertEqual(sub_order.mapped('state'), ['done', 'done'])
 
     def test_receipt_tracked_subcontracted_product(self):
-        clean_access_rights(self.env)
+        self.clean_access_rights()
         self.subcontracted_component.tracking = 'lot'
-        lot_id = self.env['stock.production.lot'].create({
+        lot_id = self.env['stock.lot'].create({
             'product_id': self.subcontracted_component.id,
             'company_id': self.env.ref('base.main_company').id,
             'name': 'C01',
@@ -99,10 +99,10 @@ class TestSubcontractingBarcodeClientAction(TestBarcodeClientAction):
         url = self._get_client_action_url(receipt_picking.id)
         self.start_tour(url, 'test_receipt_tracked_subcontracted_product', login='admin', timeout=180)
         self.assertEqual(receipt_picking.state, 'done')
-        self.assertEqual(receipt_picking.move_lines.quantity_done, 5)
+        self.assertEqual(receipt_picking.move_ids.quantity_done, 5)
 
     def test_receipt_flexible_subcontracted_product(self):
-        clean_access_rights(self.env)
+        self.clean_access_rights()
         grp_multi_loc = self.env.ref('stock.group_stock_multi_locations')
         self.env.user.write({'groups_id': [(4, grp_multi_loc.id, 0)]})
         self.bom.consumption = 'flexible'  # To able to record flexible component
@@ -127,7 +127,7 @@ class TestSubcontractingBarcodeClientAction(TestBarcodeClientAction):
         self.start_tour(url, 'test_receipt_flexible_subcontracted_product', login='admin', timeout=180)
 
         self.assertEqual(receipt_picking.state, 'done')
-        self.assertEqual(receipt_picking.move_lines.quantity_done, 1)
+        self.assertEqual(receipt_picking.move_ids.quantity_done, 1)
         sub_order = self.env['mrp.production'].search([('product_id', '=', self.subcontracted_product.id)])
         self.assertEqual(len(sub_order), 1)
         self.assertEqual(sub_order.state, 'done')

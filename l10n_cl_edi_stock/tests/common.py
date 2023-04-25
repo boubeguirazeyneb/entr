@@ -8,7 +8,6 @@ from odoo.tests import tagged
 from odoo.tools import misc, relativedelta
 
 
-@tagged('post_install_l10n', 'post_install', '-at_install')
 class TestL10nClEdiStockCommon(TestStockCommon):
     @classmethod
     def setUpClass(cls):
@@ -27,7 +26,7 @@ class TestL10nClEdiStockCommon(TestStockCommon):
             'l10n_cl_dte_email': 'info@bmya.cl',
             'l10n_cl_sii_regional_office': 'ur_SaC',
             'l10n_cl_company_activity_ids': [(6, 0, [cls.env.ref('l10n_cl_edi.eco_new_acti_620200').id])],
-            'extract_show_ocr_option_selection': 'no_send',
+            'extract_in_invoice_digitalization_mode': 'no_send',
         })
         cls.company.partner_id.write({
             'l10n_cl_sii_taxpayer_type': '1',
@@ -108,7 +107,7 @@ class TestL10nClEdiStockCommon(TestStockCommon):
             'taxes_id': [],
         })
 
-        l10n_latam_document_type_52 = cls.env.ref('l10n_cl_edi_stock.dc_gd_dte')
+        l10n_latam_document_type_52 = cls.env.ref('l10n_cl.dc_gd_dte')
         l10n_latam_document_type_52.write({'active': True})
 
         caf_file_template = misc.file_open('l10n_cl_edi_stock/tests/template/caf_file_template.xml').read()

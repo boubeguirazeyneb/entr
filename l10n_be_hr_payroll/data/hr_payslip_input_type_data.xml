@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Fixed Commissions -->
+    <!-- Variable Commissions -->
     <record id="input_fixed_commission" model="hr.payslip.input.type">
-        <field name="name">Fixed Commission</field>
+        <field name="name">Commission</field>
         <field name="code">COMMISSION</field>
         <field name="country_id" ref="base.be"/>
         <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
@@ -15,9 +15,38 @@
         <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
     </record>
 
+    <record id="cp200_input_rep_fees_regularization" model="hr.payslip.input.type">
+        <field name="name">Representation Fees Regularization</field>
+        <field name="code">REPFEESREGUL</field>
+        <field name="country_id" ref="base.be"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
+    </record>
+
     <record id="cp200_input_additional_gross" model="hr.payslip.input.type">
         <field name="name">Additional Gross</field>
         <field name="code">ADDITIONALGROSS</field>
+        <field name="country_id" ref="base.be"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
+    </record>
+
+    <record id="cp200_input_cycle_transportation" model="hr.payslip.input.type">
+        <field name="name">Cycle Transportation</field>
+        <field name="code">CYCLE</field>
+        <field name="country_id" ref="base.be"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
+    </record>
+
+    <!-- December Pay -->
+    <record id="input_simple_december_pay" model="hr.payslip.input.type">
+        <field name="name">Simple December Pay</field>
+        <field name="code">SIMPLEDECEMBER</field>
+        <field name="country_id" ref="base.be"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
+    </record>
+
+    <record id="input_double_december_pay" model="hr.payslip.input.type">
+        <field name="name">Double December Pay</field>
+        <field name="code">DOUBLEDECEMBER</field>
         <field name="country_id" ref="base.be"/>
         <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_salary'))]"/>
     </record>
@@ -203,7 +232,7 @@
         <field name="name">Additional Vacation Taken</field>
         <field name="code">EUROPEAN_DAYS</field>
         <field name="country_id" ref="base.be"/>
-        <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_departure_n1_holidays'))]"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_departure_n_holidays')), (4, ref('l10n_be_hr_payroll.hr_payroll_structure_cp200_employee_departure_n1_holidays'))]"/>
     </record>
 
     <record id="cp200_other_input_simple_pay_december" model="hr.payslip.input.type">

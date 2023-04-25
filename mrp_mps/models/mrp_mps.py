@@ -27,6 +27,7 @@ class MrpProductionSchedule(models.Model):
         default=lambda self: self.env.company)
     product_id = fields.Many2one('product.product', string='Product', required=True, index=True)
     product_tmpl_id = fields.Many2one('product.template', related="product_id.product_tmpl_id", readonly=True)
+    product_category_id = fields.Many2one('product.category', related="product_id.product_tmpl_id.categ_id", readonly=True)
     product_uom_id = fields.Many2one('uom.uom', string='Product UoM',
         related='product_id.uom_id')
     sequence = fields.Integer(related='product_id.sequence', store=True)
@@ -34,17 +35,23 @@ class MrpProductionSchedule(models.Model):
         required=True, default=lambda self: self._default_warehouse_id())
     bom_id = fields.Many2one(
         'mrp.bom', "Bill of Materials",
-        domain="[('product_tmpl_id', '=', product_tmpl_id)]", check_company=True)
+        domain="[('product_tmpl_id', '=', product_tmpl_id), '|', ('product_id', '=', product_id), ('product_id', '=', False)]", check_company=True)
 
-    forecast_target_qty = fields.Float('Safety Stock Target')
-    min_to_replenish_qty = fields.Float('Minimum to Replenish')
-    max_to_replenish_qty = fields.Float('Maximum to Replenish', default=1000)
+    forecast_target_qty = fields.Float(
+        'Safety Stock Target',
+        help="This is the minimum free stock you want to keep for that product at all times.")
+    min_to_replenish_qty = fields.Float(
+        'Minimum to Replenish',
+        help="Unless the demand is 0, Odoo will always at least replenish this quantity.")
+    max_to_replenish_qty = fields.Float(
+        'Maximum to Replenish', default=1000,
+        help="The maximum replenishment you would like to launch for each period in the MPS. Note that if the demand is higher than that amount, the remaining quantity will be transferred to the next period automatically.")
 
     _sql_constraints = [
         ('warehouse_product_ref_uniq', 'unique (warehouse_id, product_id)', 'The combination of warehouse and product must be unique !'),
     ]
 
-    def action_open_actual_demand_details(self, date_str, date_start, date_stop):
+    def action_open_actual_demand_details(self, date_str, date_start_str, date_stop_str):
         """ Open the picking list view for the actual demand for the current
         schedule.
 
@@ -55,9 +62,6 @@ class MrpProductionSchedule(models.Model):
         :rtype: dict
         """
         self.ensure_one()
-        # TODO remove in master (to prevent rename of args in stable)
-        date_start_str = date_start
-        date_stop_str = date_stop
         date_start = fields.Date.from_string(date_start_str)
         date_stop = fields.Date.from_string(date_stop_str)
         domain_moves = self._get_moves_domain(date_start, date_stop, 'outgoing')
@@ -73,7 +77,7 @@ class MrpProductionSchedule(models.Model):
             'domain': [('id', 'in', picking_ids)],
         }
 
-    def action_open_actual_replenishment_details(self, date_str, date_start, date_stop):
+    def action_open_actual_replenishment_details(self, date_str, date_start_str, date_stop_str):
         """ Open the actual replenishment details.
 
         :param date_str: period name for the forecast sellected
@@ -82,9 +86,6 @@ class MrpProductionSchedule(models.Model):
         :return: action values that open the forecast details wizard
         :rtype: dict
         """
-        # TODO remove in master
-        date_start_str = date_start
-        date_stop_str = date_stop
         date_start = fields.Date.from_string(date_start_str)
         date_stop = fields.Date.from_string(date_stop_str)
         domain_moves = self._get_moves_domain(date_start, date_stop, 'incoming')
@@ -92,7 +93,7 @@ class MrpProductionSchedule(models.Model):
         move_ids = self._filter_moves(moves_by_date, date_start, date_stop).ids
 
         rfq_domain = self._get_rfq_domain(date_start, date_stop)
-        purchase_order_by_date = self._get_rfq_and_planned_date(rfq_domain, date_start, date_stop)
+        purchase_order_by_date = self._get_rfq_and_planned_date(rfq_domain)
         purchase_order_line_ids = self._filter_rfq(purchase_order_by_date, date_start, date_stop).ids
         name = _('Actual Replenishment %s %s (%s - %s)') % (self.product_id.display_name, date_str, date_start_str, date_stop_str)
 
@@ -203,7 +204,7 @@ class MrpProductionSchedule(models.Model):
             self.env['mrp.product.forecast'].create(forecasts_values)
 
     @api.model
-    def get_mps_view_state(self, domain=False):
+    def get_mps_view_state(self, domain=False, offset=0, limit=False):
         """ Return the global information about MPS and a list of production
         schedules values with the domain.
 
@@ -216,7 +217,8 @@ class MrpProductionSchedule(models.Model):
             - groups: company settings that hide/display different rows
         :rtype: dict
         """
-        productions_schedules = self.env['mrp.production.schedule'].search(domain or [])
+        productions_schedules = self.env['mrp.production.schedule'].search(domain or [], offset=offset, limit=limit)
+        count = self.env['mrp.production.schedule'].search_count(domain or [])
         productions_schedules_states = productions_schedules.get_production_schedule_view_state()
         company_groups = self.env.company.read([
             'mrp_mps_show_starting_inventory',
@@ -236,6 +238,7 @@ class MrpProductionSchedule(models.Model):
             'manufacturing_period': self.env.company.manufacturing_period,
             'company_id': self.env.company.id,
             'groups': company_groups,
+            'count': count,
         }
 
     @api.model_create_multi
@@ -272,7 +275,8 @@ class MrpProductionSchedule(models.Model):
                 continue
             dummy, components = bom.explode(record.product_id, 1)
             for component in components:
-                components_list.add((component[0].product_id.id, record.warehouse_id.id, record.company_id.id))
+                if component[0].product_id.type != 'consu':
+                    components_list.add((component[0].product_id.id, record.warehouse_id.id, record.company_id.id))
         for component in components_list:
             if self.env['mrp.production.schedule'].search([
                 ('product_id', '=', component[0]),
@@ -380,7 +384,7 @@ class MrpProductionSchedule(models.Model):
                     forecast_values['outgoing_qty_year_minus_1'] = float_round(outgoing_qty_year_minus_1.get(key_y_1, 0.0), precision_rounding=rounding)
                     forecast_values['outgoing_qty_year_minus_2'] = float_round(outgoing_qty_year_minus_2.get(key_y_2, 0.0), precision_rounding=rounding)
 
-                forecast_values['indirect_demand_qty'] = float_round(indirect_demand_qty.get(key, 0.0), precision_rounding=rounding)
+                forecast_values['indirect_demand_qty'] = float_round(indirect_demand_qty.get(key, 0.0), precision_rounding=rounding, rounding_method='UP')
                 replenish_qty_updated = False
                 if existing_forecasts:
                     forecast_values['forecast_qty'] = float_round(sum(existing_forecasts.mapped('forecast_qty')), precision_rounding=rounding)
@@ -646,6 +650,8 @@ class MrpProductionSchedule(models.Model):
 
         if optimal_qty > self.max_to_replenish_qty:
             replenish_qty = self.max_to_replenish_qty
+        elif optimal_qty <= 0:
+            replenish_qty = 0
         elif optimal_qty < self.min_to_replenish_qty:
             replenish_qty = self.min_to_replenish_qty
         else:
@@ -666,7 +672,7 @@ class MrpProductionSchedule(models.Model):
         before_date = date_range[-1][1]
         # Get quantity in RFQ
         rfq_domain = self._get_rfq_domain(after_date, before_date)
-        rfq_lines_date_planned = self._get_rfq_and_planned_date(rfq_domain, after_date, before_date, order='date_planned')
+        rfq_lines_date_planned = self._get_rfq_and_planned_date(rfq_domain, order='date_planned')
         rfq_lines_date_planned = sorted(rfq_lines_date_planned, key=lambda i: i[1])
         index = 0
         for (line, date_planned) in rfq_lines_date_planned:
@@ -869,13 +875,9 @@ class MrpProductionSchedule(models.Model):
         moves = self.env['stock.move'].search(moves_domain, order=order)
         res_moves = []
         for move in moves:
-            if not move.move_dest_ids:
-                res_moves.append((move, fields.Date.to_date(move.date)))
-                continue
-            elif move.move_dest_ids:
-                delay = max(move.move_dest_ids.mapped(lambda m: self._get_dest_moves_delay(m)))
-                date = fields.Date.to_date(move.date) + relativedelta(days=delay)
-                res_moves.append((move, date))
+            delay = self._get_dest_moves_delay(move)
+            date = fields.Date.to_date(move.date) + relativedelta(days=delay)
+            res_moves.append((move, date))
         return res_moves
 
     def _get_outgoing_qty(self, date_range):
@@ -944,14 +946,14 @@ class MrpProductionSchedule(models.Model):
             domain = OR([domain, AND([common_domain, specific_domain])])
         return domain
 
-    def _get_rfq_and_planned_date(self, rfq_domain, date_start, date_stop, order=False):
+    def _get_rfq_and_planned_date(self, rfq_domain, order=False):
         purchase_lines = self.env['purchase.order.line'].search(rfq_domain, order=order)
         res_purchase_lines = []
         for line in purchase_lines:
             if not line.move_dest_ids:
                 res_purchase_lines.append((line, fields.Date.to_date(line.date_planned)))
                 continue
-            delay = max(line.move_dest_ids.mapped(lambda m: self._get_dest_moves_delay(m)))
+            delay = max(map(self._get_dest_moves_delay, line.move_dest_ids))
             date = fields.Date.to_date(line.date_planned) + relativedelta(days=delay)
             res_purchase_lines.append((line, date))
 

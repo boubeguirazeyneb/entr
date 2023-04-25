@@ -10,12 +10,25 @@
             </xpath>
             <xpath expr="//div[@name='document_preview']" position="before">
                 <t t-set="isSpreadsheet" t-value="record.handler.raw_value === 'spreadsheet'"/>
+                <t t-set="isXlsx"
+                   t-value="record.mimetype.raw_value === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'"/>
             </xpath>
             <xpath expr="//div[@name='document_preview']" position="attributes">
                 <attribute name="t-attf-class" separator=" " add="#{(isSpreadsheet) ? 'o_document_spreadsheet' : ''}"/>
+                <attribute name="t-attf-class" separator=" " add="#{(isXlsx) ? 'o_document_xlsx' : ''}"/>
             </xpath>
             <xpath expr="(//div[@name='document_preview']/div)[last()]" position="before">
-                <img t-elif="isSpreadsheet" t-attf-src="/documents/image/#{record.id.raw_value}?field=thumbnail&amp;unique=" width="100" height="100" alt="Spreadsheet Preview" class="o_attachment_image o_spreadsheet_resize"/>
+                <div t-elif="isSpreadsheet" class="o_attachment_image o_spreadsheet_resize o_documents_image" t-attf-style="background-image: url('/documents/image/#{record.id.raw_value}?field=thumbnail&amp;unique=#{unique}');" alt="Spreadsheet Preview"/>
+            </xpath>
+        </field>
+    </record>
+    <record id="documents_document_view_list" model="ir.ui.view">
+        <field name="name">documents.document.view.list</field>
+        <field name="model">documents.document</field>
+        <field name="inherit_id" ref="documents.documents_view_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="handler" invisible="1"/>
             </xpath>
         </field>
     </record>
@@ -60,16 +73,16 @@
         <field name="name">spreadsheet.template</field>
         <field name="model">spreadsheet.template</field>
         <field name="arch" type="xml">
-            <tree create="0" editable="top" js_class="spreadsheet_template_list">
+            <tree create="0" editable="top">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="create_uid" optional="show"/>
                 <field name="create_date" optional="show"/>
                 <field name="data" widget="binary" optional="show"/>
                 <field name="thumbnail" widget="image" options="{'size':[0,90]}" optional="hide"/>
-                <button string="Make a copy" class="float-right" name="copy" type="object" icon="fa-clone"/>
-                <button string="Edit" class="float-right" name="edit_template" icon="fa-pencil"/>
-                <button string="New spreadsheet" class="o-new-spreadsheet float-right" name="create_spreadsheet" icon="fa-plus"/>
+                <button string="Make a copy" class="float-end" name="copy" type="object" icon="fa-clone"/>
+                <button string="Edit" class="float-end" name="action_edit_template" type="object" icon="fa-pencil"/>
+                <button string="New spreadsheet" class="o-new-spreadsheet float-end" name="action_create_spreadsheet" type="object" icon="fa-plus"/>
             </tree>
         </field>
     </record>
@@ -100,8 +113,9 @@
         <field name="model">spreadsheet.revision</field>
         <field name="arch" type="xml">
             <search>
-                <field name="document_id"/>
-                <filter string="Spreadsheet" name="group_by_document_id" context="{'group_by':'document_id'}"/>
+                <field name="res_model"/>
+                <field name="res_id"/>
+                <filter string="Spreadsheet" name="group_by_document_id" context="{'group_by':'res_model'}"/>
             </search>
         </field>
     </record>
@@ -114,6 +128,8 @@
             <tree>
                 <field name="create_date"/>
                 <field name="revision_id"/>
+                <field name="res_model"/>
+                <field name="res_id"/>
             </tree>
         </field>
     </record>
@@ -128,7 +144,8 @@
                         <group>
                             <field name="create_date"/>
                             <field name="revision_id"/>
-                            <field name="document_id"/>
+                            <field name="res_model"/>
+                            <field name="res_id"/>
                         </group>
                         <field name="commands" widget="text"/>
                     </group>
@@ -141,6 +158,7 @@
     <menuitem id="menu_technical_spreadsheet_template"
         name="Spreadsheet Templates"
         parent="documents.Config" sequence="10"
+        groups="documents.group_documents_manager"
         action="spreadsheet_template_action"/>
 
     <!-- Technical / Spreadsheet -->

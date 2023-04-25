@@ -21,7 +21,7 @@ class HrPayslipEmployeeDepartureNotice(models.TransientModel):
         return super().default_get(field_list)
 
     employee_id = fields.Many2one('hr.employee', string='Employee', default=lambda self: self.env.context.get('active_id'))
-    leaving_type_id = fields.Many2one('hr.departure.reason', string='Leaving Type', required=True)
+    leaving_type_id = fields.Many2one('hr.departure.reason', string='Departure Reason', required=True)
     departure_reason_code = fields.Integer(related='leaving_type_id.reason_code')
 
     start_notice_period = fields.Date('Start notice period', required=True, default=fields.Date.context_today)
@@ -39,9 +39,10 @@ class HrPayslipEmployeeDepartureNotice(models.TransientModel):
     notice_duration_week_after_2014 = fields.Integer('Notice Duration in weeks', compute='_notice_duration')
 
     notice_respect = fields.Selection([
-        ('with', 'Employee will leave after notice period'),
-        ('without', 'Employee will leave before notice period')
-        ], string='Respect of the notice period', required=True, default='with')
+        ('with', 'Employee works during his notice period'),
+        ('without', "Employee doesn't work during his notice period")
+        ], string='Respect of the notice period', required=True, default='with',
+        help='Decides whether the employee will still work during his notice period or not.')
 
     @api.depends('employee_id')
     def _compute_oldest_contract_id(self):
@@ -73,7 +74,7 @@ class HrPayslipEmployeeDepartureNotice(models.TransientModel):
             period_since_2014 = relativedelta(notice.start_notice_period, first_day_since_2014)
             difference_in_years = notice._get_years(relativedelta(datetime(2013, 12, 31),
                 notice.first_contract))
-            if notice.leaving_type_id == departure_reasons['fired']:
+            if notice.leaving_type_id.reason_code == departure_reasons['fired']:
                 # Part I
                 if difference_in_years > 0:
                     notice.salary_visibility = True
@@ -87,7 +88,7 @@ class HrPayslipEmployeeDepartureNotice(models.TransientModel):
                 # Part II
                 notice.notice_duration_week_after_2014 = notice._find_week(
                     period_since_2014.months + period_since_2014.years*12, 'fired')
-            elif notice.leaving_type_id == departure_reasons['resigned']:
+            elif notice.leaving_type_id.reason_code == departure_reasons['resigned']:
                 notice.salary_visibility = False
                 if difference_in_years > 0:
                     notice.notice_duration_month_before_2014 = 3
@@ -96,7 +97,7 @@ class HrPayslipEmployeeDepartureNotice(models.TransientModel):
                     notice.notice_duration_month_before_2014 = 0
                     notice.notice_duration_week_after_2014 = notice._find_week(
                         period_since_2014.months + period_since_2014.years*12, 'resigned')
-            elif notice.leaving_type_id == departure_reasons['retired']:
+            elif notice.leaving_type_id.reason_code == departure_reasons['retired']:
                 notice.salary_visibility = False
                 notice.notice_duration_month_before_2014 = 0
                 notice.notice_duration_week_after_2014 = 0

@@ -102,6 +102,16 @@ class SocialStreamPostInstagram(models.Model):
     # MISC / UTILITY
     # ========================================================
 
+    def _fetch_matching_post(self):
+        self.ensure_one()
+
+        if self.account_id.media_type == 'instagram' and self.instagram_post_id:
+            return self.env['social.live.post'].search(
+                [('instagram_post_id', '=', self.instagram_post_id)], limit=1
+            ).post_id
+        else:
+            return super(SocialStreamPostInstagram, self)._fetch_matching_post()
+
     def _instagram_format_comment(self, comment):
         return {
             'id': comment.get('id'),
@@ -125,5 +135,5 @@ class SocialStreamPostInstagram(models.Model):
                 # Small trick for the comment answers, we reverse the list to have it in the
                 # desired order (chronological).
                 'data': [self._instagram_format_comment(comment) for comment in comment['replies'].get('data', [])][::-1]
-            } if comment.get('replies') else False
+            } if comment.get('replies') else {'data': []}
         }

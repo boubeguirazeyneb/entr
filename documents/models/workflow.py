@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-from dateutil.relativedelta import relativedelta
-
 from odoo import models, fields, api, _
+from odoo.exceptions import AccessError
 
 
 class WorkflowActionRule(models.Model):
@@ -77,6 +76,7 @@ class WorkflowActionRule(models.Model):
         :param documents: the list of the documents of the selection
         :return: the action dictionary that will be called after the workflow action is done or True.
         """
+        self.ensure_one()
         if self.create_model == 'link.to.record':
             return self.link_to_record(documents)
 
@@ -149,6 +149,15 @@ class WorkflowActionRule(models.Model):
             document_dict['partner_id'] = self.partner_id.id
         if self.folder_id:
             document_dict['folder_id'] = self.folder_id.id
+
+        # Use sudo if user has write access on document else allow to do the
+        # other workflow actions(like: schedule activity, send mail etc...)
+        try:
+            documents.check_access_rights('write')
+            documents.check_access_rule('write')
+            documents = documents.sudo()
+        except AccessError:
+            pass
 
         documents.write(document_dict)
 

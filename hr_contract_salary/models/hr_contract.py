@@ -23,8 +23,10 @@ class HrContract(models.Model):
     hash_token = fields.Char('Created From Token', copy=False)
     applicant_id = fields.Many2one('hr.applicant', domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
     contract_reviews_count = fields.Integer(compute="_compute_contract_reviews_count", string="Proposed Contracts Count")
-    default_contract_id = fields.Many2one('hr.contract', string="Contract Template",
-        domain="[('company_id', '=', company_id)]",
+    default_contract_id = fields.Many2one(
+        'hr.contract', string="Contract Template",
+        compute="_compute_default_contract", store=True, readonly=False,
+        domain="[('company_id', '=', company_id), ('employee_id', '=', False)]",
         help="Default contract used when making an offer to an applicant.")
     sign_template_id = fields.Many2one('sign.template', string="New Contract Document Template",
         help="Default document that the applicant will have to sign to accept a contract offer.")
@@ -53,12 +55,18 @@ class HrContract(models.Model):
         compute='_compute_monthly_yearly_costs', string='Monthly Cost (Real)', readonly=True,
         help="Total real monthly cost of the employee for the employer.")
 
+    @api.constrains('hr_responsible_id', 'sign_template_id')
+    def _check_hr_responsible_id(self):
+        for contract in self:
+            if contract.sign_template_id and not (contract.hr_responsible_id.has_group('sign.group_sign_user') and contract.hr_responsible_id.email_formatted):
+                raise ValidationError(_("HR Responsible %s should be a User of Sign and have a valid email address when New Contract Document Template is specified", contract.hr_responsible_id.name))
+
     @api.depends('wage', 'wage_on_signature')
     def _compute_contract_wage(self):
         super()._compute_contract_wage()
 
     def _get_contract_wage_field(self):
-        if (len(self) == 1 and self.structure_type_id.country_id.code == 'BE') or (not len(self) and self.env.company.country_id.code == 'BE'):
+        if (self and len(self) == 1 and self.structure_type_id.country_id.code == 'BE') or (not self and self.env.company.country_id.code == 'BE'):
             return 'wage_on_signature'
         return super()._get_contract_wage_field()
 
@@ -66,6 +74,13 @@ class HrContract(models.Model):
     def _compute_is_origin_contract_template(self):
         for contract in self:
             contract.is_origin_contract_template = contract.origin_contract_id and not contract.origin_contract_id.employee_id
+
+    @api.depends('job_id')
+    def _compute_default_contract(self):
+        for contract in self:
+            if not contract.job_id or not contract.job_id.default_contract_id:
+                continue
+            contract.default_contract_id = contract.job_id.default_contract_id
 
     def _get_yearly_cost_sacrifice_ratio(self):
         return 1.0 - self.holidays / 231.0
@@ -126,7 +141,9 @@ class HrContract(models.Model):
 
     @api.model
     def _advantage_black_list(self):
-        return set(MAGIC_COLUMNS + ['wage_with_holidays', 'wage_on_signature', 'active'])
+        return set(MAGIC_COLUMNS + [
+            'wage_with_holidays', 'wage_on_signature', 'active',
+            'date_generated_from', 'date_generated_to'])
 
     @api.model
     def _advantage_white_list(self):
@@ -253,7 +270,7 @@ class HrContract(models.Model):
                 'default_template_id': template_id,
                 'default_composition_mode': 'comment',
                 'salary_package_url': self.get_base_url() + path,
-                'custom_layout': 'mail.mail_notification_light'
+                'default_email_layout_xmlid': 'mail.mail_notification_light'
             }
             return {
                 'type': 'ir.actions.act_window',

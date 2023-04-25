@@ -7,14 +7,15 @@ odoo.define('timesheet_grid.timesheet_uom', function (require) {
     const { registry } = require("@web/core/registry");
 
     const TimesheetUOMMultiCompanyMixin = (component) => class extends component {
-        willStart() {
-            if (super.willStart) super.willStart(...arguments);
-            const currentCompanyId = session.user_context.allowed_company_ids[0];
-            const currentCompany = session.user_companies.allowed_companies[currentCompanyId];
-            this.currentCompanyTimesheetUOMFactor = currentCompany.timesheet_uom_factor || 1;
+        setup() {
+            super.setup();
+            owl.onWillStart(() => {
+                const currentCompanyId = session.user_context.allowed_company_ids[0];
+                const currentCompany = session.user_companies.allowed_companies[currentCompanyId];
+                this.currentCompanyTimesheetUOMFactor = currentCompany.timesheet_uom_factor || 1;
+            });
         }
     };
-
     /**
      * Extend the float toggle widget to set default value for timesheet
      * use case. The 'range' is different from the default one of the

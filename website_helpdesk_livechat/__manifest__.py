@@ -21,19 +21,23 @@ Features:
 
     """,
     'data': [
+        'data/helpdesk_livechat_chatbot_data.xml',
+
+        'views/chatbot_script_views.xml',
+        'views/chatbot_script_step_views.xml',
         'views/helpdesk_view.xml',
     ],
     'auto_install': True,
     'license': 'OEEL-1',
     'assets': {
-        'mail.assets_discuss_public': [
-            'website_helpdesk_livechat/static/src/models/*/*.js',
+        'mail.assets_messaging': [
+            'website_helpdesk_livechat/static/src/models/*.js',
         ],
-        'web.assets_backend': [
-            'website_helpdesk_livechat/static/src/models/*/*.js',
+        'web.tests_assets': [
+            'website_helpdesk_livechat/static/tests/helpers/*',
         ],
         'web.qunit_suite_tests': [
-            'website_helpdesk_livechat/static/src/components/*/tests/*.js',
+            'website_helpdesk_livechat/static/tests/qunit_suite_tests/**/*.js',
         ],
     },
 }

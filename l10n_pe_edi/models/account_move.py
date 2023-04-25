@@ -11,7 +11,6 @@ from odoo.tools.float_utils import float_repr, float_round
 from odoo.exceptions import UserError
 
 CATALOG52 = [
-    ("1000", "Monto en letras"),
     ("1002", "TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE"),
     ("2000", "COMPROBANTE DE PERCEPCIÓN"),
     ("2001", "BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVAPARA SER CONSUMIDOS EN LA MISMA"),
@@ -167,7 +166,7 @@ class AccountMove(models.Model):
 
     def _l10n_pe_edi_get_spot(self):
         max_percent = max(self.invoice_line_ids.mapped('product_id.l10n_pe_withhold_percentage'), default=0)
-        if not max_percent or self.amount_total_signed < 700 or not self.l10n_pe_edi_operation_type in ['1001', '1002', '1003', '1004']:
+        if not max_percent or not self.l10n_pe_edi_operation_type in ['1001', '1002', '1003', '1004'] or self.move_type == 'out_refund':
             return {}
         line = self.invoice_line_ids.filtered(lambda r: r.product_id.l10n_pe_withhold_percentage == max_percent)[0]
         national_bank = self.env.ref('l10n_pe_edi.peruvian_national_bank', raise_if_not_found=False)
@@ -284,7 +283,7 @@ class AccountMove(models.Model):
     def button_cancel_posted_moves(self):
         # OVERRIDE
         pe_edi_format = self.env.ref('l10n_pe_edi.edi_pe_ubl_2_1')
-        pe_invoices = self.filtered(pe_edi_format._is_required_for_invoice)
+        pe_invoices = self.filtered(pe_edi_format._get_move_applicability)
         if pe_invoices:
             credit_notes_needed = pe_invoices.filtered(lambda move: move.l10n_latam_document_type_id.code == '03')
             if credit_notes_needed:

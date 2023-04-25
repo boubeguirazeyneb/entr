@@ -4,9 +4,9 @@ odoo.define('web_enterprise.ControlPanel', function (require) {
     const ControlPanel = require('web.ControlPanel');
     const { device } = require('web.config');
     const { patch } = require('web.utils');
+    const { usePosition } = require("@web/core/position_hook");
 
-    const { Portal } = owl.misc;
-    const { useState } = owl.hooks;
+    const { onMounted, useExternalListener, useRef, useState, useEffect } = owl;
     const STICKY_CLASS = 'o_mobile_sticky';
 
     if (!device.isMobile) {
@@ -23,36 +23,49 @@ odoo.define('web_enterprise.ControlPanel', function (require) {
      */
     patch(ControlPanel.prototype, 'web_enterprise.ControlPanel', {
         setup() {
-            this._super(...arguments);
+            this._super();
+
+            this.controlPanelRef = useRef("controlPanel");
+
             this.state = useState({
                 showSearchBar: false,
                 showMobileSearch: false,
                 showViewSwitcher: false,
             });
-        },
 
-        mounted() {
-            // Bind additional events
             this.onWindowClick = this._onWindowClick.bind(this);
-            this.onWindowScroll = this._onScrollThrottled.bind(this);
-            window.addEventListener('click', this.onWindowClick);
-            document.addEventListener('scroll', this.onWindowScroll);
+            this.onScrollThrottled = this._onScrollThrottled.bind(this);
 
-            this.oldScrollTop = 0;
-            this.initialScrollTop = document.documentElement.scrollTop;
-            this.el.style.top = '0px';
-
-            this._super(...arguments);
-        },
-
-        willUnmount() {
-            window.removeEventListener('click', this.onWindowClick);
-            document.removeEventListener('scroll', this.onWindowScroll);
+            useExternalListener(window, "click", this.onWindowClick);
+            useEffect(() => {
+                const scrollingEl = this._getScrollingElement();
+                scrollingEl.addEventListener("scroll", this.onScrollThrottled);
+                this.controlPanelRef.el.style.top = "0px";
+                return () => {
+                    scrollingEl.removeEventListener("scroll", this.onScrollThrottled);
+                }
+            })
+            onMounted(() => {
+                this.oldScrollTop = 0;
+                this.lastScrollTop = 0;
+                this.initialScrollTop = this._getScrollingElement().scrollTop;
+            });
+            if (this.props.views && this.props.views.length > 1) {
+                const togglerRef = useRef("viewSwitcherTogglerRef");
+                usePosition(() => togglerRef.el, {
+                    popper: "viewSwitcherMenuRef",
+                    position: "bottom-end",
+                });
+            }
         },
 
         //---------------------------------------------------------------------
         // Private
         //---------------------------------------------------------------------
+
+        _getScrollingElement() {
+            return this.controlPanelRef.el.parentElement;
+        },
 
         /**
          * Get today's date (number).
@@ -86,29 +99,29 @@ odoo.define('web_enterprise.ControlPanel', function (require) {
          * @private
          */
         _onScrollThrottled() {
-            if (this.isScrolling) {
+            if (!this.controlPanelRef.el || this.isScrolling) {
                 return;
             }
             this.isScrolling = true;
             requestAnimationFrame(() => this.isScrolling = false);
 
-            const scrollTop = document.documentElement.scrollTop;
+            const scrollTop = this._getScrollingElement().scrollTop;
             const delta = Math.round(scrollTop - this.oldScrollTop);
 
             if (scrollTop > this.initialScrollTop) {
                 // Beneath initial position => sticky display
-                const elRect = this.el.getBoundingClientRect();
-                this.el.classList.add(STICKY_CLASS);
-                this.el.style.top = delta < 0 ?
+                this.controlPanelRef.el.classList.add(STICKY_CLASS);
+                this.lastScrollTop = delta < 0 ?
                     // Going up
-                    `${Math.min(0, elRect.top - delta)}px` :
+                    Math.min(0, this.lastScrollTop - delta) :
                     // Going down | not moving
-                    `${Math.max(-elRect.height, elRect.top - delta)}px`;
+                    Math.max(-this.controlPanelRef.el.offsetHeight, -this.controlPanelRef.el.offsetTop - delta);
+                this.controlPanelRef.el.style.top = `${this.lastScrollTop}px`;
             } else {
-                // Above intial position => standard display
-                this.el.classList.remove(STICKY_CLASS);
+                // Above initial position => standard display
+                this.controlPanelRef.el.classList.remove(STICKY_CLASS);
+                this.lastScrollTop = 0;
             }
-
             this.oldScrollTop = scrollTop;
         },
 
@@ -136,9 +149,5 @@ odoo.define('web_enterprise.ControlPanel', function (require) {
 
     patch(ControlPanel, 'web_enterprise.ControlPanel', {
         template: 'web_enterprise._ControlPanel',
-        components: {
-            ...ControlPanel.components,
-            Portal,
-        },
     });
 });

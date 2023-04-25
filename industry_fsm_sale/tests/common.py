@@ -14,12 +14,12 @@ class TestFsmFlowCommon(TransactionCase):
 
         cls.employee_user2 = cls.env['hr.employee'].create({
             'name': 'Employee User 2',
-            'timesheet_cost': 15,
+            'hourly_cost': 15,
         })
 
         cls.employee_user3 = cls.env['hr.employee'].create({
             'name': 'Employee User 2',
-            'timesheet_cost': 15,
+            'hourly_cost': 15,
         })
 
         cls.project_user = cls.env['res.users'].create({
@@ -43,7 +43,7 @@ class TestFsmFlowCommon(TransactionCase):
             'user_ids': cls.project_user,
             'project_id': cls.fsm_project.id})
 
-        cls.product_ordered = cls.env['product.product'].create({
+        cls.service_product_ordered = cls.env['product.product'].create({
             'name': 'Individual Workplace',
             'list_price': 885.0,
             'type': 'service',
@@ -51,12 +51,32 @@ class TestFsmFlowCommon(TransactionCase):
             'taxes_id': False,
         })
 
-        cls.product_delivered = cls.env['product.product'].create({
+        cls.service_product_delivered = cls.env['product.product'].create({
             'name': 'Acoustic Bloc Screens',
             'list_price': 2950.0,
             'type': 'service',
             'invoice_policy': 'delivery',
             'taxes_id': False,
+        })
+
+        cls.consu_product_delivered = cls.env['product.product'].create({
+            'name': 'Consommable product delivery',
+            'list_price': 40,
+            'type': 'consu',
+            'invoice_policy': 'delivery',
+        })
+
+        cls.consu_product_ordered = cls.env['product.product'].create({
+            'name': 'Consommable product ordered',
+            'list_price': 50.5,
+            'type': 'consu',
+            'invoice_policy': 'order',
+        })
+
+        cls.service_timesheet = cls.env['product.product'].create({
+            'name': 'service timesheet',
+            'detailed_type': 'service',
+            'service_policy': 'delivered_timesheet',
         })
 
 

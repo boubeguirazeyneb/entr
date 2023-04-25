@@ -17,13 +17,15 @@
         <field name="model">account.move.line</field>
         <field name="arch" type="xml">
             <search string="Invoice Line Entries Analysis">
-                <field name="subscription_start_date" filter_domain="[('subscription_start_date','&lt;=', self)]"/>
-                <field name="subscription_end_date" filter_domain="[('subscription_end_date','&gt;=', self)]"/>
+                <!--To obtain all the active subscriptions during a period, their end date should be
+                after the period beginning and their start date should be before the period end-->
+                <field name="subscription_start_date" filter_domain="[('subscription_end_date','&gt;=', self)]"/>
+                <field name="subscription_end_date" filter_domain="[('subscription_start_date','&lt;=', self)]"/>
                 <group expand="0" string="Group By">
                     <separator/>
                     <filter string="OUT invoices" name="OUT" domain="[('move_id.move_type', 'in', ('out_invoice', 'out_refund'))]"/>
                     <separator/>
-                    <filter string="Active invoices" name="ACTIVE" domain="[('move_id.state', 'not in', ('draft', 'cancel'))]"/>
+                    <filter string="Active invoices" name="ACTIVE" domain="[('parent_state', 'not in', ('draft', 'cancel'))]"/>
                 </group>
             </search>
         </field>
@@ -57,6 +59,6 @@
         <field name="help">From this view, have an analysis of your different invoice line entries.</field>
     </record>
 
-    <menuitem id="menu_action_subscription_dashboard_report_main" action="sale_subscription_dashboard.action_subscription_dashboard_report_main" parent="sale_subscription.menu_sale_subscription_report" name="Revenue KPIs" groups="sale_subscription.group_sale_subscription_manager"/>
+    <menuitem id="menu_action_subscription_dashboard_report_main" action="sale_subscription_dashboard.action_subscription_dashboard_report_main" parent="sale_subscription.menu_sale_subscription_report" name="Revenue KPIs" groups="sales_team.group_sale_manager"/>
     <menuitem id="menu_action_subscription_dashboard_report_salesman" action="sale_subscription_dashboard.action_subscription_dashboard_report_salesman" parent="sale_subscription.menu_sale_subscription_report" name="Salesperson Dashboard"/>
 </odoo>

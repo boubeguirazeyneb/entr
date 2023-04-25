@@ -92,10 +92,12 @@ result_name = inputs.REIMBURSEMENT.name""",
                 'name': _('Net Salary'),
                 'sequence': 200,
                 'code': 'NET',
+                'appears_on_employee_cost_dashboard': True,
                 'category_id': self.env.ref('hr_payroll.NET').id,
                 'condition_select': 'none',
                 'amount_select': 'code',
                 'amount_python_compute': 'result = categories.BASIC + categories.ALW + categories.DED',
+                'appears_on_employee_cost_dashboard': True,
             })
         ]
 

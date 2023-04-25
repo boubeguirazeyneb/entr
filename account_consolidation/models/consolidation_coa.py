@@ -13,7 +13,7 @@ class ConsolidationChart(models.Model):
     currency_id = fields.Many2one('res.currency', string="Target Currency", required=True)
     period_ids = fields.One2many('consolidation.period', 'chart_id', string="Analysis Periods")
     period_ids_count = fields.Integer(compute='_compute_period_ids_count', string='# Periods')
-    account_ids = fields.One2many('consolidation.account', 'chart_id', 'Consolidation Accounts', copy=True)
+    account_ids = fields.One2many('consolidation.account', 'chart_id', 'Consolidation Accounts')
     account_ids_count = fields.Integer(compute='_compute_account_ids_count', string='# Accounts')
     group_ids = fields.One2many('consolidation.group', 'chart_id', 'Account Groups')
     group_ids_count = fields.Integer(compute='_compute_group_ids_count', string='# Groups')
@@ -24,6 +24,8 @@ class ConsolidationChart(models.Model):
                                     'parent_ids', string="Sub-consolidations")
     parents_ids = fields.Many2many('consolidation.chart', 'account_consolidation_inner_rel', 'parent_ids',
                                    'children_ids', string="Consolidated In")
+    invert_sign = fields.Boolean('Invert Balance Sign', default=False)
+    sign = fields.Integer(compute='_compute_sign')
 
     # COMPUTEDS
     @api.depends('account_ids')
@@ -50,11 +52,22 @@ class ConsolidationChart(models.Model):
         for record in self:
             record.period_ids_count = len(record.period_ids)
 
+    @api.depends('invert_sign')
+    def _compute_sign(self):
+        for chart in self:
+            chart.sign = -1 if chart.invert_sign else 1
+
     def copy(self, default=None):
         default = dict(default or {})
         default['name'] = self.name + ' (copy)'
         default['color'] = ((self.color if self.color else 0) + 1) % 12
-        return super().copy(default)
+        default['group_ids'] = [group.copy().id for group in self.group_ids if not group.parent_id]  # This will copy parent groups, which will automatically copy child groups.
+        res = super().copy(default)
+        # Link the automatically copied children to the new chart.
+        res.group_ids.child_ids.chart_id = res.id
+        # We copied the groups, which copied the accounts. We still need to link the new accounts with the chart.
+        res.group_ids.account_ids.chart_id = res.id
+        return res
 
     # ACTIONS
 
@@ -148,6 +161,8 @@ class ConsolidationAccount(models.Model):
 
     linked_chart_ids = fields.Many2many('consolidation.chart', store=False, related="chart_id.children_ids")
     company_ids = fields.Many2many('res.company', store=False, related="chart_id.company_ids")
+    invert_sign = fields.Boolean('Invert Balance Sign', default=False)
+    sign = fields.Integer(compute='_compute_sign')
 
     # HIERARCHY
     #TODO I've no idea what this is for...
@@ -177,6 +192,11 @@ class ConsolidationAccount(models.Model):
                 remove_accounts = [(3, account.id) for account in account.account_ids - next_accounts]
                 vals['account_ids'][:1] = add_accounts + remove_accounts
         return super(ConsolidationAccount, self).write(vals)
+
+    def copy(self, default=None):
+        default = dict(default or {})
+        default['name'] = self.name + ' (copy)'
+        return super().copy(default)
 
     # COMPUTEDS
 
@@ -228,6 +248,11 @@ class ConsolidationAccount(models.Model):
         else:
             return [('used_in_ids', operator, operand)]
 
+    @api.depends('group_id.sign', 'invert_sign', 'chart_id.sign')
+    def _compute_sign(self):
+        for record in self:
+            record.sign = (-1 if record.invert_sign else 1) * (record.group_id or record.chart_id).sign
+
     # ORM OVERRIDES
 
     def name_get(self):
@@ -251,6 +276,15 @@ class ConsolidationAccount(models.Model):
         self.ensure_one()
         return dict(self._fields['currency_mode'].selection).get(self.currency_mode)
 
+    @api.model
+    def _name_search(self, name='', args=None, operator='ilike', limit=100, name_get_uid=None):
+        args = args or []
+        domain = []
+        if name:
+            domain = ['|', ('code', '=ilike', name.split(' ')[0] + '%'), ('name', operator, name)]
+            if operator in expression.NEGATIVE_TERM_OPERATORS:
+                domain = ['&', '!'] + domain[1:]
+        return self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
 
 class ConsolidationGroup(models.Model):
     _name = "consolidation.group"
@@ -265,10 +299,22 @@ class ConsolidationGroup(models.Model):
     show_on_dashboard = fields.Boolean(default=False)
     parent_id = fields.Many2one('consolidation.group', string='Parent')
     child_ids = fields.One2many('consolidation.group', 'parent_id', 'Children')
-    parent_path = fields.Char(index=True)
+    parent_path = fields.Char(index=True, unaccent=False)
     account_ids = fields.One2many('consolidation.account', 'group_id', 'Consolidation Account')
     line_ids = fields.One2many('consolidation.journal.line', 'group_id', 'Journal lines',
                                related="account_ids.line_ids")
+    invert_sign = fields.Boolean('Invert Balance Sign', default=False)
+    sign = fields.Integer(compute='_compute_sign', recursive=True)
+
+    def copy(self, default=None):
+        default = dict(default or {})
+        default['name'] = self.name + ' (copy)'
+        # Call manually copy to pass in the copy method of the copied records
+        if self.child_ids:
+            default['child_ids'] = [group.copy().id for group in self.child_ids]
+        if self.account_ids:
+            default['account_ids'] = [account.copy().id for account in self.account_ids]
+        return super().copy(default)
 
     # CONSTRAINTS
     @api.constrains('child_ids', 'account_ids')
@@ -290,3 +336,8 @@ class ConsolidationGroup(models.Model):
                 name = section.name + " / " + name
             ret_list.append((orig_section.id, name))
         return ret_list
+
+    @api.depends('parent_id.sign', 'invert_sign', 'chart_id.sign')
+    def _compute_sign(self):
+        for group in self:
+            group.sign = (-1 if group.invert_sign else 1) * (group.parent_id or group.chart_id).sign

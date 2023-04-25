@@ -7,7 +7,8 @@ from odoo.tests import common, Form
 
 class TestMpsMps(common.TransactionCase):
 
-    def setUp(cls):
+    @classmethod
+    def setUpClass(cls):
         """ Define a multi level BoM and generate a production schedule with
         default value for each of the products.
         BoM 1:
@@ -27,7 +28,7 @@ class TestMpsMps(common.TransactionCase):
                     |                   |
                 3 Drawer            4 Table Legs
         """
-        super(TestMpsMps, cls).setUp()
+        super().setUpClass()
 
         cls.table = cls.env['product.product'].create({
             'name': 'Table',
@@ -194,7 +195,7 @@ class TestMpsMps(common.TransactionCase):
 
         self.env['stock.quant']._update_available_quantity(self.mps_screw.product_id, self.warehouse.lot_stock_id, 50)
         # Invalidate qty_available on product.product
-        self.env.cache.invalidate()
+        self.env.invalidate_all()
         screw_mps_state = self.mps_screw.get_production_schedule_view_state()[0]
         forecast_at_first_period = screw_mps_state['forecast_ids'][0]
         self.assertEqual(forecast_at_first_period['forecast_qty'], 100)
@@ -239,7 +240,7 @@ class TestMpsMps(common.TransactionCase):
             'name': 'Jhon'
         })
         seller = self.env['product.supplierinfo'].create({
-            'name': partner.id,
+            'partner_id': partner.id,
             'price': 12.0,
             'delay': 0
         })
@@ -296,7 +297,7 @@ class TestMpsMps(common.TransactionCase):
             'name': 'Jhon'
         })
         seller = self.env['product.supplierinfo'].create({
-            'name': partner.id,
+            'partner_id': partner.id,
             'price': 12.0,
             'delay': 7,
         })
@@ -477,3 +478,40 @@ class TestMpsMps(common.TransactionCase):
         mps_table_leg = self.mps_table_leg.get_production_schedule_view_state()[0]
         self.assertEqual(mps_table_leg['forecast_ids'][0]['forecast_qty'], 25.0, "Wrong resulting value of to_supply")
         self.assertEqual(mps_table_leg['forecast_ids'][0]['incoming_qty'], 25.0, "Wrong resulting value of incoming quantity")
+
+    def test_interwh_delay(self):
+        """
+        Suppose an interwarehouse configuration. The user adds some delays on
+        each rule of the interwh route. Then, the user defines a replenishment
+        qty on the MPS view and calls the replenishment action. This test
+        ensures that the MPS view includes the delays for the incoming quantity
+        """
+        main_warehouse = self.warehouse
+        second_warehouse = self.env['stock.warehouse'].create({
+            'name': 'Second Warehouse',
+            'code': 'WH02',
+        })
+        main_warehouse.write({
+            'resupply_wh_ids': [(6, 0, second_warehouse.ids)]
+        })
+
+        interwh_route = self.env['stock.route'].search([('supplied_wh_id', '=', main_warehouse.id), ('supplier_wh_id', '=', second_warehouse.id)])
+        interwh_route.rule_ids.delay = 1
+
+        product = self.env['product.product'].create({
+            'name': 'SuperProduct',
+            'type': 'product',
+            'route_ids': [(6, 0, interwh_route.ids)],
+        })
+
+        mps = self.env['mrp.production.schedule'].create({
+            'product_id': product.id,
+            'warehouse_id': main_warehouse.id,
+        })
+        interval_index = 3
+        mps.set_replenish_qty(interval_index, 1)
+        mps.action_replenish()
+
+        state = mps.get_production_schedule_view_state()[0]
+        for index, forecast in enumerate(state['forecast_ids']):
+            self.assertEqual(forecast['incoming_qty'], 1 if index == interval_index else 0, 'Incoming qty is incorrect for index %s' % index)

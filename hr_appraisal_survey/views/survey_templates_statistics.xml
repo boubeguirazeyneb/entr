@@ -8,7 +8,7 @@
                     <div t-ignore="true" class="text-center">
                         <div groups="hr_appraisal.group_hr_appraisal_manager" class="d-inline-block">
                             <t t-if="survey.is_appraisal">
-                                <a t-attf-href="/web#view_type=form&amp;model=survey.survey&amp;id=#{survey.id}&amp;action=hr_appraisal_survey.survey_survey_action_appraisal"><i class="fa fa-fw fa-arrow-right"/><span t-if="answer and answer.test_entry">This is a test survey. </span>Edit Survey</a>
+                                <a t-attf-href="/web#view_type=form&amp;model=survey.survey&amp;id=#{survey.id}&amp;action=hr_appraisal_survey.survey_survey_action_appraisal"><span t-if="answer and answer.test_entry">This is a Test Survey. </span><i class="fa fa-fw fa-arrow-right"/>Edit Survey</a>
                             </t>
                             <t t-if="appraisal_id">
                                 or
@@ -16,21 +16,21 @@
                         </div>
                         <div groups="survey.group_survey_manager" class="d-inline-block">
                             <t t-if="not survey.is_appraisal">
-                                <a t-attf-href="/web#view_type=form&amp;model=survey.survey&amp;id=#{survey.id}&amp;action=survey.action_survey_form"><i class="fa fa-fw fa-arrow-right"/><span t-if="answer and answer.test_entry">This is a test survey. </span>Edit Survey</a>
+                                <a t-attf-href="/web#view_type=form&amp;model=survey.survey&amp;id=#{survey.id}&amp;action=survey.action_survey_form"><span t-if="answer and answer.test_entry">This is a Test Survey. </span><i class="fa fa-fw fa-arrow-right"/>Edit Survey</a>
                             </t>
                         </div>
                         <t t-if="appraisal_id">
                             <a t-attf-href="/web#view_type=form&amp;model=hr.appraisal&amp;id=#{appraisal_id}&amp;action=hr_appraisal.open_view_hr_appraisal_tree" class="">Back to the appraisal</a>
                         </t>
                     </div>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"> &#215; </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             </t>
         </xpath>
     </template>
 
     <template id="hr_appraisal_survey_page_statistics_header" inherit_id="survey.survey_page_statistics_header">
-        <xpath expr="//div[hasclass('py-5')]" position="inside">
+        <xpath expr="//div[hasclass('o_survey_statistics_header')]" position="inside">
             <t t-if="appraisal_id and answers">
                 <h3>
                     Appraisal of <t t-esc="employee_name"/> - Feedback requested by -

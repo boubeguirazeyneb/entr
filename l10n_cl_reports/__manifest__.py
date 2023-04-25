@@ -13,14 +13,12 @@
         'l10n_cl', 'account_reports',
     ],
     'data': [
-        'security/ir.model.access.csv',
-        'views/eightcolumns_report_view.xml',
         'views/res_config_settings_view.xml',
-        'wizard/f29_report_wizard.xml',
-        'data/f29_report_data.xml',
+        'data/eightcolumns_report.xml',
+        'data/f29_report.xml',
     ],
     'installable': True,
-    'auto_install': True,
+    'auto_install': ['l10n_cl', 'account_reports'],
     'website': 'http://cubicERP.com',
     'license': 'OEEL-1',
 }

@@ -35,11 +35,15 @@
             'marketing_automation/static/src/scss/variables.scss',
         ],
         'web.assets_backend': [
-            'marketing_automation/static/src/js/marketing_automation_graph.js',
-            'marketing_automation/static/src/js/marketing_automation_one2many.js',
-            'marketing_automation/static/src/js/marketing_campaign_view.js',
-            'marketing_automation/static/src/js/marketing_campaign_controller.js',
-            'marketing_automation/static/src/scss/marketing_automation.scss',
+            'marketing_automation/static/src/js/*.js',
+            'marketing_automation/static/src/scss/*.scss',
+            'marketing_automation/static/src/xml/*.xml',
+
+            # Don't include dark mode files in light mode
+            ('remove', 'marketing_automation/static/src/scss/*.dark.scss'),
+        ],
+        "web.dark_mode_assets_backend": [
+            'marketing_automation/static/src/scss/*.dark.scss',
         ],
         'web.qunit_suite_tests': [
             'marketing_automation/static/tests/**/*',

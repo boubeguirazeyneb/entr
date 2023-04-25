@@ -14,7 +14,7 @@ class TestViewNormalization(TransactionCase):
     def setUp(self):
         super(TestViewNormalization, self).setUp()
         random.seed('https://youtu.be/tFjNH9l6-sQ')
-        self.session = DotDict({'debug': False})
+        self.session = DotDict({'debug': ''})
         _request_stack.push(self)
         self.base_view = self.env.ref('base.view_partner_form')
         self.gantt_view = self.env['ir.ui.view'].create({
@@ -34,6 +34,7 @@ class TestViewNormalization(TransactionCase):
                     <field name="image_1920" widget="image" class="oe_avatar" options="{&quot;preview_image&quot;: &quot;image_128&quot;, &quot;size&quot;: [90, 90]}"/>
                     <div class="oe_title">
                         <field name="is_company" invisible="1"/>
+                        <field name="type" invisible="1"/>
                         <field name="company_type" widget="radio" class="oe_edit_only" on_change="on_change_company_type(company_type)" options="{'horizontal': true}"/>
                         <h1>
                             <field name="name" default_focus="1" placeholder="Name" attrs="{'required' : [('type', '=', 'contact')]}"/>
@@ -128,7 +129,7 @@ class TestViewNormalization(TransactionCase):
         normalized = studio_view.normalize()
 
         self.studio_controller._set_studio_view(view, normalized)
-        self.env[self.view.model].with_context(studio=True, load_all_views=True).fields_view_get(view.id, view.type)
+        self.env[self.view.model].with_context(studio=True, load_all_views=True).get_view(view.id, view.type)
 
         normalized = normalized and normalized.strip()
         expected = expected and textwrap.dedent(expected).strip()
@@ -145,7 +146,7 @@ class TestViewNormalization(TransactionCase):
                 </group>
               </xpath>
               <xpath expr="//group[@name='studio_group_E16QG_left']" position="inside">
-                <field name="credit_limit"/>
+                <field name="partner_latitude"/>
               </xpath>
               <xpath expr="//group[@name='studio_group_E16QG_left']" position="after">
                 <field name="id"/>
@@ -153,7 +154,7 @@ class TestViewNormalization(TransactionCase):
               <xpath expr="//group[@name='studio_group_E16QG_right']" position="inside">
                 <field name="employee"/>
               </xpath>
-              <xpath expr="//field[@name='credit_limit']" position="after">
+              <xpath expr="//field[@name='partner_latitude']" position="after">
                 <field name="contact_address"/>
               </xpath>
             </data>
@@ -162,7 +163,7 @@ class TestViewNormalization(TransactionCase):
               <xpath expr="//form[1]/sheet[1]/group[1]" position="after">
                 <group name="studio_group_E16QG">
                   <group name="studio_group_E16QG_left" string="Left Title">
-                    <field name="credit_limit"/>
+                    <field name="partner_latitude"/>
                     <field name="contact_address"/>
                   </group>
                   <field name="id"/>
@@ -185,7 +186,7 @@ class TestViewNormalization(TransactionCase):
                 </group>
               </xpath>
               <xpath expr="//group[@name='studio_group_E16QG_left']" position="inside">
-                <field name="credit_limit"/>
+                <field name="partner_latitude"/>
               </xpath>
               <xpath expr="//group[@name='studio_group_E16QG_left']" position="after">
                 <field name="id"/>
@@ -193,7 +194,7 @@ class TestViewNormalization(TransactionCase):
               <xpath expr="//group[@name='studio_group_E16QG_right']" position="inside">
                 <field name="employee"/>
               </xpath>
-              <xpath expr="//field[@name='credit_limit']" position="after">
+              <xpath expr="//field[@name='partner_latitude']" position="after">
                 <field name="contact_address"/>
               </xpath>
               <xpath expr="//group[@name='studio_group_E16QG_left']" position="replace"/>
@@ -719,7 +720,7 @@ class TestViewNormalization(TransactionCase):
               </xpath>
               <xpath expr="//templates//div" position="inside">
                 <div class="o_dropdown_kanban dropdown">
-                            <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#">
+                            <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#">
                                 <span class="fa fa-bars fa-lg" title="menu"/>
                             </a>
                             <div class="dropdown-menu" role="menu">
@@ -743,7 +744,7 @@ class TestViewNormalization(TransactionCase):
               </xpath>
               <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='child_ids']/kanban[1]/templates[1]/t[1]/div[1]/field[@name='name']" position="after">
                 <div class="o_dropdown_kanban dropdown" name="studio_div_302a40">
-                  <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#">
+                  <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#">
                     <span class="fa fa-bars fa-lg" title="menu"/>
                   </a>
                   <div class="dropdown-menu" role="menu" name="studio_div_4e2ccd">
@@ -1018,14 +1019,14 @@ class TestViewNormalization(TransactionCase):
                 <field name="function" position="move"/>
               </xpath>
               <xpath expr="//field[@name='function']" position="after">
-                <field name="credit_limit"/>
+                <field name="partner_latitude"/>
               </xpath>
             </data>
         """, """
             <data>
               <xpath expr="//form[1]/sheet[1]/group[1]/group[2]/field[@name='email']" position="after">
                 <xpath expr="//form[1]/sheet[1]/group[1]/group[2]/field[@name='function']" position="move"/>
-                <field name="credit_limit"/>
+                <field name="partner_latitude"/>
               </xpath>
             </data>
         """)

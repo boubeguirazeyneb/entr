@@ -3,21 +3,18 @@
 # 	* sale_renting
 # 
 # Translators:
-# Martin Trigaux, 2021
-# fanha99 <fanha99@hotmail.com>, 2021
-# thanhnguyen.icsc <thanhnguyen.icsc@gmail.com>, 2021
-# Duy BQ <duybq86@gmail.com>, 2021
-# Dung Nguyen Thi <dungnt@trobz.com>, 2021
-# Vo Thanh Thuy, 2021
+# Martin Trigaux, 2022
+# Nancy Momoland <thanhnguyen.icsc@gmail.com>, 2022
+# Thi Huong Nguyen, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:59+0000\n"
-"PO-Revision-Date: 2021-09-14 12:43+0000\n"
-"Last-Translator: Vo Thanh Thuy, 2021\n"
-"Language-Team: Vietnamese (https://www.transifex.com/odoo/teams/41243/vi/)\n"
+"POT-Creation-Date: 2023-04-14 06:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:48+0000\n"
+"Last-Translator: Thi Huong Nguyen, 2023\n"
+"Language-Team: Vietnamese (https://app.transifex.com/odoo/teams/41243/vi/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -25,17 +22,12 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/product.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/product_product.py:0
+#: code:addons/sale_renting/models/product_template.py:0
 #, python-format
-msgid "%(amount)s (fixed)"
-msgstr "%(amount)s (cố định)"
-
-#. module: sale_renting
-#: code:addons/sale_renting/models/product.py:0
-#: code:addons/sale_renting/models/product.py:0
-#, python-format
-msgid "(Rental)"
-msgstr "(Cho thuê)"
+msgid "%s (Rental)"
+msgstr "%s (Cho thuê)"
 
 #. module: sale_renting
 #: model:ir.actions.report,print_report_name:sale_renting.action_report_rental_saleorder
@@ -43,16 +35,18 @@ msgid ""
 "(object.rental_status not in ('draft', 'sent') and 'Delivery or Return "
 "Receipt - %s' %(object.name)) or 'Order - %s' % (object.name)"
 msgstr ""
-"(object.rental_status not in ('draft', 'sent') and 'Phiếu giao hoặc phiếu "
-"trả - %s' %(object.name)) or 'Đơn - %s' % (object.name)"
+"(object.rental_status not in ('draft', 'sent') and 'Phiếu giao hàng hoặc "
+"phiếu trả hàng- %s' %(object.name)) or 'Đơn hàng - %s' % (object.name)"
 
 #. module: sale_renting
+#. odoo-python
 #: code:addons/sale_renting/wizard/rental_configurator.py:0
 #, python-format
 msgid "/day"
 msgstr "/ngày"
 
 #. module: sale_renting
+#. odoo-python
 #: code:addons/sale_renting/wizard/rental_configurator.py:0
 #, python-format
 msgid "/hour"
@@ -60,8 +54,14 @@ msgstr "/giờ"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.res_config_settings_view_form
-msgid "<span class=\"o_form_label\">Default Delay Costs</span>"
-msgstr "<span class=\"o_form_label\">Phí trễ mặc định</span>"
+msgid ""
+"<span class=\"o_form_label\">\n"
+"                                    Default Delay Costs\n"
+"                                </span>"
+msgstr ""
+"<span class=\"o_form_label\">\n"
+"                                    Chi phí trễ mặc định\n"
+"                                </span>"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.product_product_form_view_rental_gantt
@@ -77,17 +77,17 @@ msgstr "<span> tới </span>"
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_gantt
 msgid "<strong>Order # — </strong>"
-msgstr "<strong>Đơn # — </strong>"
+msgstr "<strong>Đơn hàng # — </strong>"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_gantt
 msgid "<strong>Pickup  — </strong>"
-msgstr "<strong>Lấy  — </strong>"
+msgstr "<strong>Lấy hàng  — </strong>"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_gantt
 msgid "<strong>Return — </strong>"
-msgstr "<strong>Trả — </strong>"
+msgstr "<strong>Trả hàng — </strong>"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.report_rental_order_document
@@ -110,14 +110,9 @@ msgid "Add"
 msgstr "Thêm"
 
 #. module: sale_renting
-#: model_terms:ir.ui.view,arch_db:sale_renting.product_template_form_view_rental
-msgid "Add a price"
-msgstr "Thêm giá"
-
-#. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.res_config_settings_view_form
 msgid "Additional costs for late returns"
-msgstr "Phí chịu thêm do trả trễ"
+msgstr "Phí tính thêm do trả trễ"
 
 #. module: sale_renting
 #: model:ir.model.fields,help:sale_renting.field_product_product__rent_ok
@@ -142,7 +137,7 @@ msgid "Ask customer to sign documents on the spot."
 msgstr "Yêu cầu khách hàng ký vào văn bản tại chỗ."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "At first, let's create some products to rent."
@@ -176,32 +171,32 @@ msgid "Cancelled"
 msgstr "Đã hủy"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Click here to create a new quotation."
-msgstr "Bấm vào đây để tạo báo giá mới."
+msgstr "Nhấp vào đây để tạo báo giá mới."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Click here to register the pickup."
-msgstr "Bấm để ghi nhận việc lấy hàng. "
+msgstr "Nhấp vào đây để ghi nhận việc lấy hàng. "
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Click here to set up your first rental product."
-msgstr "Bấm để cài đặt sản phẩm cho thuê đầu tiên của bạn."
+msgstr "Nhấp vào đây để thiết lập sản phẩm cho thuê đầu tiên của bạn."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Click here to start filling the quotation."
-msgstr "Bấm vào đây để bắt đầu điền báo giá."
+msgstr "Nhấp vào đây để bắt đầu điền báo giá."
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__color
@@ -214,7 +209,6 @@ msgid "Companies"
 msgstr "Công ty"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__company_id
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__company_id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__company_id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__company_id
@@ -226,7 +220,7 @@ msgstr "Công ty"
 #. module: sale_renting
 #: model:ir.model,name:sale_renting.model_res_config_settings
 msgid "Config Settings"
-msgstr "Thiết lập cấu hình"
+msgstr "Cài đặt cấu hình"
 
 #. module: sale_renting
 #: model:ir.ui.menu,name:sale_renting.menu_rental_config
@@ -236,21 +230,21 @@ msgstr "Cấu hình"
 #. module: sale_renting
 #: model:ir.model,name:sale_renting.model_rental_wizard
 msgid "Configure the rental of a product"
-msgstr "Cài đặt một sản phẩm cho thuê"
+msgstr "Cấu hình sản phẩm cho thuê"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Confirm the order when the customer agrees with the terms."
-msgstr "Xác nhận đơn hàng khi khách hàng đồng ý với điều khoản."
+msgstr "Xác nhận đơn đặt hàng khi khách hàng đồng ý với các điều khoản."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Confirm the returned quantities and hit Validate."
-msgstr "Xác nhận số lượng đã trả và bấm Xác nhận. "
+msgstr "Xác nhận số lượng đã trả và bấm Xác nhận."
 
 #. module: sale_renting
 #: model:ir.model.fields.selection,name:sale_renting.selection__sale_order__rental_status__pickup
@@ -265,15 +259,9 @@ msgid "Confirmed Orders"
 msgstr "Đơn hàng đã xác nhận"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/rental_pricing.py:0
-#, python-format
-msgid "Conversion between Months and another duration unit are not supported!"
-msgstr "Không hỗ trợ chuyển đổi giữa tháng và đơn vị thời lượng khác!"
-
-#. module: sale_renting
 #: model:ir.actions.act_window,name:sale_renting.action_create_rental_order
 msgid "Create Rental Orders"
-msgstr "Tạo đơn cho thuê"
+msgstr "Tạo Đơn cho thuê"
 
 #. module: sale_renting
 #: model_terms:ir.actions.act_window,help:sale_renting.rental_order_action
@@ -291,7 +279,7 @@ msgid "Create a new rental product!"
 msgstr "Tạo một sản phẩm cho thuê mới!"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Create or select a customer here."
@@ -300,26 +288,23 @@ msgstr "Tạo hoặc chọn khách hàng ở đây."
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order__is_rental_order
 msgid "Created In App Rental"
-msgstr "Được tạo trong ứng dụng Cho thuê"
+msgstr "Đã tạo trong Ứng dụng Cho thuê"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__create_uid
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__create_uid
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__create_uid
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__create_uid
 msgid "Created by"
-msgstr "Tạo bởi"
+msgstr "Được tạo bởi"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__create_date
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__create_date
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__create_date
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__create_date
 msgid "Created on"
-msgstr "Thời điểm tạo"
+msgstr "Được tạo vào"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__currency_id
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__currency_id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__currency_id
 msgid "Currency"
@@ -348,7 +333,7 @@ msgstr "Thực thể khách hàng"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__card_name
 msgid "Customer Name"
-msgstr "Tên khách"
+msgstr "Tên khách hàng"
 
 #. module: sale_renting
 #: model:ir.ui.menu,name:sale_renting.menu_orders_customers
@@ -363,7 +348,7 @@ msgstr "Số tiền mỗi ngày"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__quantity
 msgid "Daily Ordered Qty"
-msgstr "SL đặt hàng ngày"
+msgstr "SL đã đặt hàng ngày"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__qty_delivered
@@ -388,7 +373,6 @@ msgid "Dates"
 msgstr "Ngày"
 
 #. module: sale_renting
-#: model:ir.model.fields.selection,name:sale_renting.selection__rental_pricing__unit__day
 #: model:ir.model.fields.selection,name:sale_renting.selection__rental_wizard__duration_unit__day
 msgid "Days"
 msgstr "Ngày"
@@ -412,7 +396,6 @@ msgstr "Tài liệu kỹ thuật số"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__display_name
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__display_name
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__display_name
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__display_name
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__display_name
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__display_name
@@ -426,33 +409,24 @@ msgid "Draft Quotation"
 msgstr "Báo giá nháp"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__duration
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__duration
 msgid "Duration"
 msgstr "Thời lượng"
 
 #. module: sale_renting
-#. openerp-web
-#: code:addons/sale_renting/static/src/js/rental_configurator_widget.js:0
-#: code:addons/sale_renting/static/src/js/rental_configurator_widget.js:0
-#, python-format
-msgid "Edit dates"
-msgstr "Sửa ngày"
-
-#. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_configurator_view_form
 msgid "Edited Rental Line"
-msgstr "Đã sửa dòng cho thuê"
+msgstr "Mục cho thuê đã được chỉnh sửa"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Enter the product name."
 msgstr "Nhập tên sản phẩm."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid ""
@@ -463,7 +437,8 @@ msgstr ""
 " Sau đó, bấm vào đây để thêm sản phẩm."
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/sale.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/sale_order_line.py:0
 #, python-format
 msgid "Expected"
 msgstr "Dự kiến"
@@ -486,6 +461,7 @@ msgid "Extra Hour"
 msgstr "Thêm giờ"
 
 #. module: sale_renting
+#. odoo-python
 #: code:addons/sale_renting/wizard/rental_configurator.py:0
 #, python-format
 msgid "Extras:"
@@ -504,19 +480,14 @@ msgid "Fine by hour overdue"
 msgstr "Phạt theo giờ quá hạn"
 
 #. module: sale_renting
-#: model:ir.model.fields,help:sale_renting.field_product_product__display_price
-#: model:ir.model.fields,help:sale_renting.field_product_template__display_price
-msgid "First rental pricing of the product"
-msgstr "Giá cho thuê đầu tiên của sản phẩm"
-
-#. module: sale_renting
+#. odoo-python
 #: code:addons/sale_renting/wizard/rental_configurator.py:0
 #, python-format
 msgid "Fixed rental price"
 msgstr "Giá thuê cố định"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Go to the orders menu."
@@ -533,17 +504,17 @@ msgstr "Nhóm theo"
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__has_late_lines
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order__has_late_lines
 msgid "Has Late Lines"
-msgstr "Có dòng trễ"
+msgstr "Có mục bị trễ"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order__has_pickable_lines
 msgid "Has Pickable Lines"
-msgstr "Có dòng có thể lấy"
+msgstr "Có mục có thể lấy hàng"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order__has_returnable_lines
 msgid "Has Returnable Lines"
-msgstr "Có dòng có thể trả"
+msgstr "Có mục có thể trả hàng"
 
 #. module: sale_renting
 #: model:ir.model.fields,help:sale_renting.field_rental_wizard__pricing_explanation
@@ -551,15 +522,14 @@ msgid "Helper text to understand rental price computation."
 msgstr "Đoạn văn bản giải thích cách tính giá cho thuê. "
 
 #. module: sale_renting
-#: model:ir.model.fields.selection,name:sale_renting.selection__rental_pricing__unit__hour
 #: model:ir.model.fields.selection,name:sale_renting.selection__rental_wizard__duration_unit__hour
+#: model:ir.model.fields.selection,name:sale_renting.selection__sale_temporal_recurrence__unit__hour
 msgid "Hours"
 msgstr "Giờ"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__id
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__id
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__id
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__id
@@ -569,12 +539,12 @@ msgstr "ID"
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.report_rental_order_document
 msgid "Invoicing Address:"
-msgstr "Địa chỉ xuất hóa đơn: "
+msgstr "Địa chỉ xuất hoá đơn"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.report_rental_order_document
 msgid "Invoicing and Shipping Address:"
-msgstr "Địa chỉ xuất hóa đơn và giao hàng: "
+msgstr "Địa chỉ xuất hóa đơn và giao hàng"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__is_late
@@ -595,17 +565,15 @@ msgstr "Quá hạn"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard____last_update
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line____last_update
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing____last_update
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard____last_update
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report____last_update
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule____last_update
 msgid "Last Modified on"
-msgstr "Sửa lần cuối vào"
+msgstr "Chỉnh sửa lần cuối vào"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__write_uid
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__write_uid
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__write_uid
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__write_uid
 msgid "Last Updated by"
 msgstr "Cập nhật lần cuối bởi"
@@ -613,7 +581,6 @@ msgstr "Cập nhật lần cuối bởi"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__write_date
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__write_date
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__write_date
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__write_date
 msgid "Last Updated on"
 msgstr "Cập nhật lần cuối vào"
@@ -639,17 +606,16 @@ msgstr "Lấy trễ"
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_order_form_view
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_form
 msgid "Late Return"
-msgstr "Trả trễ"
+msgstr "Trả hàng trễ"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Let's now create an order."
 msgstr "Bây giờ, hãy tạo một đơn hàng."
 
 #. module: sale_renting
-#: model:product.product,name:sale_renting.rental_product_2
 #: model:product.template,name:sale_renting.rental_product_2_product_template
 msgid "Meeting Room"
 msgstr "Phòng họp"
@@ -657,7 +623,8 @@ msgstr "Phòng họp"
 #. module: sale_renting
 #: model:ir.model.constraint,message:sale_renting.constraint_res_company_min_extra_hour
 msgid "Minimal delay time before applying fines has to be positive."
-msgstr "Thời gian trì hoãn tối thiểu trước khi áp dụng phạt phải là số dương."
+msgstr ""
+"Thời gian trì hoãn tối thiểu trước khi áp dụng tiền phạt phải là số dương."
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_res_company__min_extra_hour
@@ -666,16 +633,6 @@ msgid "Minimum delay time before applying fines."
 msgstr "Thời gian trễ tối thiểu trước khi áp dụng tiền phạt."
 
 #. module: sale_renting
-#: model:ir.model.fields,help:sale_renting.field_rental_pricing__duration
-msgid ""
-"Minimum duration before this rule is applied. If set to 0, it represents a "
-"fixed rental price."
-msgstr ""
-"Thời lượng tối thiểu trước khi quy tắc này được áp dụng. Đặt thời lượng là 0"
-" nếu đây là giá thuê cố định. "
-
-#. module: sale_renting
-#: model:ir.model.fields.selection,name:sale_renting.selection__rental_pricing__unit__month
 #: model:ir.model.fields.selection,name:sale_renting.selection__rental_wizard__duration_unit__month
 msgid "Months"
 msgstr "Tháng"
@@ -689,7 +646,7 @@ msgstr "Đơn hàng của tôi"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order__next_action_date
 msgid "Next Action"
-msgstr "Tác vụ tiếp theo"
+msgstr "Hành động tiếp theo"
 
 #. module: sale_renting
 #: model_terms:ir.actions.act_window,help:sale_renting.action_rental_report
@@ -697,6 +654,7 @@ msgid "No data yet!"
 msgstr "Chưa có dữ liệu nào!"
 
 #. module: sale_renting
+#. odoo-python
 #: code:addons/sale_renting/wizard/rental_configurator.py:0
 #, python-format
 msgid ""
@@ -709,7 +667,7 @@ msgstr ""
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_form
 msgid "Ok"
-msgstr "Ok"
+msgstr "Đồng ý"
 
 #. module: sale_renting
 #: model_terms:ir.actions.act_window,help:sale_renting.rental_order_action
@@ -717,15 +675,15 @@ msgid ""
 "Once the quotation is confirmed, it becomes a rental order.<br> You will be "
 "able to create an invoice and collect the payment."
 msgstr ""
-"Sau khi báo giá được xác nhận bởi khách hàng, nó sẽ trở thành một đơn "
-"thuê.<br> Bạn sẽ có thể tạo một hóa đơn và nhận thanh toán."
+"Sau khi báo giá được xác nhận, nó sẽ trở thành một đơn cho thuê.<br> Bạn sẽ "
+"có thể tạo một hóa đơn và nhận thanh toán."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Once the rental is done, you can register the return."
-msgstr "Sau khi cho thuê xong, bạn có thể ghi nhận trả lại. "
+msgstr "Sau khi cho thuê hoàn tất, bạn có thể ghi nhận trả hàng. "
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__order_id
@@ -737,7 +695,7 @@ msgstr "Đơn hàng"
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__order_id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__order_id
 msgid "Order #"
-msgstr "Đơn #"
+msgstr "Đơn hàng #"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__order_date
@@ -748,7 +706,7 @@ msgstr "Ngày đặt hàng"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__order_line_id
 msgid "Order Line"
-msgstr "Dòng đơn hàng"
+msgstr "Mục đơn hàng"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__name
@@ -758,7 +716,7 @@ msgstr "Mã đơn hàng"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__order_line_id
 msgid "Order line #"
-msgstr "Dòng đơn #"
+msgstr "Mục đơn hàng #"
 
 #. module: sale_renting
 #: model:ir.ui.menu,name:sale_renting.rental_order_menu
@@ -810,7 +768,6 @@ msgstr "Đã lấy"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__pickup_date
-#: model:ir.model.fields,field_description:sale_renting.field_sale_order_line__pickup_date
 #: model:ir.model.fields.selection,name:sale_renting.selection__rental_order_wizard__status__pickup
 #: model:ir.ui.menu,name:sale_renting.rental_orders_pickup
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_gantt
@@ -828,22 +785,22 @@ msgstr "Ngày lấy"
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.report_rental_order_document
 msgid "Pickup Receipt #"
-msgstr "Phiếu lấy #"
+msgstr "Phiếu lấy hàng #"
 
 #. module: sale_renting
 #: model:ir.actions.report,name:sale_renting.action_report_rental_saleorder
 msgid "Pickup and Return Receipt"
-msgstr "Phiếu lấy và phiếu trả"
+msgstr "Phiếu lấy hàng và phiếu trả hàng"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order_line__reservation_begin
 msgid "Pickup date - padding time"
-msgstr "Ngày lấy - thời gian đệm"
+msgstr "Ngày lấy - thời gian bổ sung"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_order_view_kanban
 msgid "Pickup:"
-msgstr "Lấy: "
+msgstr "Lấy:"
 
 #. module: sale_renting
 #: model:ir.model.constraint,message:sale_renting.constraint_rental_wizard_rental_period_coherence
@@ -852,17 +809,11 @@ msgid "Please choose a return date that is after the pickup date."
 msgstr "Vui lòng chọn ngày trả sau ngày lấy."
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__price
-msgid "Price"
-msgstr "Giá"
-
-#. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__pricing_explanation
 msgid "Price Computation"
 msgstr "Tính giá"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__pricelist_id
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__pricelist_id
 msgid "Pricelist"
 msgstr "Bảng giá"
@@ -873,12 +824,7 @@ msgid "Pricing"
 msgstr "Định giá"
 
 #. module: sale_renting
-#: model:ir.model,name:sale_renting.model_rental_pricing
-msgid "Pricing rule of rentals"
-msgstr "Quy tắc định giá cho thuê"
-
-#. module: sale_renting
-#: model:ir.model,name:sale_renting.model_product_product
+#: model:ir.model,name:sale_renting.model_product_template
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__product_id
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__product_id
 #: model:ir.model.fields,field_description:sale_renting.field_res_company__extra_product
@@ -905,20 +851,14 @@ msgid "Product Reference"
 msgstr "Mã sản phẩm"
 
 #. module: sale_renting
-#: model:ir.model,name:sale_renting.model_product_template
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__product_tmpl_id
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__product_tmpl_id
 msgid "Product Template"
 msgstr "Mẫu sản phẩm"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__product_template_id
-msgid "Product Templates"
-msgstr "Mẫu sản phẩm"
-
-#. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__product_variant_ids
-msgid "Product Variants"
+#: model:ir.model,name:sale_renting.model_product_product
+msgid "Product Variant"
 msgstr "Biến thể sản phẩm"
 
 #. module: sale_renting
@@ -938,7 +878,6 @@ msgid "Products"
 msgstr "Sản phẩm"
 
 #. module: sale_renting
-#: model:product.product,name:sale_renting.rental_product_1
 #: model:product.template,name:sale_renting.rental_product_1_product_template
 msgid "Projector"
 msgstr "Máy chiếu"
@@ -981,7 +920,7 @@ msgstr "Báo giá"
 #: model:ir.model.fields.selection,name:sale_renting.selection__sale_rental_schedule__rental_status__sent
 #: model:ir.model.fields.selection,name:sale_renting.selection__sale_rental_schedule__state__sent
 msgid "Quotation Sent"
-msgstr "Báo giá đã gửi"
+msgstr "Đã gửi báo giá"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_report_search_view
@@ -1000,8 +939,8 @@ msgid "Rent a product"
 msgstr "Thuê một sản phẩm"
 
 #. module: sale_renting
+#: model:ir.model.fields.selection,name:sale_renting.selection__sale_order_line__temporal_type__rental
 #: model:ir.ui.menu,name:sale_renting.rental_menu_root
-#: model_terms:ir.ui.view,arch_db:sale_renting.product_template_form_view_rental
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_configurator_view_form
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_gantt
 #: model_terms:ir.ui.view,arch_db:sale_renting.res_config_settings_view_form
@@ -1031,7 +970,7 @@ msgstr "Đơn cho thuê"
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__rental_order_line_id
 msgid "Rental Order Line"
-msgstr "Dòng đơn cho thuê"
+msgstr "Mục đơn cho thuê"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__rental_order_wizard_id
@@ -1046,26 +985,15 @@ msgid "Rental Orders"
 msgstr "Đơn cho thuê"
 
 #. module: sale_renting
-#: model_terms:ir.ui.view,arch_db:sale_renting.product_template_form_view_rental
-msgid "Rental Pricing"
-msgstr "Giá cho thuê"
-
-#. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_product_product__rental_pricing_ids
-#: model:ir.model.fields,field_description:sale_renting.field_product_template__rental_pricing_ids
-msgid "Rental Pricings"
-msgstr "Giá cho thuê"
-
-#. module: sale_renting
 #: model:ir.model,name:sale_renting.model_sale_rental_schedule
 msgid "Rental Schedule"
-msgstr "Lịch thuê"
+msgstr "Lịch cho thuê"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order__rental_status
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__rental_status
 msgid "Rental Status"
-msgstr "Tình trạng cho thuê"
+msgstr "Trạng thái cho thuê"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__report_line_status
@@ -1073,20 +1001,14 @@ msgid "Rental Status (advanced)"
 msgstr "Trạng thái cho thuê (nâng cao)"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_sale_order_line__rental_updatable
-msgid "Rental Updatable"
-msgstr "Có thể cập nhật được"
-
-#. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__rental_wizard_line_ids
 msgid "Rental Wizard Line"
-msgstr "Dòng hướng dẫn cho thuê"
+msgstr "Mục hướng dẫn cho thuê"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_product_product__display_price
-#: model:ir.model.fields,field_description:sale_renting.field_product_template__display_price
-msgid "Rental price"
-msgstr "Giá thuê"
+#: model:ir.ui.menu,name:sale_renting.menu_sale_renting_periods
+msgid "Rental periods"
+msgstr "Giai đoạn cho thuê"
 
 #. module: sale_renting
 #: model:ir.model,name:sale_renting.model_rental_order_wizard_line
@@ -1106,7 +1028,7 @@ msgstr "Báo cáo"
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.product_template_form_view_rental
 msgid "Reservations"
-msgstr "Đặt trước"
+msgstr "Dự trữ"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__qty_reserved
@@ -1115,7 +1037,7 @@ msgstr "Đặt trước"
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_form
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_gantt
 msgid "Reserved"
-msgstr "Đã đặt trước"
+msgstr "Đã dự trữ"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__return_date
@@ -1136,10 +1058,11 @@ msgstr "Ngày trả"
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_order_view_kanban
 msgid "Return:"
-msgstr "Trả:"
+msgstr "Trả hàng:"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/sale.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/sale_order_line.py:0
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard_line__qty_returned
 #: model:ir.model.fields,field_description:sale_renting.field_sale_order_line__qty_returned
 #: model:ir.model.fields.selection,name:sale_renting.selection__sale_order__rental_status__returned
@@ -1154,10 +1077,15 @@ msgid "Returned"
 msgstr "Đã trả"
 
 #. module: sale_renting
+#: model:ir.model,name:sale_renting.model_sale_temporal_recurrence
+msgid "Sale temporal Recurrence"
+msgstr "Sale temporal Recurrence"
+
+#. module: sale_renting
 #: model:ir.model.fields.selection,name:sale_renting.selection__sale_rental_report__state__done
 #: model:ir.model.fields.selection,name:sale_renting.selection__sale_rental_schedule__state__done
 msgid "Sales Done"
-msgstr "Bán xong"
+msgstr "Bán hàng hoàn tất"
 
 #. module: sale_renting
 #: model:ir.model,name:sale_renting.model_sale_order
@@ -1169,19 +1097,19 @@ msgstr "Đơn bán hàng"
 #. module: sale_renting
 #: model:ir.model,name:sale_renting.model_sale_order_line
 msgid "Sales Order Line"
-msgstr "Dòng đơn bán hàng"
+msgstr "Mục đơn bán hàng"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__team_id
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_order_view_search
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_schedule_view_search
 msgid "Sales Team"
-msgstr "Đội kinh doanh"
+msgstr "Đội ngũ kinh doanh"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_report__user_id
 msgid "Salesman"
-msgstr "Nhân viên bán hàng"
+msgstr "Nhân viên kinh doanh"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_sale_rental_schedule__user_id
@@ -1192,14 +1120,14 @@ msgid "Salesperson"
 msgstr "Nhân viên kinh doanh"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Save the product."
 msgstr "Lưu sản phẩm."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Save the quotation."
@@ -1211,29 +1139,16 @@ msgid "Schedule"
 msgstr "Lịch trình"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/product.py:0
-#: code:addons/sale_renting/models/product.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/product_product.py:0
+#: code:addons/sale_renting/models/product_template.py:0
 #: model:ir.actions.act_window,name:sale_renting.action_rental_order_schedule
 #, python-format
 msgid "Scheduled Rentals"
-msgstr "Lịch cho thuê đã lập"
+msgstr "Hoạt động cho thuê đã lên lịch"
 
 #. module: sale_renting
-#: model:ir.model.fields,help:sale_renting.field_rental_pricing__product_variant_ids
-msgid ""
-"Select Variants of the Product for which this rule applies.\n"
-" Leave empty if this rule applies for any variant of this template."
-msgstr ""
-"Chọn biến thể của sản phẩm áp dụng quy tắc này.\n"
-" Để trống nếu quy tắc này áp dụng cho tất cả các biến thể của mẫu này. "
-
-#. module: sale_renting
-#: model:ir.model.fields,help:sale_renting.field_rental_pricing__product_template_id
-msgid "Select products on which this pricing will be applied."
-msgstr "Chọn sản phẩm mà giá này sẽ được áp dụng."
-
-#. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Select your rental product."
@@ -1251,9 +1166,14 @@ msgid "Some delay cost will be added to the sales order."
 msgstr "Một số chi phí trễ sẽ được thêm vào đơn bán hàng."
 
 #. module: sale_renting
+#: model:ir.model.fields,field_description:sale_renting.field_sale_order_line__start_date
+msgid "Start Date"
+msgstr "Ngày bắt đầu"
+
+#. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_report_search_view
 msgid "State"
-msgstr "Bang"
+msgstr "Trạng thái"
 
 #. module: sale_renting
 #: model:ir.model.fields,field_description:sale_renting.field_rental_order_wizard__status
@@ -1268,32 +1188,27 @@ msgstr "Trạng thái"
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.sale_rental_report_view_tree
 msgid "Sum of Daily Amount"
-msgstr "Tổng tiền hằng ngày"
+msgstr "Tổng tiền hàng ngày"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.sale_rental_report_view_tree
 msgid "Sum of Daily Ordered Qty"
-msgstr "Tổng SL đặt hằng ngày"
+msgstr "Tổng SL đã đặt hàng ngày"
 
 #. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.sale_rental_report_view_tree
 msgid "Sum of Daily Picked-Up Qty"
-msgstr "Tổng SL lấy hằng ngày"
+msgstr "Tổng SL đã lấy hàng ngày"
+
+#. module: sale_renting
+#: model:ir.model.fields,field_description:sale_renting.field_sale_order_line__temporal_type
+msgid "Temporal Type"
+msgstr "Loại thời gian"
 
 #. module: sale_renting
 #: model:ir.model.fields,help:sale_renting.field_rental_wizard__duration
 msgid "The duration unit is based on the unit of the rental pricing rule."
 msgstr "Đơn vị thời lượng dựa trên đơn vị của quy tắc định giá cho thuê. "
-
-#. module: sale_renting
-#: model:ir.model.constraint,message:sale_renting.constraint_rental_pricing_rental_pricing_duration
-msgid "The pricing duration has to be greater or equal to 0."
-msgstr "Thời lượng định giá phải lớn hơn hoặc bằng 0. "
-
-#. module: sale_renting
-#: model:ir.model.constraint,message:sale_renting.constraint_rental_pricing_rental_pricing_price
-msgid "The pricing price has to be greater or equal to 0."
-msgstr "Giá được định phải lớn hơn hoặc bằng 0. "
 
 #. module: sale_renting
 #: model:ir.model.fields,help:sale_renting.field_res_company__extra_product
@@ -1306,7 +1221,7 @@ msgid "The products haven't been returned in time"
 msgstr "Các sản phẩm chưa được trả lại đúng hạn"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "The rental configuration is available here."
@@ -1324,9 +1239,9 @@ msgid ""
 "This is the default extra cost per day set on newly created products. You "
 "can change this value for existing products directly on the product itself."
 msgstr ""
-"Đây là chi phí thêm mặc định mỗi ngày được đặt cho các sản phẩm mới được "
-"tạo. Bạn có thể thay đổi giá trị này cho các sản phẩm hiện có trực tiếp trên"
-" chính sản phẩm đó."
+"Đây là chi phí bổ sung mặc định mỗi ngày được đặt cho các sản phẩm mới tạo. "
+"Bạn có thể trực tiếp thay đổi giá trị này cho các sản phẩm hiện có trên "
+"chính sản phẩm đó."
 
 #. module: sale_renting
 #: model:ir.model.fields,help:sale_renting.field_res_config_settings__extra_hour
@@ -1334,8 +1249,8 @@ msgid ""
 "This is the default extra cost per hour set on newly created products. You "
 "can change this value for existing products directly on the product itself."
 msgstr ""
-"Đây là chi phí thêm mặc định mỗi giờ được đặt cho các sản phẩm mới được tạo."
-" Bạn có thể thay đổi giá trị này cho các sản phẩm hiện có trực tiếp trên "
+"Đây là chi phí bổ sung mặc định mỗi giờ được đặt cho các sản phẩm mới tạo. "
+"Bạn có thể trực tiếp thay đổi giá trị này cho các sản phẩm hiện có trên "
 "chính sản phẩm đó."
 
 #. module: sale_renting
@@ -1344,8 +1259,8 @@ msgid ""
 "This price is based on the rental price rule that gives the cheapest price "
 "for requested duration."
 msgstr ""
-"Giá này dựa trên quy tắc giá cho thuê đưa ra mức giá rẻ nhất cho thời lượng "
-"yêu cầu. "
+"Giá này dựa trên quy tắc giá cho thuê và đưa ra mức giá rẻ nhất trong thời "
+"gian yêu cầu."
 
 #. module: sale_renting
 #: model:ir.model.fields,help:sale_renting.field_res_config_settings__extra_product
@@ -1358,8 +1273,8 @@ msgid ""
 "Those values are applied to any new rental product and can be changed on "
 "product forms."
 msgstr ""
-"Những giá trị này được áp dụng cho bất kỳ sản phẩm cho thuê mới nào và có "
-"thể được thay đổi trên biểu mẫu sản phẩm. "
+"Những giá trị này được áp dụng cho mọi sản phẩm cho thuê mới và có thể được "
+"thay đổi trên biểu mẫu sản phẩm. "
 
 #. module: sale_renting
 #: model:ir.ui.menu,name:sale_renting.rental_orders_today
@@ -1384,8 +1299,8 @@ msgid "Total Tax Included"
 msgstr "Tổng đã gồm thuế"
 
 #. module: sale_renting
-#: model:ir.model.fields,field_description:sale_renting.field_rental_pricing__unit
 #: model:ir.model.fields,field_description:sale_renting.field_rental_wizard__duration_unit
+#: model:ir.model.fields,field_description:sale_renting.field_sale_temporal_recurrence__unit
 msgid "Unit"
 msgstr "Đơn vị"
 
@@ -1402,53 +1317,51 @@ msgid "Unit of Measure"
 msgstr "Đơn vị tính"
 
 #. module: sale_renting
-#: model:product.product,uom_name:sale_renting.rental_product_1
-#: model:product.product,uom_name:sale_renting.rental_product_2
-#: model:product.template,uom_name:sale_renting.rental_product_1_product_template
-#: model:product.template,uom_name:sale_renting.rental_product_2_product_template
-msgid "Units"
-msgstr "Đơn vị"
-
-#. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.rental_order_wizard_view_form
 msgid "Validate"
 msgstr "Xác nhận"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/sale.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/sale_order.py:0
 #, python-format
 msgid "Validate a pickup"
-msgstr "Xác nhận lấy"
+msgstr "Xác nhận lấy hàng"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/sale.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/sale_order.py:0
 #, python-format
 msgid "Validate a return"
-msgstr "Xác nhận trả"
+msgstr "Xác nhận trả hàng"
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid "Validate the operation after checking the picked-up quantities."
 msgstr "Xác nhận hoạt động sau khi kiểm tra số lượng lấy."
 
 #. module: sale_renting
-#. openerp-web
+#. odoo-javascript
 #: code:addons/sale_renting/static/src/js/tours/rental.js:0
 #, python-format
 msgid ""
 "Want to <b>rent products</b>? \n"
 " Let's discover Odoo Rental App."
 msgstr ""
-"Muốn <b>cho thuê sản phẩm</b>? \n"
-" Hãy cùng khám phá ứng dụng Odoo Cho thuê."
+"Bạn muốn <b>cho thuê sản phẩm</b>? \n"
+"Hãy cùng khám phá Ứng dụng Cho thuê của Odoo."
 
 #. module: sale_renting
-#: model:ir.model.fields.selection,name:sale_renting.selection__rental_pricing__unit__week
 #: model:ir.model.fields.selection,name:sale_renting.selection__rental_wizard__duration_unit__week
 msgid "Weeks"
 msgstr "Tuần"
+
+#. module: sale_renting
+#: model:ir.model.fields.selection,name:sale_renting.selection__rental_wizard__duration_unit__year
+msgid "Years"
+msgstr "Năm"
 
 #. module: sale_renting
 #: model_terms:ir.actions.act_window,help:sale_renting.rental_product_template_action
@@ -1464,14 +1377,15 @@ msgstr ""
 #: model_terms:ir.actions.act_window,help:sale_renting.rental_order_today_return_action
 msgid ""
 "You can search on a larger period using the filters here above\n"
-"              <br>\n"
-"              or create a new rental order."
+"                <br>\n"
+"                or create a new rental order."
 msgstr ""
-"Bạn có thể tìm kiếm trong khoảng thời gian rộng hơn bằng cách dùng bộ lọc ở trên hoặc\n"
+"Bạn có thể tìm kiếm trong khoảng thời gian rộng hơn bằng cách dùng bộ lọc ở trên\n"
 "              <br>\n"
-"              tạo đơn cho thuê mới."
+"              hoặc tạo đơn cho thuê mới."
 
 #. module: sale_renting
+#. odoo-python
 #: code:addons/sale_renting/wizard/rental_processing.py:0
 #, python-format
 msgid "You can't return more than what's been picked-up."
@@ -1483,12 +1397,20 @@ msgid "You cannot return more than what has been picked up."
 msgstr "Bạn không thể trả nhiều hơn số lượng đã lấy. "
 
 #. module: sale_renting
+#. odoo-javascript
+#: code:addons/sale_renting/static/src/js/tours/rental.js:0
+#, python-format
+msgid "You're done with your fist rental. Congratulations !"
+msgstr "Chúc mừng bạn đã hoàn thành hoạt động cho thuê đầu tiên!"
+
+#. module: sale_renting
 #: model_terms:ir.ui.view,arch_db:sale_renting.res_config_settings_view_form
 msgid "hours"
 msgstr "giờ"
 
 #. module: sale_renting
-#: code:addons/sale_renting/models/sale.py:0
+#. odoo-python
+#: code:addons/sale_renting/models/sale_order_line.py:0
 #, python-format
 msgid "to"
 msgstr "tới"

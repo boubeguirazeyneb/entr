@@ -19,10 +19,11 @@
         'data/profit_and_loss.xml',
         'data/ir_config_param.xml',
         'data/ec_sales_list_report.xml',
+        'data/account_report_tax_report.xml',
         'views/l10n_de_report_views.xml',
         'data/report_export_template.xml',
     ],
     'installable': True,
-    'auto_install': True,
+    'auto_install': ['l10n_de', 'account_reports'],
     'license': 'OEEL-1',
 }

@@ -308,6 +308,61 @@ class TestRecurrencySlotGeneration(TestCommonPlanning):
             self.env['planning.recurrency']._cron_schedule_next()
             self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 7, 'second run should not generate any slots')
 
+    def test_number_of_repetitions(self):
+        """ Since the recurrency cron is meant to run every week, make sure generation works accordingly when
+            both the company's repeat span and the repeat interval are much larger
+            Company's span is 1 month and repeat_interval is 1 week
+
+            Test Case:
+            ---------
+            First Automated Run:
+                now :                   2020-4-20
+                initial_start :         2020-4-20
+                repeat_end :            2020-05-25  now + 1 month
+                generated slots:
+                                        2020-4-20
+                                        2020-4-27
+                                        2020-5-04
+                                        2020-5-11
+                                        2020-5-18
+            First Cron:
+                now:                    2020-4-27
+                last generated start    2020-5-18
+                repeat_end              2020-05-25
+                generated slots:
+                                        2020-05-25
+            Second Cron:
+                now:                    2020-5-4
+                last generated start    2020-05-25
+                repeat_end              2020-05-25
+                generated slots:
+        """
+        with self._patch_now('2020-04-20 08:00:00'):
+            self.configure_recurrency_span(1)
+
+            self.env['planning.slot'].create({
+                'start_datetime': datetime(2020, 4, 20, 8, 0, 0),
+                'end_datetime': datetime(2020, 4, 20, 17, 0, 0),
+                'resource_id': self.resource_joseph.id,
+                'repeat': True,
+                'repeat_interval': 1,
+                'repeat_type': 'x_times',
+                'repeat_number': 5,
+            })
+
+            # we should have generated 5 slots
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 5, 'first run should generated 5 slots')
+
+        # one week later, always having the slots generated 1 month in advance means we have generated one more, which makes 6
+        with self._patch_now('2020-04-27 08:00:00'):
+            self.env['planning.recurrency']._cron_schedule_next()
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 6, 'first cron should generate one more slot')
+
+        # again one week later, we are now up-to-date so there should still be 6 slots
+        with self._patch_now('2020-05-04 08:00:00'):
+            self.env['planning.recurrency']._cron_schedule_next()
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 6, 'second run should not generate any slots')
+
     @unittest.skip
     def kkktest_slot_remove_all(self):
         with self._patch_now('2019-06-01 08:00:00'):
@@ -327,6 +382,53 @@ class TestRecurrencySlotGeneration(TestCommonPlanning):
             self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 27, 'first run has generated 27 slots')
             recurrency.action_remove_all()
             self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 0, 'calling remove after on any slot from the recurrency remove all slots linked to the recurrency')
+
+    def test_recurrency_interval_type(self):
+        """ Since the recurrency cron is meant to run every week, make sure generation works accordingly when
+            both the company's repeat span and the repeat interval are much larger
+            Company's span is 12 month and repeat_interval is 1 and repeat_unit are day/week/month/year
+            Test Case:
+            ---------
+                - create slot with repeat_unit set as day
+                - delete extra slots except original one
+                - update repeat_unit to week and repeat_until according slots we need to generate
+                - delete extra slots except original one
+                - date repeat_unit to month and repeat_until according slots we need to generate
+                - delete extra slots except original one
+                - update repeat_unit to year and repeat_until according slots we need to generates
+        """
+
+        with self._patch_now('2020-04-20 08:00:00'):
+            self.configure_recurrency_span(12)
+
+            slot = self.env['planning.slot'].create({
+                        'start_datetime': datetime(2020, 4, 20, 8, 0, 0),
+                        'end_datetime': datetime(2020, 4, 20, 17, 0, 0),
+                        'resource_id': self.resource_joseph.id,
+                        'repeat': True,
+                        'repeat_interval': 1,
+                        'repeat_unit': 'day',
+                        'repeat_type': 'until',
+                        'repeat_until': datetime(2020, 4, 24, 8, 0, 0),
+                    })
+
+            # generated 5 slots
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 5, 'first run should generated 5 slots')
+
+            def _modify_slot(repeat_unit, repeat_until):
+                slot.write({
+                    'repeat_unit': repeat_unit,
+                    'repeat_until': repeat_until,
+                })
+
+            _modify_slot('week', datetime(2020, 5, 11, 8, 0, 0)) # generated 4 slots
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 4, 'After change unit to week generated slots should be 4')
+
+            _modify_slot('month', datetime(2020, 8, 31, 8, 0, 0)) # generated 5 slots
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 5, 'After change unit to month generated slots should be 5')
+
+            _modify_slot('year', datetime(2020, 4, 26, 8, 0, 0)) # generated 1 slot
+            self.assertEqual(len(self.get_by_employee(self.employee_joseph)), 1, 'After change unit to year generated slots should be 1')
 
     # ---------------------------------------------------------
     # Recurring Slot Misc

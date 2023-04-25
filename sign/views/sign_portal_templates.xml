@@ -33,17 +33,21 @@
                     There are no signatures request.
                 </div>
             <t t-if="grouped_signatures" t-call="portal.portal_table">
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th class="text-center">Signature Date</th>
+                        <th class="text-end">Status</th>
+                    </tr>
+                </thead>
                 <t t-foreach="grouped_signatures" t-as="signature_requests">
-                    <thead>
-                        <tr t-attf-class="{{'thead-light' if not groupby == 'none' else ''}}">
-                            <th t-if="groupby == 'none'">Document</th>
-                            <th t-else="">
+                    <tbody>
+                        <tr t-if="not groupby =='none'" class="table-light">
+                            <th t-if="groupby != 'none'" colspan="3">
                                 <span t-field="signature_requests[0].sudo().state"/>
                             </th>
-                            <th class="text-center">Signature Date</th>
-                            <th class="text-right">Status</th>
                         </tr>
-                    </thead>
+                    </tbody>
                     <tbody>
                         <tr t-foreach="signature_requests" t-as="sign_request_item">
                             <td>
@@ -54,8 +58,8 @@
                             <td class="text-center">
                                 <span t-field="sign_request_item.signing_date"/>
                             </td>
-                            <td class="text-right">
-                                <span class="badge badge-pill badge-info"
+                            <td class="text-end">
+                                <span class="badge rounded-pill text-bg-info"
                                       t-field="sign_request_item.sudo().sign_request_id.state"/>
                             </td>
                         </tr>
@@ -73,14 +77,14 @@
             </t>
             <t t-call="portal.portal_record_layout">
                 <t t-set="card_header">
-                    <div class="row no-gutters">
+                    <div class="row g-0">
                         <div class="col-md">
                             <h5 class="mb-1 mb-md-0">
                                 <span t-field="my_sign_item.reference"/>
                             </h5>
                         </div>
-                        <div class="col-md text-md-right">
-                            <span t-field="my_sign_item.sign_request_id.state" class=" badge badge-pill badge-info"
+                        <div class="col-md text-md-end">
+                            <span t-field="my_sign_item.sign_request_id.state" class=" badge rounded-pill text-bg-info"
                                   title="Current status of the signature request"/>
                         </div>
                     </div>
@@ -101,33 +105,41 @@
                                     <span t-field="my_sign_item.create_date" t-options="{'widget': 'date'}"/>
                                 </div>
                                 <div>
-                                    <t t-if="my_sign_item.sign_request_id.state != 'signed'">
-                                        <t t-foreach="my_sign_item.sign_request_id.request_item_ids" t-as="sign">
-                                            <div t-if="sign.state != 'completed'" class="_status clearfix" t-att-data-id="sign.id">
-                                                <b><t t-esc="sign.partner_id.name if sign.partner_id else 'Public user'"/></b>
-                                                <t t-if="sign.role_id"><t t-esc="' - ' + sign.role_id.name"/></t> - <em>Waiting Signature</em>
-                                                <em t-if="sign.state != 'sent'"><br/>(the email access has not been sent)</em>
-                                            </div>
-                                        </t>
+                                    <t t-foreach="my_sign_item.sign_request_id.request_item_ids" t-as="sign">
+                                        <div t-if="sign.state == 'sent'" class="_status clearfix" t-att-data-id="sign.id">
+                                            <b><t t-esc="sign.partner_id.name if sign.partner_id else 'Public user'"/></b>
+                                            <t t-if="sign.role_id"><t t-esc="' - ' + sign.role_id.name"/></t> - <em>Waiting Signature</em>
+                                            <em t-if="not sign.is_mail_sent"><br/>(the email access has not been sent)</em>
+                                        </div>
                                     </t>
-                                    <t t-if="my_sign_item.sign_request_id.nb_closed > 0">
-                                        <t t-foreach="my_sign_item.sign_request_id.request_item_ids" t-as="sign">
-                                            <div t-if="sign.state == 'completed'" class="_status clearfix"><b>
-                                                <t t-esc="sign.partner_id.name"/></b><t t-if="sign.role_id">
-                                                <t t-esc="' - ' + sign.role_id.name"/></t> - <em>Signed on <span t-field="sign.signing_date"></span></em>
-                                            </div>
-                                        </t>
+                                    <t t-foreach="my_sign_item.sign_request_id.request_item_ids" t-as="sign">
+                                        <div t-if="sign.state == 'canceled'" class="_status clearfix" t-att-data-id="sign.id">
+                                           <b> <t t-esc="sign.partner_id.name"/></b><t t-if="sign.role_id">
+                                            <t t-esc="' - ' + sign.role_id.name"/></t> - <em>Canceled</em>
+                                        </div>
+                                    </t>
+                                    <t t-foreach="my_sign_item.sign_request_id.request_item_ids" t-as="sign">
+                                        <div t-if="sign.state == 'refused'" class="_status clearfix" t-att-data-id="sign.id">
+                                           <b> <t t-esc="sign.partner_id.name"/></b><t t-if="sign.role_id">
+                                            <t t-esc="' - ' + sign.role_id.name"/></t> - <em>Refused on <span t-field="sign.signing_date"></span></em>
+                                        </div>
+                                    </t>
+                                    <t t-foreach="my_sign_item.sign_request_id.request_item_ids" t-as="sign">
+                                        <div t-if="sign.state == 'completed'" class="_status clearfix"><b>
+                                            <t t-esc="sign.partner_id.name"/></b><t t-if="sign.role_id">
+                                            <t t-esc="' - ' + sign.role_id.name"/></t> - <em>Signed on <span t-field="sign.signing_date"></span></em>
+                                        </div>
                                     </t>
                                 </div>
                             </div>
                             <div class="coll-12 col-md-6 pb-2" t-if="my_sign_item.partner_id">
                                 <span class="o_portal_category">Your Information</span>
                                 <div class="row">
-                                    <div class="col flex-grow-0 pr-3">
+                                    <div class="col flex-grow-0 pe-3">
                                         <img class="rounded-circle mt-1 o_portal_contact_img"
                                              t-att-src="image_data_uri(my_sign_item.partner_id.avatar_1024)" alt="Contact"/>
                                     </div>
-                                    <div class="col pl-md-0">
+                                    <div class="col ps-md-0">
                                         <div t-field="my_sign_item.partner_id"
                                              t-options="{'widget': 'contact', 'fields': ['name', 'email', 'phone']}"/>
                                     </div>

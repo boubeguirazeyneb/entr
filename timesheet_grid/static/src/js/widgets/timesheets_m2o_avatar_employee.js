@@ -101,7 +101,7 @@ import { qweb, _lt } from 'web.core';
          * @returns boolean should show the hours line
          */
         _shouldShowHours() {
-            return this.cacheWorkedHours !== undefined && this.cacheWorkedHours != null && this.cacheWorkedHours - this.cacheHours != 0 && moment(this.timeContext.end) < moment();
+            return this.cacheWorkedHours !== undefined && this.cacheWorkedHours != null && this.cacheHours >= 0 && this.cacheWorkedHours - this.cacheHours != 0 && moment(this.timeContext.end) < moment();
         },
 
         _displayOvertimeIndication() {
@@ -111,7 +111,7 @@ import { qweb, _lt } from 'web.core';
             const overtime = this.cacheWorkedHours - this.cacheHours;
             let overtimeIndication = overtime > 0 ? '+' : '';
             if (this.cacheUnit === 'days') { // format in days
-                overtimeIndication += `${(Math.round(overtime * 100) / 100).toFixed(2)} ${this.cacheUnit}`;
+                overtimeIndication += `${(Math.round(overtime * 100) / 100).toFixed(2)}`;
             } else { // format in hours
                 overtimeIndication += field_utils.format.float_time(this.cacheWorkedHours - this.cacheHours);
             }
@@ -128,7 +128,7 @@ import { qweb, _lt } from 'web.core';
                 'unit': this.cacheUnit,
                 'range': this.rangeContext,
                 'not_enough_hours': this._shouldShowHoursInRed(),
-                'title': this.title
+                'title': this.title,
             }));
         },
 

@@ -4,6 +4,8 @@
 import json
 import threading
 
+from collections import defaultdict
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
@@ -21,7 +23,7 @@ class SocialPost(models.Model):
     that will publish their content through the third party API of the social.account. """
 
     _name = 'social.post'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'social.post.template']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'social.post.template', 'utm.source.mixin']
     _description = 'Social Post'
     _order = 'create_date desc'
 
@@ -53,14 +55,13 @@ class SocialPost(models.Model):
     published_date = fields.Datetime('Published Date', readonly=True,
         help="When the global post was published. The actual sub-posts published dates may be different depending on the media.")
     # stored for better calendar view performance
-    calendar_date = fields.Datetime('Calendar Date', compute='_compute_calendar_date', store=True, readonly=False,
-        help="Technical field for the calendar view.")
+    calendar_date = fields.Datetime('Calendar Date', compute='_compute_calendar_date', store=True, readonly=False)
     #UTM
-    utm_campaign_id = fields.Many2one('utm.campaign', domain="[('is_auto_campaign', '=', False)]", string="UTM Campaign")
-    utm_source_id = fields.Many2one('utm.source', string="UTM Source", readonly=True, required=True)
+    utm_campaign_id = fields.Many2one('utm.campaign', domain="[('is_auto_campaign', '=', False)]",
+        string="UTM Campaign", ondelete="set null")
+    source_id = fields.Many2one(readonly=True)
     # Statistics
-    stream_posts_count = fields.Integer("Feed Posts Count", compute='_compute_stream_posts_count',
-        help="Number of linked Feed Posts")
+    stream_posts_count = fields.Integer("Feed Posts Count", compute='_compute_stream_posts_count')
     engagement = fields.Integer("Engagement", compute='_compute_post_engagement',
         help="Number of people engagements with the post (Likes, comments...)")
     click_count = fields.Integer('Number of clicks', compute="_compute_click_count")
@@ -79,7 +80,7 @@ class SocialPost(models.Model):
 
     @api.depends('live_post_ids.engagement')
     def _compute_post_engagement(self):
-        results = self.env['social.live.post'].read_group(
+        results = self.env['social.live.post']._read_group(
             [('post_id', 'in', self.ids)],
             ['post_id', 'engagement_total:sum(engagement)'],
             ['post_id'],
@@ -153,8 +154,8 @@ class SocialPost(models.Model):
         # on the current companies (1 account == 1 medium)
         medium_ids = self.account_ids.mapped('utm_medium_id')
 
-        if not self.utm_source_id.ids or not medium_ids.ids:
-            # not "utm_source_id", the records are not yet created
+        if not self.source_id.ids or not medium_ids.ids:
+            # not "source_id", the records are not yet created
             for post in self:
                 post.click_count = 0
         else:
@@ -166,30 +167,32 @@ class SocialPost(models.Model):
               GROUP BY link.source_id
             """
 
-            self.env.cr.execute(query, [tuple(self.utm_source_id.ids), tuple(medium_ids.ids)])
+            self.env.cr.execute(query, [tuple(self.source_id.ids), tuple(medium_ids.ids)])
             click_data = self.env.cr.dictfetchall()
             mapped_data = {datum['source_id']: datum['click_count'] for datum in click_data}
             for post in self:
-                post.click_count = mapped_data.get(post.utm_source_id.id, 0)
+                post.click_count = mapped_data.get(post.source_id.id, 0)
+
+    def _prepare_preview_values(self, media):
+        values = super(SocialPost, self)._prepare_preview_values(media)
+        if self._name == 'social.post':
+            live_posts = self.live_post_ids._filter_by_media_types([media])
+            # Take first live post for preview. Should always have at least one.
+            values['live_post_link'] = live_posts[0].live_post_link if len(live_posts) >= 1 else False
+        return values
 
     def name_get(self):
         """ We use the first 20 chars of the message (or "Post" if no message yet).
         We also add "(Draft)" at the end if the post is still in draft state. """
         result = []
-        state_description_values = {elem[0]: elem[1] for elem in self._fields['state']._description_selection(self.env)}
-        draft_translated = state_description_values.get('draft')
         for post in self:
-            name = _('Post')
-            if post.message:
-                if len(post.message) < 20:
-                    name = post.message
-                else:
-                    name = post.message[:20] + '...'
-
-            if post.state == 'draft':
-                name += ' (' + draft_translated + ')'
-
-            result.append((post.id, name))
+            result.append((
+                post.id,
+                self._prepare_post_name(
+                    post.message,
+                    state=post.state if post.state == 'draft' else False
+                )
+            ))
 
         return result
 
@@ -211,18 +214,14 @@ class SocialPost(models.Model):
         """Every post will have a unique corresponding utm.source for statistics computation purposes.
         This way, it will be possible to see every leads/quotations generated through a particular post."""
 
-        if not self.env.is_superuser() and \
-           not self.user_has_groups('social.group_social_manager') and \
-           any(vals.get('state', 'draft') != 'draft' for vals in vals_list):
-            raise AccessError(_('You are not allowed to create/update posts in a state other than "Draft".'))
-
-        if vals_list:
-            sources = self.env['utm.source'].create({
-                'name': "Post %s_%s" % (fields.datetime.now(), i)
-            } for i in range(len(vals_list)))
-
-            for index, vals in enumerate(vals_list):
-                vals['utm_source_id'] = sources[index].id
+        # if a scheduled_date / published_date is specified, it should be the one used as the calendar date
+        # this is normally handled by the `_compute_calendar_date` but in create mode,
+        # it is not called when a default value for the calendar_date field is passed
+        for vals in vals_list:
+            if vals.get('state') == 'posted' and 'published_date' in vals:
+                vals['calendar_date'] = vals['published_date']
+            elif 'scheduled_date' in vals:
+                vals['calendar_date'] = vals['scheduled_date']
 
         res = super(SocialPost, self).create(vals_list)
 
@@ -238,11 +237,6 @@ class SocialPost(models.Model):
         return res
 
     def write(self, vals):
-        if not self.env.is_superuser() and \
-           not self.user_has_groups('social.group_social_manager') and \
-           (vals.get('state', 'draft') != 'draft' or any(post.state != 'draft' for post in self)):
-            raise AccessError(_('You are not allowed to create/update posts in a state other than "Draft".'))
-
         if vals.get('calendar_date'):
             if any(post.state != 'scheduled' for post in self):
                 raise UserError(_("You can only move posts that are scheduled."))
@@ -269,18 +263,28 @@ class SocialPost(models.Model):
         """
         Raise an error if the user cannot post on a social media
         """
-        if not self.env.is_admin() and not self.user_has_groups('social.group_social_manager'):
-            raise AccessError(_('You are not allowed to do this operation.'))
-
         if any(not post.account_ids for post in self):
             raise UserError(_(
                 'Please specify at least one account to post into (for post ID(s) %s).',
                 ', '.join([str(post.id) for post in self if not post.account_ids])
             ))
+        errors = defaultdict(list)
+        for post in self:
+            for media in post.media_ids.filtered(lambda media: media.max_post_length and post.message_length > media.max_post_length):
+                errors[post].append(_("%s (max %s chars)", media.name, media.max_post_length))
+        if bool(errors):
+            raise ValidationError(_(
+                "Due to length restrictions, the following posts cannot be posted:\n %s",
+                "\n".join(["%s : %s" % (post.display_name, ",".join(err)) for post, err in errors.items()])
+            ))
 
     def action_schedule(self):
         self._check_post_access()
         self.write({'state': 'scheduled'})
+
+    def action_set_draft(self):
+        self._check_post_access()
+        self.write({'state': 'draft'})
 
     def action_post(self):
         self._check_post_access()
@@ -295,7 +299,7 @@ class SocialPost(models.Model):
     def action_redirect_to_clicks(self):
         action = self.env["ir.actions.actions"]._for_xml_id("link_tracker.link_tracker_action")
         action['domain'] = [
-            ('source_id', '=', self.utm_source_id.id),
+            ('source_id', '=', self.source_id.id),
             ('medium_id', 'in', self.account_ids.mapped('utm_medium_id').ids),
         ]
         return action
@@ -343,6 +347,23 @@ class SocialPost(models.Model):
             'post_id': self.id,
             'account_id': account.id,
         } for account in self.account_ids]
+
+    @api.model
+    def _prepare_post_name(self, message, state=False):
+        name = _('Post')
+        if message:
+            message = message.replace('\n', ' ')  # replace carriage returns as needed name is usually a Char
+            if len(message) < 24:
+                name = message
+            else:
+                name = message[:20] + '...'
+
+        if state:
+            state_description_values = {elem[0]: elem[1] for elem in self._fields['state']._description_selection(self.env)}
+            state_translated = state_description_values.get(state)
+            name += ' (' + state_translated + ')'
+
+        return name
 
     def _get_company_domain(self):
         self.ensure_one()

@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import _, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 from odoo.osv import expression
 
 
@@ -11,6 +11,7 @@ class HrEmployee(models.Model):
     _inherit = ['hr.employee', 'documents.mixin']
 
     document_count = fields.Integer(compute='_compute_document_count')
+    documents_share_id = fields.Many2one('documents.share', readonly=True, groups="hr.group_hr_manager")
 
     def _get_document_folder(self):
         return self.company_id.documents_hr_folder if self.company_id.documents_hr_settings else False
@@ -45,7 +46,7 @@ class HrEmployee(models.Model):
         self.ensure_one()
         if not self.address_home_id:
             # Prevent opening documents if the employee's address is not set or no user is linked.
-            raise ValidationError(_('You must set an address on the employee to use Documents features.'))
+            raise ValidationError(_('You must set a private address on the Employee in order to use Document\'s features.'))
         hr_folder = self._get_document_folder()
         action = self.env['ir.actions.act_window']._for_xml_id('documents.document_action')
         # Documents created within that action will be 'assigned' to the employee
@@ -56,3 +57,26 @@ class HrEmployee(models.Model):
         }
         action['domain'] = self._get_employee_document_domain()
         return action
+
+    def action_send_documents_share_link(self):
+        invalid_employees = self.filtered(lambda e: not e.address_home_id.email)
+        if invalid_employees:
+            raise UserError(_('Employee\'s private email must be set to use \"Send Access Link\" function:\n%s', '\n'.join(invalid_employees.mapped('name'))))
+        template = self.env.ref('documents_hr.mail_template_document_folder_link', raise_if_not_found=False)
+        for employee in self:
+            if not employee.documents_share_id:
+                employee.documents_share_id = self.env['documents.share'].create({
+                    'folder_id': self.env.company.documents_hr_folder.id,
+                    'include_sub_folders': True,
+                    'name': _('HR Documents: %s', employee.name),
+                    'type': 'domain',
+                    'domain': "[('owner_id', '=', %s)]" % (employee.user_id.id),
+                    'action': 'download',
+                    'owner_id': employee.user_id.id,
+                })
+            if template:
+                template.send_mail(
+                    employee.id, force_send=True,
+                    email_values={'model': False, 'res_id': False},
+                    email_layout_xmlid='mail.mail_notification_light')
+                employee.message_post(body=_('The access link has been sent to the employee.'))

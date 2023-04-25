@@ -3,19 +3,19 @@
 # 	* mrp_account_enterprise
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Dorin Hongu <dhongu@gmail.com>, 2021
-# Foldi Robert <foldirobert@nexterp.ro>, 2021
-# Hongu Cosmin <cosmin513@gmail.com>, 2021
+# Hongu Cosmin <cosmin513@gmail.com>, 2022
+# Foldi Robert <foldirobert@nexterp.ro>, 2022
+# Martin Trigaux, 2022
+# Dorin Hongu <dhongu@gmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5+e\n"
+"Project-Id-Version: Odoo Server 15.5alpha1+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 11:00+0000\n"
-"PO-Revision-Date: 2021-09-14 12:41+0000\n"
-"Last-Translator: Hongu Cosmin <cosmin513@gmail.com>, 2021\n"
-"Language-Team: Romanian (https://www.transifex.com/odoo/teams/41243/ro/)\n"
+"POT-Creation-Date: 2022-09-20 09:49+0000\n"
+"PO-Revision-Date: 2022-09-22 05:47+0000\n"
+"Last-Translator: Dorin Hongu <dhongu@gmail.com>, 2022\n"
+"Language-Team: Romanian (https://app.transifex.com/odoo/teams/41243/ro/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -69,11 +69,6 @@ msgstr "<span>Operațiune</span>"
 
 #. module: mrp_account_enterprise
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
-msgid "<span>Operator</span>"
-msgstr "<span>Operator</span>"
-
-#. module: mrp_account_enterprise
-#: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
 msgid "<span>Product</span>"
 msgstr "<span>Produs</span>"
 
@@ -81,6 +76,11 @@ msgstr "<span>Produs</span>"
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
 msgid "<span>Quantity</span>"
 msgstr "<span>Cantitate</span>"
+
+#. module: mrp_account_enterprise
+#: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
+msgid "<span>Resource</span>"
+msgstr ""
 
 #. module: mrp_account_enterprise
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
@@ -167,6 +167,8 @@ msgstr ""
 msgid ""
 "Component cost per unit produced (in product UoM) of manufacturing order"
 msgstr ""
+"Costul componentelor pe unitatea produsă (în UoM produs) din comanda de "
+"fabricație"
 
 #. module: mrp_account_enterprise
 #: model:ir.model.fields,field_description:mrp_account_enterprise.field_mrp_report__unit_cost
@@ -177,6 +179,7 @@ msgstr ""
 #: model:ir.actions.report,name:mrp_account_enterprise.action_cost_struct_mrp_production
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_production_form_inherit_view6
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.product_product_inherit_form_view_cost_structure
+#: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.product_template_inherit_form_view_cost_structure
 msgid "Cost Analysis"
 msgstr "Analiză Cost"
 
@@ -198,7 +201,7 @@ msgstr "Analiza Structurii Costurilor"
 #. module: mrp_account_enterprise
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
 msgid "Cost of Components"
-msgstr ""
+msgstr "Costul componentelor"
 
 #. module: mrp_account_enterprise
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_cost_structure
@@ -224,6 +227,11 @@ msgstr "Cost Resturi"
 #: model:ir.model.fields,help:mrp_account_enterprise.field_mrp_report__unit_cost
 msgid "Cost per unit produced (in product UoM) of manufacturing order"
 msgstr ""
+
+#. module: mrp_account_enterprise
+#: model:ir.model.fields,field_description:mrp_account_enterprise.field_mrp_report__currency_id
+msgid "Currency"
+msgstr "Moneda"
 
 #. module: mrp_account_enterprise
 #: model:ir.model.fields,field_description:mrp_account_enterprise.field_mrp_report__display_name
@@ -294,21 +302,21 @@ msgid "Order Overview"
 msgstr ""
 
 #. module: mrp_account_enterprise
-#: model:ir.model,name:mrp_account_enterprise.model_product_product
+#: model:ir.model,name:mrp_account_enterprise.model_product_template
 #: model:ir.model.fields,field_description:mrp_account_enterprise.field_mrp_report__product_id
 #: model_terms:ir.ui.view,arch_db:mrp_account_enterprise.mrp_report_search_view
 msgid "Product"
 msgstr "Produs"
 
 #. module: mrp_account_enterprise
-#: model:ir.model,name:mrp_account_enterprise.model_product_template
-msgid "Product Template"
-msgstr "Șablon produs"
-
-#. module: mrp_account_enterprise
 #: model:ir.model,name:mrp_account_enterprise.model_report_mrp_account_enterprise_product_template_cost_structure
 msgid "Product Template Cost Structure Report"
 msgstr "Raport Structură Cost Model Produs"
+
+#. module: mrp_account_enterprise
+#: model:ir.model,name:mrp_account_enterprise.model_product_product
+msgid "Product Variant"
+msgstr "Variantă produs"
 
 #. module: mrp_account_enterprise
 #: model:ir.actions.act_window,name:mrp_account_enterprise.mrp_report_dashboard_action
@@ -365,7 +373,9 @@ msgstr ""
 
 #. module: mrp_account_enterprise
 #: model:ir.model.fields,help:mrp_account_enterprise.field_mrp_report__total_cost
-msgid "Total cost of manufacturing order (component + operation costs)"
+msgid ""
+"Total cost of manufacturing order (component + operation costs + "
+"subcontracting cost)"
 msgstr ""
 
 #. module: mrp_account_enterprise

@@ -24,11 +24,28 @@ class TestTicketConvertToLead(helpdesk_common.HelpdeskCommon):
             'name': 'Test Crm Team',
             'member_ids': [(4, cls.user_sales_leads.id)]
         })
+
+        # UTM fields
+        cls.test_campaign = cls.env["utm.campaign"].create({
+            'name': 'A test UTM campaign',
+        })
+        cls.test_medium = cls.env["utm.medium"].create({
+            'name': 'A test UTM medium'
+        })
+        cls.test_source = cls.env["utm.source"].create({
+            'name': 'A test UTM source'
+        })
+
         cls.test_ticket = cls.env["helpdesk.ticket"].create({
             'name': 'Test Ticket',
             'user_id': cls.helpdesk_user.id,
             'partner_name': 'My Test Customer',
-            'partner_email': '"My Test Customer" <my.customer@example.com>'
+            'partner_email': '"My Test Customer" <my.customer@example.com>',
+            'campaign_id': cls.test_campaign.id,
+            'team_id': False,
+            'medium_id': cls.test_medium.id,
+            'source_id': cls.test_source.id,
+            'company_id': cls.main_company_id
         })
 
     def assertLeadTicketConvertData(self, lead, ticket, partner, crm_team, user_id):
@@ -44,6 +61,9 @@ class TestTicketConvertToLead(helpdesk_common.HelpdeskCommon):
         self.assertEqual(lead.phone, partner.phone)
         self.assertEqual(lead.team_id, crm_team)
         self.assertEqual(lead.user_id, user_id)
+        self.assertEqual(lead.campaign_id, ticket.campaign_id)
+        self.assertEqual(lead.medium_id, ticket.medium_id)
+        self.assertEqual(lead.source_id, ticket.source_id)
 
     @users('user_helpdesk_user')
     def test_convert_to_lead_rights(self):

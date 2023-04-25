@@ -23,8 +23,13 @@ class AccountMove(models.Model):
 
         return posted
 
-    def _send_to_avatax(self):
+    def _send_to_avatax(self, commit=False):
         self.ensure_one()
+
+        # don't recalculate posted invoices unless we're setting the invoice name on Avatax's side
+        if not commit and self.state == "posted":
+            return False
+
         return self.fiscal_position_id.is_avatax and self.move_type in ("out_invoice", "out_refund")
 
     def button_draft(self):
@@ -33,7 +38,7 @@ class AccountMove(models.Model):
             record._uncommit_avatax_transaction()
 
     def button_update_avatax(self, commit=False):
-        for record in self.filtered(lambda m: m._send_to_avatax()):
+        for record in self.filtered(lambda m: m._send_to_avatax(commit=commit)):
             record._compute_avalara_taxes(commit)
 
     def unlink(self):
@@ -54,7 +59,6 @@ class AccountMove(models.Model):
         for line, detail in mapped_taxes.items():
             line.tax_ids = detail['tax_ids']
             line.price_total = detail['tax_amount'] + detail['total']
-        self.with_context(check_move_validity=False)._recompute_dynamic_lines(recompute_all_taxes=True)
 
         # Check that Odoo computation = Avatax computation
         if not summary:
@@ -70,18 +74,7 @@ class AccountMove(models.Model):
                 # since Avatax will return the non-exempt rate%. In that case this will manually fix the tax
                 # lines to what Avatax says they should be.
                 if float_compare(tax_line.balance, avatax_balance, precision_rounding=record.currency_id.rounding) != 0:
-                    if avatax_balance <= 0:
-                        tax_line.with_context(check_move_validity=False).credit = abs(avatax_balance)
-                    else:
-                        tax_line.with_context(check_move_validity=False).debit = abs(avatax_balance)
-
-                    record.with_context(check_move_validity=False)._recompute_dynamic_lines()
-                elif not record.company_id.currency_id.is_zero(tax_line.balance + avatax_amount):
-                    # Correct rounding error if any
-                    tax_line.write({
-                        'debit': avatax_amount if avatax_amount < 0 else 0,
-                        'credit': avatax_amount if avatax_amount > 0 else 0,
-                    })
+                    tax_line.balance = avatax_balance
 
     def _get_avatax_invoice_lines(self):
         return [
@@ -91,7 +84,7 @@ class AccountMove(models.Model):
                 quantity=line.quantity,
                 line_id='%s,%s' % (line._name, line.id),
             )
-            for line in self.invoice_line_ids.filtered(lambda l: not l.display_type)
+            for line in self.invoice_line_ids.filtered(lambda l: l.display_type == 'product')
         ]
 
     def _get_avatax_dates(self):
@@ -111,3 +104,8 @@ class AccountMove(models.Model):
 
     def _get_avatax_description(self):
         return 'Journal Entry'
+
+    def _perform_address_validation(self):
+        # Payments inherit account.move and will end up with a fiscal position.
+        # Even if an auto-applied Avatax fiscal position is set don't validate the address.
+        return super()._perform_address_validation() and not self.payment_id

@@ -3,12 +3,21 @@
 
 from odoo import api, fields, models
 from odoo.tools.float_utils import float_compare
+from odoo.tools.sql import column_exists, create_column
 
 # Available values for the release_to_pay field.
 _release_to_pay_status_list = [('yes', 'Yes'), ('no', 'No'), ('exception', 'Exception')]
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+
+    def _auto_init(self):
+        if not column_exists(self.env.cr, "account_move", "release_to_pay"):
+            # Create column manually to set default value to 'exception' on postgres level.
+            # This way we avoid heavy computation on module installation.
+            self.env.cr.execute("ALTER TABLE account_move ADD COLUMN release_to_pay VARCHAR DEFAULT 'exception'")
+
+        return super()._auto_init()
 
     release_to_pay = fields.Selection(
         _release_to_pay_status_list,
@@ -39,7 +48,7 @@ class AccountMove(models.Model):
             records = records.filtered(lambda r: r.payment_state != 'paid' and r.move_type in ('in_invoice', 'in_refund'))
             (self - records).release_to_pay = 'no'
         for invoice in records:
-            if invoice.payment_state == 'paid':
+            if invoice.payment_state == 'paid' or not invoice.is_invoice(include_receipts=True):
                 # no need to pay, if it's already paid
                 invoice.release_to_pay = 'no'
             elif invoice.force_release_to_pay:
@@ -75,7 +84,16 @@ class AccountMove(models.Model):
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
 
-    @api.depends('purchase_line_id.qty_received', 'purchase_line_id.qty_invoiced', 'purchase_line_id.product_qty')
+    def _auto_init(self):
+        if not column_exists(self.env.cr, "account_move_line", "can_be_paid"):
+            # Create column manually to set default value to 'exception' on postgres level.
+            # This way we avoid heavy computation on module installation.
+            self.env.cr.execute("ALTER TABLE account_move_line ADD COLUMN can_be_paid VARCHAR DEFAULT 'exception'")
+
+        return super()._auto_init()
+
+
+    @api.depends('purchase_line_id.qty_received', 'purchase_line_id.qty_invoiced', 'purchase_line_id.product_qty', 'price_unit')
     def _can_be_paid(self):
         """ Computes the 'release to pay' status of an invoice line, depending on
         the invoicing policy of the product linked to it, by calling the dedicated

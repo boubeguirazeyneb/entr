@@ -24,7 +24,6 @@ def mocked_l10n_pe_edi_post_invoice_web_service(edi_format, invoice, edi_filenam
     }
 
 
-@tagged('post_install_l10n', '-at_install', 'post_install')
 class TestPeEdiCommon(AccountEdiTestCommon):
 
     @classmethod
@@ -124,6 +123,12 @@ class TestPeEdiCommon(AccountEdiTestCommon):
         # Invoice name are tracked by the web-services so this constant tries to get a new unique invoice name at each
         # execution.
         cls.time_name = datetime.now().strftime('%H%M%S')
+
+        # Initialize the cancellation request filename sequence, to avoid collisions between different people running
+        # the UTs on the same day
+        seq = cls.env.ref('l10n_pe_edi.l10n_pe_edi_summary_sequence')
+        if seq.number_next_actual < 50:
+            seq.write({'number_next': int(cls.time_name[-3:]) + 60})
 
         # ==== INVOICE ====
 
@@ -515,7 +520,7 @@ class TestPeEdiCommon(AccountEdiTestCommon):
 
     def _create_invoice(self, **kwargs):
         vals = {
-            'name': 'FFFI-%s1' % self.time_name,
+            'name': 'F FFI-%s1' % self.time_name,
             'move_type': 'out_invoice',
             'partner_id': self.partner_a.id,
             'invoice_date': '2017-01-01',
@@ -535,9 +540,9 @@ class TestPeEdiCommon(AccountEdiTestCommon):
         return self.env['account.move'].create(vals)
 
     def _create_refund(self, **kwargs):
-        invoice = self._create_invoice(name='FFFI-%s2' % self.time_name, **kwargs)
+        invoice = self._create_invoice(name='F FFI-%s2' % self.time_name, **kwargs)
         vals = {
-            'name': 'FCNE-%s1' % self.time_name,
+            'name': 'F CNE-%s1' % self.time_name,
             'move_type': 'out_refund',
             'ref': 'abc',
             'partner_id': self.partner_a.id,
@@ -546,7 +551,6 @@ class TestPeEdiCommon(AccountEdiTestCommon):
             'currency_id': self.currency_data['currency'].id,
             'reversed_entry_id': invoice.id,
             'l10n_latam_document_type_id': self.env.ref('l10n_pe.document_type07').id,
-            'l10n_pe_edi_legend': '1000',
             'l10n_pe_edi_refund_reason': '01',
             'invoice_line_ids': [(0, 0, {
                 'product_id': self.product.id,
@@ -561,9 +565,9 @@ class TestPeEdiCommon(AccountEdiTestCommon):
         return self.env['account.move'].create(vals)
 
     def _create_debit_note(self, **kwargs):
-        invoice = self._create_invoice(name='FFFI-%s3' % self.time_name, **kwargs)
+        invoice = self._create_invoice(name='F FFI-%s3' % self.time_name, **kwargs)
         vals = {
-            'name': 'FNDI-%s1' % self.time_name,
+            'name': 'F NDI-%s1' % self.time_name,
             'move_type': 'out_invoice',
             'ref': 'abc',
             'partner_id': self.partner_a.id,

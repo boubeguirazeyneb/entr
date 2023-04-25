@@ -8,22 +8,23 @@ from odoo.tests.common import users, warmup
 
 class TestPayrollPerformance(TestPayslipBase):
 
-    def setUp(self):
-        super().setUp()
-        self.jack = self.env['hr.employee'].create({'name': 'Jack'})
-        self.employees = self.richard_emp | self.jack
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.jack = cls.env['hr.employee'].create({'name': 'Jack'})
+        cls.employees = cls.richard_emp | cls.jack
 
-        self.env['hr.contract'].create([{
+        cls.env['hr.contract'].create([{
             'date_start': date(2018, 1, 1),
             'date_end': date(2018, 2, 1),
             'name': 'Contract for %s' % employee.name,
             'wage': 5000.0,
             'state': 'open',
             'employee_id': employee.id,
-            'structure_type_id': self.structure_type.id,
+            'structure_type_id': cls.structure_type.id,
             'date_generated_from': datetime(2018, 1, 1, 0, 0),
             'date_generated_to': datetime(2018, 1, 1, 0, 0),
-        } for employee in self.employees])
+        } for employee in cls.employees])
 
     def reset_work_entries(self):
         self.employees.contract_id.write({
@@ -35,7 +36,7 @@ class TestPayrollPerformance(TestPayslipBase):
     @warmup
     def test_performance_work_entry_generation(self):
         """ Work entry generation """
-        with self.assertQueryCount(__system__=22, admin=24):
+        with self.assertQueryCount(__system__=13, admin=15):
             self.employees.generate_work_entries(date(2018, 1, 1), date(2018, 1, 2))
         self.reset_work_entries()
 
@@ -46,7 +47,7 @@ class TestPayrollPerformance(TestPayslipBase):
         work_entry = self.create_work_entry(datetime(2018, 1, 1, 7, 0), datetime(2018, 1, 1, 12, 0))
         self.create_work_entry(datetime(2018, 1, 1, 11, 0), datetime(2018, 1, 1, 17, 0))
 
-        with self.assertQueryCount(__system__=13, admin=14):
+        with self.assertQueryCount(__system__=14, admin=15):
             work_entry.unlink()
 
     @users('__system__', 'admin')

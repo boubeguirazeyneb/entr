@@ -3,8 +3,6 @@
 
 import re
 
-from string import capwords
-
 from odoo import models, api, fields, _
 from odoo.tools import html2plaintext
 from odoo.exceptions import ValidationError
@@ -31,7 +29,7 @@ ACTIONS_CASE = [
 ACTIONS_PYTHON = {
     'trim_all': lambda record, value: value.replace(' ', ''),
     'trim_superfluous': lambda record, value: re.sub(r'\s+', ' ', value.strip()),
-    'case_first': lambda record, value: capwords(value),
+    'case_first': lambda record, value: value.title(),
     'case_upper': lambda record, value: value.upper(),
     'case_lower': lambda record, value: value.lower(),
     'phone': lambda record, value: record._phone_format(value, record.country_id),
@@ -82,7 +80,7 @@ class DataCleaningRule(models.Model):
     def _compute_action(self):
         for rule in self:
             action = rule.action
-            action_display = dict(ACTIONS).get(action)
+            action_display = dict(ACTIONS).get(action, '')
             if action == 'trim':
                 action = '%s_%s' % (action, rule.action_trim)
                 action_display = '%s (%s)' % (action_display, dict(ACTIONS_TRIM).get(rule.action_trim))

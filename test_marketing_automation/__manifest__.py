@@ -12,13 +12,11 @@
         'test_mail',
         'test_mail_enterprise',
         'test_mail_full',
+        'test_mail_sms',
         'test_mass_mailing',
     ],
     'data': [
         'security/ir.model.access.csv',
     ],
-    'demo': [
-    ],
-    'application': False,
     'license': 'OEEL-1',
 }

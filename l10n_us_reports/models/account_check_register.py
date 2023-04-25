@@ -1,50 +1,18 @@
 # -*- coding: utf-8 -*-
-
 from odoo import models, api, _
 
 
-class ReportCheckRegister(models.AbstractModel):
+class USReportCustomHandler(models.AbstractModel):
     '''Check Register is an accounting report usually part of the general ledger, used to record
     financial transactions in cash.
     '''
-    _name = 'l10n_us_reports.check.register'
-    _description = 'Check Register Report'
-    _inherit = 'account.general.ledger'
+    _name = 'l10n_us.report.handler'
+    _inherit = 'account.general.ledger.report.handler'
+    _description = 'US Report Custom Handler'
 
-    filter_cash_basis = None
+    def _dynamic_lines_generator(self, report, options, all_column_groups_expression_totals):
+        return self.env['account.general.ledger.report.handler']._dynamic_lines_generator(report, options, all_column_groups_expression_totals)
 
-    def _get_filter_journals(self):
-        #filter only the bank/cash/miscellaneous journals
-        return self.env['account.journal'].search([
-            ('company_id', 'in', self.env.companies.ids or [self.env.company.id]),
-            ('type', 'in', ['bank', 'cash', 'general'])], order="company_id, name")
-
-    @api.model
-    def _l10n_us_reports_liquidity_accounts(self):
-        '''Retrieve the liquidity accounts part of the check register reports.
-
-        :return: The liquidity account.account records.
-        '''
-        liquidity_type_id = self.env.ref('account.data_account_type_liquidity')
-        return self.env['account.account'].search([('user_type_id', '=', liquidity_type_id.id)])
-
-    @api.model
-    def _get_options_journals_domain(self, options):
-        # OVERRIDE
-        domain = super(ReportCheckRegister, self)._get_options_journals_domain(options)
-        if not domain:
-            domain = [('journal_id.type', 'in', ('bank', 'cash', 'general'))]
-        return domain
-
-    @api.model
-    def _get_lines(self, options, line_id=None):
-        # Override to filter liquidity accounts using the context
-        liquidity_account_ids = self._l10n_us_reports_liquidity_accounts()
-        context = dict(self._context, account_ids=liquidity_account_ids)
-        return super(ReportCheckRegister, self.with_context(context))._get_lines(options, line_id=line_id)
-
-    @api.model
-    def _get_report_name(self):
-        '''Override to change the report name.
-        '''
-        return _('Check Register')
+    def _custom_options_initializer(self, report, options, previous_options=None):
+        super()._custom_options_initializer(report, options, previous_options=previous_options)
+        report._init_options_journals(options, previous_options=previous_options, additional_journals_domain=[('type', 'in', ('bank', 'cash', 'general'))])

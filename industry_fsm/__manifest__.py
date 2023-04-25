@@ -22,6 +22,8 @@ Adds the following options:
     'version': '1.0',
     'depends': ['project_enterprise', 'timesheet_grid', 'base_geolocalize'],
     'data': [
+        'report/worksheet_custom_report_templates.xml',
+        'report/worksheet_custom_reports.xml',
         'data/fsm_data.xml',
         'data/mail_template_data.xml',
         'security/fsm_security.xml',
@@ -31,7 +33,10 @@ Adds the following options:
         'views/hr_timesheet_views.xml',
         'views/fsm_views.xml',
         'views/project_task_views.xml',
+        'views/res_partner_views.xml',
         'views/project_sharing_views.xml',
+        'views/project_portal_templates.xml',
+        'wizard/task_stop_timer_wizard_views.xml'
     ],
     'application': True,
     'demo': ['data/fsm_demo.xml'],
@@ -39,6 +44,9 @@ Adds the following options:
     'assets': {
         'web.assets_backend': [
             'industry_fsm/static/src/**/*',
+        ],
+        'web.assets_frontend': [
+            'industry_fsm/static/src/js/tours/**/*',
         ],
     },
     'license': 'OEEL-1',

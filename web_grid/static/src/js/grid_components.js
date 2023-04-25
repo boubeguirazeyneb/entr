@@ -3,27 +3,29 @@ odoo.define('web_grid.components', function (require) {
 
     const fieldUtils = require('web.field_utils');
     const utils = require('web.utils');
+    const { debounce } = require("@web/core/utils/timing");
 
-    const { useRef, useState } = owl.hooks;
-    const { debounce } = owl.utils;
+    const { Component, onPatched, onWillUpdateProps, useRef, useState } = owl;
 
 
-    class BaseGridComponent extends owl.Component {
-        constructor() {
-            super(...arguments);
+    class BaseGridComponent extends Component {
+        setup() {
             this.currentInput = useRef("currentInput");
             this.state = useState({
                 error: false,
             });
+
+            onWillUpdateProps(this.onWillUpdateProps);
+            onPatched(this.onPatched);
         }
-        willUpdateProps(nextProps) {
+        onWillUpdateProps(nextProps) {
             if (nextProps.date !== this.props.date) {
                 // if we change the range of dates we are looking at, the
                 // component must remove it's error state
                 this.state.error = false;
             }
         }
-        patched() {
+        onPatched() {
             if (this.currentInput.el) {
                 this.currentInput.el.select();
             }
@@ -92,7 +94,7 @@ odoo.define('web_grid.components', function (require) {
             } catch (_) {
                 this.state.error = ev.target.value;
             } finally {
-                this.trigger('grid-cell-update', {
+                this.props.onCellUpdated({
                     path: this.props.path,
                     value
                 });
@@ -104,9 +106,7 @@ odoo.define('web_grid.components', function (require) {
          * @private
          */
         _onFocusCell() {
-            this.trigger('grid-cell-focus', {
-                path: this.props.path
-            });
+            this.props.onCellFocused(this.props.path);
         }
     }
     BaseGridComponent.defaultProps = {
@@ -115,7 +115,9 @@ odoo.define('web_grid.components', function (require) {
         hasBarChartTotal: false,
         readonly: false,
         isTotal: false,
-        nodeOptions: {}
+        nodeOptions: {},
+        onCellFocused: () => {},
+        onCellUpdated: () => {},
     };
     BaseGridComponent.props = {
         cellHeight: {
@@ -127,14 +129,31 @@ odoo.define('web_grid.components', function (require) {
             optional: true
         },
         fieldInfo: Object,
-        hasBarChartTotal: Boolean,
+        hasBarChartTotal: {
+            type: Boolean,
+            optional: true,
+        },
         isInput: Boolean,
-        nodeOptions: Object,
+        nodeOptions: {
+            type: Object,
+            optional: true,
+        },
+        onCellFocused: {
+            type: Function,
+            optional: true,
+        },
+        onCellUpdated: {
+            type: Function,
+            optional: true,
+        },
         path: {
             type: String,
             optional: true
         },
-        readonly: Boolean,
+        readonly: {
+            type: Boolean,
+            optional: true,
+        },
         isTotal: {
             type: Boolean,
             optional: true
@@ -162,15 +181,15 @@ odoo.define('web_grid.components', function (require) {
 
 
     class FloatToggleComponent extends BaseGridComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             this.state = useState({
                 disabled: false,
                 value: this.initialValue,
             });
             this._onClickButton = debounce(this._onClickButton, 200, true);
         }
-        willUpdateProps(nextProps) {
+        onWillUpdateProps(nextProps) {
             if (nextProps.cellValue !== this.initialValue) {
                 this.state.value = nextProps.cellValue;
             }
@@ -224,7 +243,7 @@ odoo.define('web_grid.components', function (require) {
             const nextIndex = closestIndex + 1 < range.length ? closestIndex + 1 : 0;
             this.state.value = this._parse(fieldUtils.format.float(range[nextIndex]));
             this.state.disabled = true;
-            this.trigger('grid-cell-update', {
+            this.props.onCellUpdated({
                 path: this.props.path,
                 value: this.state.value,
                 doneCallback: () => {

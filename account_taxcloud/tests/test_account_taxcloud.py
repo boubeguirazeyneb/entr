@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import os
 
-from odoo.tests.common import tagged
+from odoo.tests.common import tagged, TransactionCase
 from .common import TestAccountTaxcloudCommon
 
 
